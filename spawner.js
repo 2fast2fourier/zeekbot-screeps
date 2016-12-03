@@ -34,28 +34,22 @@ var classConfig = {
             },
             pano: {
                 bootstrap: 1,
-                critical: 550,
+                critical: 500,
                 requirements: {
                     disableAt: 750
                 },
                 additional: {
-                    unless: 1,
+                    unless: 3,
                     spawn: 750
                 },
-                loadout: partList({work: 4, carry: 2, move: 1})
+                loadout: partList({work: 4, carry: 1, move: 1})
             },
             pico: {
                 bootstrap: 1,
                 loadout: partList({work: 2, carry: 1, move: 1}),
                 additional: {
                     unless: 1,
-                    spawn: 750
-                },
-                behaviors: {
-                    mining: {},
-                    deliver: { maxRange: 3, ignoreClass: ['miner'] },
-                    drop: { priority: 10 },
-                    emergencydeliver: {}
+                    spawn: 500
                 }
             },
             remote: {
@@ -74,7 +68,7 @@ var classConfig = {
         },
         behaviors: {
             mining: {},
-            deliver: { maxRange: 3, ignoreClass: ['miner'] },
+            deliver: { maxRange: 1, ignoreClass: ['miner'] },
             drop: { priority: 10 }
         }
     },
@@ -90,8 +84,8 @@ var classConfig = {
                 }
             },
             nano: {
-                ideal: 1,
-                loadout: partList({carry: 6, move: 6})
+                ideal: 2,
+                loadout: partList({carry: 5, move: 5})
             },
             pico: {
                 bootstrap: 2,
@@ -130,9 +124,13 @@ var classConfig = {
                 loadout: partList({work: 4, carry: 2, move: 6})
             },
             nano: {
-                ideal: 1,
+                ideal: 2,
                 requirements: {
                     disableAt: 800
+                },
+                additional: {
+                    count: 1,
+                    buildHits: 1000
                 },
                 loadout: partList({work: 2, carry: 2, move: 4})
             },
@@ -154,6 +152,18 @@ var classConfig = {
                     repairHits: 10000
                 },
                 loadout: partList({work: 4, carry: 2, move: 4}),
+                behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
+            },
+            picorepair: {
+                ideal: 1,
+                requirements: {
+                    disableAt: 700
+                },
+                additional: {
+                    count: 1,
+                    repairHits: 10000
+                },
+                loadout: partList({work: 2, carry: 2, move: 4}),
                 behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
             },
             upgrade: {

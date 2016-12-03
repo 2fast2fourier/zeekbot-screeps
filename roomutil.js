@@ -13,12 +13,6 @@ class RoomUtil {
         var usage = _.countBy(currentHarvesters, function(harv){
             return harv.memory.traits.mining;
         });
-        _.forEach(usage, function(use, id){
-            var capacity = _.get(Memory.sourceCapacity, id, 1);
-            if(use >= capacity){
-                usage[id] = 999 - capacity;
-            }
-        });
         var leastId = sources[0].id;
         var leastCount = _.get(usage, sources[0].id, 0);
         _.forEach(sources, function(source){
