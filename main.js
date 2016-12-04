@@ -49,8 +49,9 @@ module.exports =
 
 	var Controller = __webpack_require__(1);
 	var Spawner = __webpack_require__(3);
-	var Behavior = __webpack_require__(4);
-	var Catalog = __webpack_require__(17);
+	var Behavior = __webpack_require__(18);
+	var Catalog = __webpack_require__(19);
+	var RoomUtil = __webpack_require__(2);
 
 	class Util {
 	    static updateStats(catalog){
@@ -58,11 +59,12 @@ module.exports =
 	            rooms: {}
 	        };
 	        _.forEach(Game.spawns, spawn => {
+	            var room = spawn.room;
 	            var spawnCapacity = 0;
 	            var repairJobs = 0;
 	            var repairHits = 0;
 	            var buildHits = 0;
-	            _.forEach(spawn.room.find(FIND_STRUCTURES), structure => {
+	            _.forEach(room.find(FIND_STRUCTURES), structure => {
 	                if(structure.structureType == STRUCTURE_EXTENSION){
 	                    spawnCapacity += structure.energyCapacity;
 	                }
@@ -71,16 +73,21 @@ module.exports =
 	                    repairHits += Math.min(structure.hitsMax, Memory.repairTarget) - structure.hits;
 	                }
 	            });
-	            var buildSites = spawn.room.find(FIND_MY_CONSTRUCTION_SITES);
+	            var buildSites = room.find(FIND_MY_CONSTRUCTION_SITES);
+	            var mineral = _.first(room.find(FIND_MINERALS));
 	            _.forEach(buildSites, site => buildHits += site.progressTotal - site.progress);
 	            spawnCapacity += spawn.energyCapacity;
-	            stats.rooms[spawn.room.name] = {
+	            stats.rooms[room.name] = {
 	                spawn: spawnCapacity,
 	                repairHits,
 	                buildHits,
 	                repairJobs,
 	                buildJobs: buildSites.length,
-	                extractor: catalog.getBuildingsByType(spawn.room, STRUCTURE_EXTRACTOR).length > 0
+	                extractor: catalog.getBuildingsByType(room, STRUCTURE_EXTRACTOR).length > 0,
+	                mineralId: _.get(mineral, 'id', false),
+	                mineralType: _.get(mineral, 'mineralType', false),
+	                energy: RoomUtil.getEnergy(room.storage),
+	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
 	            };
 	        });
 	        Memory.stats = stats;
@@ -217,6 +224,9 @@ module.exports =
 	    }
 	    
 	    static getStorage(entity){
+	        if(!entity){
+	            return 0;
+	        }
 	        if(entity.carryCapacity > 0){
 	            return _.sum(entity.carry);
 	        }else if(entity.storeCapacity > 0){
@@ -230,6 +240,9 @@ module.exports =
 	    }
 
 	    static getStorageCapacity(entity){
+	        if(!entity){
+	            return 0;
+	        }
 	        if(entity.carryCapacity > 0){
 	            return entity.carryCapacity;
 	        }else if(entity.storeCapacity > 0){
@@ -247,6 +260,9 @@ module.exports =
 	    }
 
 	    static getEnergyPercent(entity){
+	        if(!entity){
+	            return 0;
+	        }
 	        if(entity.carryCapacity > 0){
 	            return entity.carry.energy / entity.carryCapacity;
 	        }else if(entity.storeCapacity > 0){
@@ -259,7 +275,26 @@ module.exports =
 	        return 0;
 	    }
 
+	    static getResource(entity, type){
+	        if(!entity){
+	            return 0;
+	        }
+	        if(entity.carryCapacity > 0){
+	            return entity.carry[type];
+	        }else if(entity.storeCapacity > 0){
+	            return entity.store[type];
+	        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
+	            return entity.energy;
+	        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
+	            return entity.amount;
+	        }
+	        return 0;
+	    }
+
 	    static getEnergy(entity){
+	        if(!entity){
+	            return 0;
+	        }
 	        if(entity.carryCapacity > 0){
 	            return entity.carry.energy;
 	        }else if(entity.storeCapacity > 0){
@@ -273,6 +308,9 @@ module.exports =
 	    }
 
 	    static getEnergyCapacity(entity){
+	        if(!entity){
+	            return 0;
+	        }
 	        if(entity.carryCapacity > 0){
 	            return entity.carryCapacity;
 	        }else if(entity.storeCapacity > 0){
@@ -287,6 +325,10 @@ module.exports =
 
 	    static getEnergyDeficit(entity){
 	        return RoomUtil.getEnergyCapacity(entity) - RoomUtil.getEnergy(entity);
+	    }
+
+	    static getStorageDeficit(entity){
+	        return RoomUtil.getStorageCapacity(entity) - RoomUtil.getStorage(entity);
 	    }
 
 	    static findEnergyNeeds(room, creep, ignoreContainers){
@@ -346,7 +388,8 @@ module.exports =
 
 	"use strict";
 
-	var classConfig = __webpack_require__(19);
+	var classConfig = __webpack_require__(4);
+	var behaviors = __webpack_require__(5);
 
 	class Spawner {
 
@@ -446,8 +489,8 @@ module.exports =
 	        return deficits;
 	    }
 
-	    static prepareSpawnMemory(category, version, fullType, className, versionName){
-	        return {
+	    static prepareSpawnMemory(category, version, fullType, className, versionName, catalog, spawn){
+	        var memory = {
 	            class: className,
 	            type: fullType,
 	            version: versionName,
@@ -455,7 +498,13 @@ module.exports =
 	            traits: {},
 	            action: false,
 	            remote: version.remote || category.remote
-	        }
+	        };
+	        
+	        _.forEach(version.behaviors || category.behaviors, (data, name) => {
+	            behaviors[name].setup(memory, data, catalog, spawn.room);
+	        });
+
+	        return memory;
 	    }
 
 	    static getCount(spawn, catalog, category, version, fullType){
@@ -476,7 +525,7 @@ module.exports =
 	            _.forEach(category.versions, function(version, prefix){
 	                var fullType = prefix + className;
 	                if(!startedSpawn && Spawner.canSpawn(spawn, version.loadout) && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
-	                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix));
+	                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
 	                    startedSpawn = !!spawned;
 	                    Memory.uid++;
 	                    console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(spawn, catalog, category, version, fullType)+1, spawned);
@@ -512,6 +561,9 @@ module.exports =
 	            creep.memory.behaviors = version.behaviors || config.behaviors;
 	            creep.memory.traits = {};
 	            creep.memory.action = false;
+	            _.forEach(version.behaviors || category.behaviors, (data, name) => {
+	                behaviors[name].setup(creep.memory, data, catalog, creep.room);
+	            });
 	        });
 	        Memory.resetBehavior = false;
 	        console.log("Reset behavior!");
@@ -523,85 +575,270 @@ module.exports =
 
 /***/ },
 /* 4 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ function(module, exports) {
 
 	"use strict";
 
-	var RoomUtil = __webpack_require__(2);
-	var behaviors = __webpack_require__(5);
-
-	class Behavior {
-
-	    static process(catalog){
-	        _.forEach(Game.creeps, creep => Behavior.processCreep(creep, catalog));
-	    }
-
-	    static idle(creep, targetGameTime){
-	        creep.memory.action = 'idle';
-	        creep.memory.traits.idle = targetGameTime;
-	    }
-
-	    static processCreep(creep, catalog){
-	        if(creep.memory.action && !behaviors[creep.memory.action].stillValid(creep, creep.memory.behaviors[creep.memory.action], catalog)){
-	            if(!behaviors[creep.memory.action].end){
-	                console.log('missing end method', creep.memory.action, creep.name);
-	                return;
-	            }
-
-	            //DEBUG
-	            if(Memory.debugType == creep.memory.type) console.log(creep, 'ending', creep.memory.action);
-
-	            behaviors[creep.memory.action].end(creep, creep.memory.behaviors[creep.memory.action], catalog);
-	            catalog.removeTrait(creep, creep.memory.action);
-	            creep.memory.action = false;
+	function partList(args){
+	    // var types = {work: WORK, carry: CARRY, move: MOVE, attack: ATTACK, tough: TOUGH};
+	    // var prices = {work: 100, carry: 50, move: 50, attack: 80, tough: 10};
+	    var parts = [];
+	    _.forEach(args, (count, name)=>{
+	        for(var iy=0;iy<count;iy++){
+	            parts.push(name);
 	        }
-	        if(!creep.memory.action){
-	            var lowestBid = false;
-	            var lowestBidder = false;
-	            _.forEach(creep.memory.behaviors, (data, name) =>{
-	                if(!behaviors[name] || !behaviors[name].bid){
-	                    console.log(name, creep.name, data[name]);
-	                    return;
-	                }
-	                var bid = behaviors[name].bid(creep, data, catalog);
-	                if(bid === false){
-	                    return;
-	                }
-	                //DEBUG
-	                if(Memory.debugType == creep.memory.type) console.log(creep, bid, name, data, lowestBid, lowestBidder);
-	                if(lowestBid === false || bid < lowestBid){
-	                    lowestBid = bid;
-	                    lowestBidder = name;
-	                }
-	            });
-	            if(lowestBid !== false){
-	                var started = behaviors[lowestBidder].start(creep, creep.memory.behaviors[lowestBidder], catalog);
-	                //DEBUG
-	                if(Memory.debugType == creep.memory.type) console.log(creep, 'starting', lowestBidder, lowestBid, started, creep.memory.traits[lowestBidder]);
-	                if(started){
-	                    creep.memory.action = lowestBidder;
-	                    catalog.addTrait(creep, lowestBidder, creep.memory.traits[lowestBidder]);
-	                }else{
-	                    //DEBUG
-	                    if(Memory.debugType == creep.memory.type) console.log("Failed to start!", creep, lowestBidder);
-	                    behaviors[lowestBidder].end(creep, creep.memory.behaviors[lowestBidder], catalog);
-	                    catalog.removeTrait(creep, lowestBidder);
-	                }
-	            }
-	        }
-	        if(creep.memory.action === 'idle'){
-	            if(Game.time >= _.get(creep.memory, 'traits.idle')){
-	                creep.memory.action = false;
-	                creep.memory.traits.idle = false;
-	            }
-	        }else if(creep.memory.action){
-	            behaviors[creep.memory.action].process(creep, creep.memory.behaviors[creep.memory.action], catalog);
-	        }
-	    }
-
+	    });
+	    return parts;
 	}
 
-	module.exports = Behavior;
+	module.exports = {
+	    miner: {
+	        versions: {
+	            micro: {
+	                ideal: 2,
+	                critical: 900,
+	                loadout: partList({work: 6, carry: 2, move: 4})
+	            },
+	            nano: {
+	                ideal: 2,
+	                critical: 750,
+	                requirements: {
+	                    disableAt: 900
+	                },
+	                additional: {
+	                    unless: 1,
+	                    spawn: 900
+	                },
+	                loadout: partList({work: 6, carry: 2, move: 1})
+	            },
+	            pano: {
+	                bootstrap: 1,
+	                critical: 500,
+	                requirements: {
+	                    disableAt: 750
+	                },
+	                additional: {
+	                    unless: 3,
+	                    spawn: 750
+	                },
+	                loadout: partList({work: 4, carry: 1, move: 1})
+	            },
+	            pico: {
+	                bootstrap: 1,
+	                loadout: partList({work: 2, carry: 1, move: 1}),
+	                additional: {
+	                    unless: 1,
+	                    spawn: 500
+	                }
+	            },
+	            remote: {
+	                ideal: 2,
+	                loadout: partList({work: 6, carry: 2, move: 2}),
+	                requirements: {
+	                    flag: 'Harvest'
+	                },
+	                behaviors: {
+	                    mining: { flag: 'Harvest' },
+	                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'], excludeRemote: true },
+	                    drop: { priority: 0.75 }
+	                },
+	                remote: true
+	            }
+	        },
+	        behaviors: {
+	            mining: {},
+	            deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'] },
+	            drop: { priority: 10 }
+	        }
+	    },
+	    hauler: {
+	        versions: {
+	            spawn: {
+	                ideal: 2,
+	                critical: 400,
+	                loadout: partList({carry: 4, move: 4}),
+	                behaviors: {
+	                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+	                    deliver: { containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_SPAWN ], ignoreCreeps: true }
+	                }
+	            },
+	            nano: {
+	                ideal: 2,
+	                additional: {
+	                    count: 2,
+	                    upgradeDistance: 20
+	                },
+	                loadout: partList({carry: 5, move: 5})
+	            },
+	            pico: {
+	                bootstrap: 2,
+	                loadout: partList({carry: 2, move: 4})
+	            },
+	            remote: {
+	                ideal: 1,
+	                loadout: partList({carry: 6, move: 6}),
+	                remote: true,
+	                requirements: {
+	                    flag: 'Collect'
+	                },
+	                behaviors: {
+	                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER ]  },
+	                    deliver: { flag: 'Base', ignoreCreeps: true }
+	                },
+	            }
+	        },
+	        behaviors: {
+	            pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+	            deliver: {
+	                ignoreClass: [ 'hauler', 'miner', 'extractor' ],
+	                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ],
+	                excludeRemote: true
+	            }
+	        }
+	    },
+	    worker: {
+	        versions: {
+	            micro: {
+	                ideal: 1,
+	                additional: {
+	                    count: 1,
+	                    buildHits: 1000,
+	                    energy: 5000
+	                },
+	                loadout: partList({work: 4, carry: 2, move: 6})
+	            },
+	            nano: {
+	                ideal: 3,
+	                requirements: {
+	                    disableAt: 800
+	                },
+	                loadout: partList({work: 2, carry: 2, move: 4})
+	            },
+	            pico: {
+	                bootstrap: 1,
+	                additional: {
+	                    count: 1,
+	                    buildHits: 1000
+	                },
+	                loadout: partList({work: 1, carry: 2, move: 2})
+	            },
+	            repair: {
+	                ideal: 1,
+	                requirements: {
+	                    repairHits: 10000 
+	                },
+	                additional: {
+	                    count: 1,
+	                    repairHits: 20000
+	                },
+	                loadout: partList({work: 4, carry: 2, move: 4}),
+	                behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
+	            },
+	            picorepair: {
+	                ideal: 1,
+	                requirements: {
+	                    disableAt: 700
+	                },
+	                additional: {
+	                    count: 1,
+	                    repairHits: 10000
+	                },
+	                loadout: partList({work: 2, carry: 2, move: 4}),
+	                behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
+	            },
+	            upgrade: {
+	                ideal: 1,
+	                additional: {
+	                    count: 1,
+	                    energy: 5000
+	                },
+	                loadout: partList({work: 6, carry: 2, move: 3}),
+	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+	            },
+	            remoteupgrade: {
+	                ideal: 2,
+	                requirements: {
+	                    flag: 'Upgrade'
+	                },
+	                loadout: partList({work: 6, carry: 4, move: 3}),
+	                behaviors: { pickup: {}, upgrade: { flag: 'Upgrade' }, emergencydeliver: {} },
+	                remote: true
+	            },
+	            remoterepair: {
+	                ideal: 1,
+	                requirements: {
+	                    flag: 'Repair'
+	                },
+	                loadout: partList({work: 2, carry: 2, move: 4}),
+	                behaviors: { pickup: {}, repair: { flag: 'Repair' }, emergencydeliver: {} },
+	                remote: true
+	            }
+	        },
+	        behaviors: {
+	            pickup: {},
+	            emergencydeliver: {},
+	            build: { priority: 1, ideal: 2 },
+	            repair: { priority: 2 },
+	            upgrade: { priority: 3 }
+	        }
+	    },
+	    extractor: {
+	        versions: {
+	            micro: {
+	                ideal: 0,
+	                requirements: {
+	                    extractor: true
+	                },
+	                loadout: partList({work: 10, carry: 2, move: 6})
+	            }
+	        },
+	        behaviors: {
+	            extract: {},
+	            deliver: { maxRange: 50, ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ] },
+	            // drop: { priority: 10 }
+	        }
+	    },
+	    tender: {
+	        versions: {
+	            nano: {
+	                ideal: 0,
+	                requirements: {
+	                    extractor: true
+	                }
+	            }
+	        },
+	        behaviors: {
+	            pickup: { mineral: true, containerTypes: [ STRUCTURE_CONTAINER ] },
+	            deliver: { containerTypes: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+	        }
+	    },
+	    fighter: {
+	        versions: {
+	            pico: {
+	                ideal: 2,
+	                requirements: {
+	                    flag: 'Attack'
+	                },
+	                loadout: partList({tough: 8, move: 8, attack: 8}),
+	                remote: true
+	            }
+	        },
+	        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
+	    },
+	    claimer: {
+	        versions: {
+	            pico: {
+	                ideal: 2,
+	                requirements: {
+	                    flag: 'Reserve'
+	                },
+	                loadout: [ CLAIM, MOVE ],
+	                remote: true
+	            }
+	        },
+	        behaviors: { claim: { flag: 'Claim' }, reserve: { flag: 'Reserve' } }
+	    }
+	};
 
 /***/ },
 /* 5 */
@@ -622,11 +859,11 @@ module.exports =
 	var Deliver = __webpack_require__(10);
 	var Drop = __webpack_require__(11);
 	var EmergencyDeliver = __webpack_require__(12);
-	var Extract = __webpack_require__(18);
-	var Mining = __webpack_require__(13);
-	var Repair = __webpack_require__(14);
-	var Upgrade = __webpack_require__(15);
-	var Pickup = __webpack_require__(16);
+	var Extract = __webpack_require__(13);
+	var Mining = __webpack_require__(14);
+	var Repair = __webpack_require__(15);
+	var Upgrade = __webpack_require__(16);
+	var Pickup = __webpack_require__(17);
 
 	module.exports = {
 	    attack: new Attack(),
@@ -683,6 +920,8 @@ module.exports =
 	            creep.memory.traits[this.type] = trait;
 	        }
 	    }
+
+	    setup(memory, data, catalog, room){ }
 	}
 
 	class RemoteBaseBehavior extends BaseBehavior {
@@ -730,6 +969,8 @@ module.exports =
 	    process(creep, data, catalog){ }
 
 	    end(creep, data, catalog){ }
+
+	    setup(memory, data, catalog, room){ }
 	};
 
 	module.exports = {
@@ -1072,6 +1313,61 @@ module.exports =
 	var RoomUtil = __webpack_require__(2);
 	var { RemoteBaseBehavior } = __webpack_require__(6);
 
+	class ExtractBehavior extends RemoteBaseBehavior {
+	    constructor(){ super('extract'); }
+
+	    stillValid(creep, data, catalog){
+	        if(super.stillValid(creep, data, catalog)){
+	            return true;
+	        }
+	        return _.sum(creep.carry) < creep.carryCapacity && this.exists(creep) && RoomUtil.getStat(creep.room, 'extractor', false);
+	    }
+
+	    bid(creep, data, catalog){
+	        if(super.bid(creep, data, catalog)){
+	            return -999;
+	        }
+	        var minerals = creep.room.find(FIND_MINERALS);
+	        if(!RoomUtil.getStat(creep.room, 'extractor', false) || _.sum(creep.carry) >= creep.carryCapacity || minerals.length == 0){
+	            return false;
+	        }
+	        return _.sum(creep.carry) / creep.carryCapacity + (data.priority || 0);
+	    }
+
+	    start(creep, data, catalog){
+	        if(super.start(creep, data, catalog)){
+	            return true;
+	        }
+
+	        var minerals = creep.room.find(FIND_MINERALS);
+
+	        this.setTrait(creep, _.get(minerals, '[0].id'));
+	        
+	        return this.exists(creep);
+	    }
+
+	    process(creep, data, catalog){
+	        if(super.process(creep, data, catalog)){
+	            return;
+	        }
+	        var source = this.target(creep);
+	        if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
+	            creep.moveTo(source);
+	        }
+	    }
+	};
+
+	module.exports = ExtractBehavior;
+
+/***/ },
+/* 14 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var RoomUtil = __webpack_require__(2);
+	var { RemoteBaseBehavior } = __webpack_require__(6);
+
 	class MiningBehavior extends RemoteBaseBehavior {
 	    constructor(){ super('mining'); }
 
@@ -1128,7 +1424,7 @@ module.exports =
 	module.exports = MiningBehavior;
 
 /***/ },
-/* 14 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1195,7 +1491,7 @@ module.exports =
 	module.exports = RepairBehavior;
 
 /***/ },
-/* 15 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1253,7 +1549,7 @@ module.exports =
 	module.exports = UpgradeBehavior;
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1273,21 +1569,31 @@ module.exports =
 	    }
 
 	    bid(creep, data, catalog){
-	        var energy = RoomUtil.getEnergyPercent(creep);
-	        if(energy < 0.2 && super.bid(creep, data, catalog)){
-	            return energy;
+	        var storage = RoomUtil.getStoragePercent(creep);
+	        if(storage < 0.2 && super.bid(creep, data, catalog)){
+	            return storage;
 	        }
-	        if(energy > 0.75 || catalog.getAvailableEnergy(creep) < 1){
+	        var targets;
+	        if(creep.memory.mineralType){
+	            targets = catalog.getResourceContainers(creep, creep.memory.mineralType, data.containerTypes);
+	        }else{
+	            targets = catalog.getEnergyContainers(creep, data.containerTypes);
+	        }
+	        if(storage > 0.99 || !targets.length){
 	            return false;
 	        }
-	        return energy * 2;
+	        return storage + creep.pos.getRangeTo(targets[0])/50;
 	    }
 
 	    start(creep, data, catalog){
 	        if(super.start(creep, data, catalog)){
 	            return true;
 	        }
-	        this.setTrait(creep, _.get(catalog.getEnergyContainers(creep, data.containerTypes), '[0].id', false));
+	        if(creep.memory.mineralType){
+	            this.setTrait(creep, _.get(catalog.getResourceContainers(creep, creep.memory.mineralType, data.containerTypes), '[0].id', false));
+	        }else{
+	            this.setTrait(creep, _.get(catalog.getEnergyContainers(creep, data.containerTypes), '[0].id', false));
+	        }
 	        return !!this.target(creep);
 	    }
 
@@ -1296,16 +1602,24 @@ module.exports =
 	            return;
 	        }
 	        var target = this.target(creep);
-	        if(target.resourceType && target.resourceType == RESOURCE_ENERGY){
+	        var type = _.get(creep.memory, 'mineralType', RESOURCE_ENERGY);
+	        if(target.resourceType && target.resourceType == type){
 	            var result = creep.pickup(target);
 	            if(result == ERR_NOT_IN_RANGE) {
 	                creep.moveTo(target);
 	            }
 	        }else{
-	            var result = creep.withdraw(target, RESOURCE_ENERGY, Math.min(creep.carryCapacity - creep.carry.energy, RoomUtil.getEnergy(target)));
+	            var result = creep.withdraw(target, type, Math.min(creep.carryCapacity - _.sum(creep.carry), RoomUtil.getResource(target, type)));
 	            if(result == ERR_NOT_IN_RANGE) {
 	                creep.moveTo(target);
 	            }
+	        }
+	    }
+
+	    setup(memory, data, catalog, room){
+	        if(data.mineral === true){
+	            memory.mineralType = RoomUtil.getStat(room, 'mineralType', false);
+	            console.log('setup mineral', memory.mineralType);
 	        }
 	    }
 	};
@@ -1313,7 +1627,89 @@ module.exports =
 	module.exports = PickupBehavior;
 
 /***/ },
-/* 17 */
+/* 18 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var RoomUtil = __webpack_require__(2);
+	var behaviors = __webpack_require__(5);
+
+	class Behavior {
+
+	    static process(catalog){
+	        _.forEach(Game.creeps, creep => Behavior.processCreep(creep, catalog));
+	    }
+
+	    static idle(creep, targetGameTime){
+	        creep.memory.action = 'idle';
+	        creep.memory.traits.idle = targetGameTime;
+	    }
+
+	    static processCreep(creep, catalog){
+	        if(creep.memory.action && !behaviors[creep.memory.action].stillValid(creep, creep.memory.behaviors[creep.memory.action], catalog)){
+	            if(!behaviors[creep.memory.action].end){
+	                console.log('missing end method', creep.memory.action, creep.name);
+	                return;
+	            }
+
+	            //DEBUG
+	            if(Memory.debugType == creep.memory.type) console.log(creep, 'ending', creep.memory.action);
+
+	            behaviors[creep.memory.action].end(creep, creep.memory.behaviors[creep.memory.action], catalog);
+	            catalog.removeTrait(creep, creep.memory.action);
+	            creep.memory.action = false;
+	        }
+	        if(!creep.memory.action){
+	            var lowestBid = false;
+	            var lowestBidder = false;
+	            _.forEach(creep.memory.behaviors, (data, name) =>{
+	                if(!behaviors[name] || !behaviors[name].bid){
+	                    console.log(name, creep.name, data[name]);
+	                    return;
+	                }
+	                var bid = behaviors[name].bid(creep, data, catalog);
+	                if(bid === false){
+	                    return;
+	                }
+	                //DEBUG
+	                if(Memory.debugType == creep.memory.type) console.log(creep, bid, name, data, lowestBid, lowestBidder);
+	                if(lowestBid === false || bid < lowestBid){
+	                    lowestBid = bid;
+	                    lowestBidder = name;
+	                }
+	            });
+	            if(lowestBid !== false){
+	                var started = behaviors[lowestBidder].start(creep, creep.memory.behaviors[lowestBidder], catalog);
+	                //DEBUG
+	                if(Memory.debugType == creep.memory.type) console.log(creep, 'starting', lowestBidder, lowestBid, started, creep.memory.traits[lowestBidder]);
+	                if(started){
+	                    creep.memory.action = lowestBidder;
+	                    catalog.addTrait(creep, lowestBidder, creep.memory.traits[lowestBidder]);
+	                }else{
+	                    //DEBUG
+	                    if(Memory.debugType == creep.memory.type) console.log("Failed to start!", creep, lowestBidder);
+	                    behaviors[lowestBidder].end(creep, creep.memory.behaviors[lowestBidder], catalog);
+	                    catalog.removeTrait(creep, lowestBidder);
+	                }
+	            }
+	        }
+	        if(creep.memory.action === 'idle'){
+	            if(Game.time >= _.get(creep.memory, 'traits.idle')){
+	                creep.memory.action = false;
+	                creep.memory.traits.idle = false;
+	            }
+	        }else if(creep.memory.action){
+	            behaviors[creep.memory.action].process(creep, creep.memory.behaviors[creep.memory.action], catalog);
+	        }
+	    }
+
+	}
+
+	module.exports = Behavior;
+
+/***/ },
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1479,6 +1875,17 @@ module.exports =
 	        return this.creepTypes[room.name];
 	    }
 
+	    getResourceContainers(creep, resourceType, containerTypes){
+	        var creepCapacity = RoomUtil.getStorageDeficit(creep);
+	        var types = [
+	            STRUCTURE_CONTAINER,
+	            STRUCTURE_STORAGE
+	        ];
+	        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getResource(structure, resourceType) > 0);
+	        containers = containers.concat(creep.room.find(FIND_DROPPED_RESOURCES, { resourceType }));
+	        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50);
+	    }
+
 	    
 	    
 	    static getEnergyPickupPriority(target){
@@ -1513,306 +1920,6 @@ module.exports =
 	}
 
 	module.exports = Catalog;
-
-/***/ },
-/* 18 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	var RoomUtil = __webpack_require__(2);
-	var { RemoteBaseBehavior } = __webpack_require__(6);
-
-	class ExtractBehavior extends RemoteBaseBehavior {
-	    constructor(){ super('extract'); }
-
-	    stillValid(creep, data, catalog){
-	        if(super.stillValid(creep, data, catalog)){
-	            return true;
-	        }
-	        return _.sum(creep.carry) < creep.carryCapacity && this.exists(creep) && RoomUtil.getStat(creep.room, 'extractor', false);
-	    }
-
-	    bid(creep, data, catalog){
-	        if(super.bid(creep, data, catalog)){
-	            return -999;
-	        }
-	        var minerals = creep.room.find(FIND_MINERALS);
-	        if(!RoomUtil.getStat(creep.room, 'extractor', false) || _.sum(creep.carry) >= creep.carryCapacity || minerals.length == 0){
-	            return false;
-	        }
-	        return _.sum(creep.carry) / creep.carryCapacity + (data.priority || 0);
-	    }
-
-	    start(creep, data, catalog){
-	        if(super.start(creep, data, catalog)){
-	            return true;
-	        }
-
-	        var minerals = creep.room.find(FIND_MINERALS);
-
-	        this.setTrait(creep, _.get(minerals, '[0].id'));
-	        
-	        return this.exists(creep);
-	    }
-
-	    process(creep, data, catalog){
-	        if(super.process(creep, data, catalog)){
-	            return;
-	        }
-	        var source = this.target(creep);
-	        if(source && creep.harvest(source) == ERR_NOT_IN_RANGE) {
-	            creep.moveTo(source);
-	        }
-	    }
-	};
-
-	module.exports = ExtractBehavior;
-
-/***/ },
-/* 19 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	function partList(args){
-	    // var types = {work: WORK, carry: CARRY, move: MOVE, attack: ATTACK, tough: TOUGH};
-	    // var prices = {work: 100, carry: 50, move: 50, attack: 80, tough: 10};
-	    var parts = [];
-	    _.forEach(args, (count, name)=>{
-	        for(var iy=0;iy<count;iy++){
-	            parts.push(name);
-	        }
-	    });
-	    return parts;
-	}
-
-	module.exports = {
-	    miner: {
-	        versions: {
-	            micro: {
-	                ideal: 2,
-	                critical: 900,
-	                loadout: partList({work: 6, carry: 2, move: 4})
-	            },
-	            nano: {
-	                ideal: 2,
-	                critical: 750,
-	                requirements: {
-	                    disableAt: 900
-	                },
-	                additional: {
-	                    unless: 1,
-	                    spawn: 900
-	                },
-	                loadout: partList({work: 6, carry: 2, move: 1})
-	            },
-	            pano: {
-	                bootstrap: 1,
-	                critical: 500,
-	                requirements: {
-	                    disableAt: 750
-	                },
-	                additional: {
-	                    unless: 3,
-	                    spawn: 750
-	                },
-	                loadout: partList({work: 4, carry: 1, move: 1})
-	            },
-	            pico: {
-	                bootstrap: 1,
-	                loadout: partList({work: 2, carry: 1, move: 1}),
-	                additional: {
-	                    unless: 1,
-	                    spawn: 500
-	                }
-	            },
-	            remote: {
-	                ideal: 2,
-	                loadout: partList({work: 6, carry: 2, move: 2}),
-	                requirements: {
-	                    flag: 'Harvest'
-	                },
-	                behaviors: {
-	                    mining: { flag: 'Harvest' },
-	                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'], excludeRemote: true },
-	                    drop: { priority: 0.75 }
-	                },
-	                remote: true
-	            }
-	        },
-	        behaviors: {
-	            mining: {},
-	            deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'] },
-	            drop: { priority: 10 }
-	        }
-	    },
-	    hauler: {
-	        versions: {
-	            spawn: {
-	                ideal: 2,
-	                critical: 400,
-	                loadout: partList({carry: 4, move: 4}),
-	                behaviors: {
-	                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
-	                    deliver: { containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_SPAWN ], ignoreCreeps: true }
-	                }
-	            },
-	            nano: {
-	                ideal: 2,
-	                loadout: partList({carry: 5, move: 5})
-	            },
-	            pico: {
-	                bootstrap: 2,
-	                loadout: partList({carry: 2, move: 4})
-	            },
-	            remote: {
-	                ideal: 1,
-	                loadout: partList({carry: 6, move: 6}),
-	                remote: true,
-	                requirements: {
-	                    flag: 'Collect'
-	                },
-	                behaviors: {
-	                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER ]  },
-	                    deliver: { flag: 'Base', ignoreCreeps: true }
-	                },
-	            }
-	        },
-	        behaviors: {
-	            pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
-	            deliver: {
-	                ignoreClass: [ 'hauler', 'miner', 'extractor' ],
-	                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ],
-	                excludeRemote: true
-	            }
-	        }
-	    },
-	    worker: {
-	        versions: {
-	            micro: {
-	                ideal: 1,
-	                additional: {
-	                    count: 1,
-	                    buildHits: 1000
-	                },
-	                loadout: partList({work: 4, carry: 2, move: 6})
-	            },
-	            nano: {
-	                ideal: 2,
-	                requirements: {
-	                    disableAt: 800
-	                },
-	                additional: {
-	                    count: 1,
-	                    buildHits: 1000
-	                },
-	                loadout: partList({work: 2, carry: 2, move: 4})
-	            },
-	            pico: {
-	                bootstrap: 1,
-	                additional: {
-	                    count: 1,
-	                    buildHits: 1000
-	                },
-	                loadout: partList({work: 1, carry: 2, move: 2})
-	            },
-	            repair: {
-	                ideal: 1,
-	                requirements: {
-	                    repairHits: 5000 
-	                },
-	                additional: {
-	                    count: 1,
-	                    repairHits: 10000
-	                },
-	                loadout: partList({work: 4, carry: 2, move: 4}),
-	                behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
-	            },
-	            picorepair: {
-	                ideal: 1,
-	                requirements: {
-	                    disableAt: 700
-	                },
-	                additional: {
-	                    count: 1,
-	                    repairHits: 10000
-	                },
-	                loadout: partList({work: 2, carry: 2, move: 4}),
-	                behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
-	            },
-	            upgrade: {
-	                ideal: 3,
-	                loadout: partList({work: 6, carry: 2, move: 3}),
-	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
-	            },
-	            remoteupgrade: {
-	                ideal: 2,
-	                requirements: {
-	                    flag: 'Upgrade'
-	                },
-	                loadout: partList({work: 6, carry: 4, move: 3}),
-	                behaviors: { pickup: {}, upgrade: { flag: 'Upgrade' }, emergencydeliver: {} },
-	                remote: true
-	            },
-	            remoterepair: {
-	                ideal: 1,
-	                requirements: {
-	                    flag: 'Repair'
-	                },
-	                loadout: partList({work: 2, carry: 2, move: 4}),
-	                behaviors: { pickup: {}, repair: { flag: 'Repair' }, emergencydeliver: {} },
-	                remote: true
-	            }
-	        },
-	        behaviors: {
-	            pickup: {},
-	            emergencydeliver: {},
-	            build: { priority: 1, ideal: 2 },
-	            repair: { priority: 2 },
-	            upgrade: { priority: 3 }
-	        }
-	    },
-	    extractor: {
-	        versions: {
-	            micro: {
-	                ideal: 1,
-	                requirements: {
-	                    extractor: true
-	                },
-	                loadout: partList({work: 10, carry: 2, move: 6})
-	            }
-	        },
-	        behaviors: {
-	            extract: {},
-	            deliver: { maxRange: 50, ignoreCreeps: true, containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
-	            drop: { priority: 10 }
-	        }
-	    },
-	    fighter: {
-	        versions: {
-	            pico: {
-	                ideal: 0,
-	                loadout: partList({tough: 8, move: 8, attack: 8}),
-	                remote: true
-	            }
-	        },
-	        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
-	    },
-	    claimer: {
-	        versions: {
-	            pico: {
-	                ideal: 2,
-	                requirements: {
-	                    flag: 'Reserve'
-	                },
-	                loadout: [ CLAIM, MOVE ],
-	                remote: true
-	            }
-	        },
-	        behaviors: { claim: { flag: 'Claim' }, reserve: { flag: 'Reserve' } }
-	    }
-	};
 
 /***/ }
 /******/ ]);

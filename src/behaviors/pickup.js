@@ -15,21 +15,31 @@ class PickupBehavior extends RemoteBaseBehavior {
     }
 
     bid(creep, data, catalog){
-        var energy = RoomUtil.getEnergyPercent(creep);
-        if(energy < 0.2 && super.bid(creep, data, catalog)){
-            return energy;
+        var storage = RoomUtil.getStoragePercent(creep);
+        if(storage < 0.2 && super.bid(creep, data, catalog)){
+            return storage;
         }
-        if(energy > 0.75 || catalog.getAvailableEnergy(creep) < 1){
+        var targets;
+        if(creep.memory.mineralType){
+            targets = catalog.getResourceContainers(creep, creep.memory.mineralType, data.containerTypes);
+        }else{
+            targets = catalog.getEnergyContainers(creep, data.containerTypes);
+        }
+        if(storage > 0.99 || !targets.length){
             return false;
         }
-        return energy * 2;
+        return storage + creep.pos.getRangeTo(targets[0])/50;
     }
 
     start(creep, data, catalog){
         if(super.start(creep, data, catalog)){
             return true;
         }
-        this.setTrait(creep, _.get(catalog.getEnergyContainers(creep, data.containerTypes), '[0].id', false));
+        if(creep.memory.mineralType){
+            this.setTrait(creep, _.get(catalog.getResourceContainers(creep, creep.memory.mineralType, data.containerTypes), '[0].id', false));
+        }else{
+            this.setTrait(creep, _.get(catalog.getEnergyContainers(creep, data.containerTypes), '[0].id', false));
+        }
         return !!this.target(creep);
     }
 
@@ -38,16 +48,24 @@ class PickupBehavior extends RemoteBaseBehavior {
             return;
         }
         var target = this.target(creep);
-        if(target.resourceType && target.resourceType == RESOURCE_ENERGY){
+        var type = _.get(creep.memory, 'mineralType', RESOURCE_ENERGY);
+        if(target.resourceType && target.resourceType == type){
             var result = creep.pickup(target);
             if(result == ERR_NOT_IN_RANGE) {
                 creep.moveTo(target);
             }
         }else{
-            var result = creep.withdraw(target, RESOURCE_ENERGY, Math.min(creep.carryCapacity - creep.carry.energy, RoomUtil.getEnergy(target)));
+            var result = creep.withdraw(target, type, Math.min(creep.carryCapacity - _.sum(creep.carry), RoomUtil.getResource(target, type)));
             if(result == ERR_NOT_IN_RANGE) {
                 creep.moveTo(target);
             }
+        }
+    }
+
+    setup(memory, data, catalog, room){
+        if(data.mineral === true){
+            memory.mineralType = RoomUtil.getStat(room, 'mineralType', false);
+            console.log('setup mineral', memory.mineralType);
         }
     }
 };

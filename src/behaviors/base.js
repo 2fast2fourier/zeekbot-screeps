@@ -33,6 +33,8 @@ class BaseBehavior {
             creep.memory.traits[this.type] = trait;
         }
     }
+
+    setup(memory, data, catalog, room){ }
 }
 
 class RemoteBaseBehavior extends BaseBehavior {
@@ -80,6 +82,8 @@ class BaseFlagBehavior {
     process(creep, data, catalog){ }
 
     end(creep, data, catalog){ }
+
+    setup(memory, data, catalog, room){ }
 };
 
 module.exports = {

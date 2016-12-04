@@ -161,6 +161,17 @@ class Catalog {
         return this.creepTypes[room.name];
     }
 
+    getResourceContainers(creep, resourceType, containerTypes){
+        var creepCapacity = RoomUtil.getStorageDeficit(creep);
+        var types = [
+            STRUCTURE_CONTAINER,
+            STRUCTURE_STORAGE
+        ];
+        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getResource(structure, resourceType) > 0);
+        containers = containers.concat(creep.room.find(FIND_DROPPED_RESOURCES, { resourceType }));
+        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50);
+    }
+
     
     
     static getEnergyPickupPriority(target){

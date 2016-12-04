@@ -49,6 +49,9 @@ class RoomUtil {
     }
     
     static getStorage(entity){
+        if(!entity){
+            return 0;
+        }
         if(entity.carryCapacity > 0){
             return _.sum(entity.carry);
         }else if(entity.storeCapacity > 0){
@@ -62,6 +65,9 @@ class RoomUtil {
     }
 
     static getStorageCapacity(entity){
+        if(!entity){
+            return 0;
+        }
         if(entity.carryCapacity > 0){
             return entity.carryCapacity;
         }else if(entity.storeCapacity > 0){
@@ -79,6 +85,9 @@ class RoomUtil {
     }
 
     static getEnergyPercent(entity){
+        if(!entity){
+            return 0;
+        }
         if(entity.carryCapacity > 0){
             return entity.carry.energy / entity.carryCapacity;
         }else if(entity.storeCapacity > 0){
@@ -91,7 +100,26 @@ class RoomUtil {
         return 0;
     }
 
+    static getResource(entity, type){
+        if(!entity){
+            return 0;
+        }
+        if(entity.carryCapacity > 0){
+            return entity.carry[type];
+        }else if(entity.storeCapacity > 0){
+            return entity.store[type];
+        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
+            return entity.energy;
+        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
+    }
+
     static getEnergy(entity){
+        if(!entity){
+            return 0;
+        }
         if(entity.carryCapacity > 0){
             return entity.carry.energy;
         }else if(entity.storeCapacity > 0){
@@ -105,6 +133,9 @@ class RoomUtil {
     }
 
     static getEnergyCapacity(entity){
+        if(!entity){
+            return 0;
+        }
         if(entity.carryCapacity > 0){
             return entity.carryCapacity;
         }else if(entity.storeCapacity > 0){
@@ -119,6 +150,10 @@ class RoomUtil {
 
     static getEnergyDeficit(entity){
         return RoomUtil.getEnergyCapacity(entity) - RoomUtil.getEnergy(entity);
+    }
+
+    static getStorageDeficit(entity){
+        return RoomUtil.getStorageCapacity(entity) - RoomUtil.getStorage(entity);
     }
 
     static findEnergyNeeds(room, creep, ignoreContainers){

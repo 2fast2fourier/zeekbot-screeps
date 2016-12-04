@@ -1,6 +1,7 @@
 "use strict";
 
 var classConfig = require('./creeps');
+var behaviors = require('./behaviors');
 
 class Spawner {
 
@@ -100,8 +101,8 @@ class Spawner {
         return deficits;
     }
 
-    static prepareSpawnMemory(category, version, fullType, className, versionName){
-        return {
+    static prepareSpawnMemory(category, version, fullType, className, versionName, catalog, spawn){
+        var memory = {
             class: className,
             type: fullType,
             version: versionName,
@@ -109,7 +110,13 @@ class Spawner {
             traits: {},
             action: false,
             remote: version.remote || category.remote
-        }
+        };
+        
+        _.forEach(version.behaviors || category.behaviors, (data, name) => {
+            behaviors[name].setup(memory, data, catalog, spawn.room);
+        });
+
+        return memory;
     }
 
     static getCount(spawn, catalog, category, version, fullType){
@@ -130,7 +137,7 @@ class Spawner {
             _.forEach(category.versions, function(version, prefix){
                 var fullType = prefix + className;
                 if(!startedSpawn && Spawner.canSpawn(spawn, version.loadout) && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
-                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix));
+                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
                     startedSpawn = !!spawned;
                     Memory.uid++;
                     console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(spawn, catalog, category, version, fullType)+1, spawned);
@@ -166,6 +173,9 @@ class Spawner {
             creep.memory.behaviors = version.behaviors || config.behaviors;
             creep.memory.traits = {};
             creep.memory.action = false;
+            _.forEach(version.behaviors || category.behaviors, (data, name) => {
+                behaviors[name].setup(creep.memory, data, catalog, creep.room);
+            });
         });
         Memory.resetBehavior = false;
         console.log("Reset behavior!");

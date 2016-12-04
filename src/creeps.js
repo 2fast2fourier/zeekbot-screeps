@@ -85,6 +85,10 @@ module.exports = {
             },
             nano: {
                 ideal: 2,
+                additional: {
+                    count: 2,
+                    upgradeDistance: 20
+                },
                 loadout: partList({carry: 5, move: 5})
             },
             pico: {
@@ -119,18 +123,15 @@ module.exports = {
                 ideal: 1,
                 additional: {
                     count: 1,
-                    buildHits: 1000
+                    buildHits: 1000,
+                    energy: 5000
                 },
                 loadout: partList({work: 4, carry: 2, move: 6})
             },
             nano: {
-                ideal: 2,
+                ideal: 3,
                 requirements: {
                     disableAt: 800
-                },
-                additional: {
-                    count: 1,
-                    buildHits: 1000
                 },
                 loadout: partList({work: 2, carry: 2, move: 4})
             },
@@ -145,11 +146,11 @@ module.exports = {
             repair: {
                 ideal: 1,
                 requirements: {
-                    repairHits: 5000 
+                    repairHits: 10000 
                 },
                 additional: {
                     count: 1,
-                    repairHits: 10000
+                    repairHits: 20000
                 },
                 loadout: partList({work: 4, carry: 2, move: 4}),
                 behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
@@ -167,7 +168,11 @@ module.exports = {
                 behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
             },
             upgrade: {
-                ideal: 3,
+                ideal: 1,
+                additional: {
+                    count: 1,
+                    energy: 5000
+                },
                 loadout: partList({work: 6, carry: 2, move: 3}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
@@ -201,7 +206,7 @@ module.exports = {
     extractor: {
         versions: {
             micro: {
-                ideal: 1,
+                ideal: 0,
                 requirements: {
                     extractor: true
                 },
@@ -210,14 +215,31 @@ module.exports = {
         },
         behaviors: {
             extract: {},
-            deliver: { maxRange: 50, ignoreCreeps: true, containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
-            drop: { priority: 10 }
+            deliver: { maxRange: 50, ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ] },
+            // drop: { priority: 10 }
+        }
+    },
+    tender: {
+        versions: {
+            nano: {
+                ideal: 0,
+                requirements: {
+                    extractor: true
+                }
+            }
+        },
+        behaviors: {
+            pickup: { mineral: true, containerTypes: [ STRUCTURE_CONTAINER ] },
+            deliver: { containerTypes: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
         }
     },
     fighter: {
         versions: {
             pico: {
-                ideal: 0,
+                ideal: 2,
+                requirements: {
+                    flag: 'Attack'
+                },
                 loadout: partList({tough: 8, move: 8, attack: 8}),
                 remote: true
             }
