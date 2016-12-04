@@ -17,7 +17,7 @@ class RoomUtil {
     static prioritizeSources(room){
         var sources = room.find(FIND_SOURCES);
         var currentHarvesters = room.find(FIND_MY_CREEPS, {
-            filter: (creep)=>!!creep.memory.traits.mining
+            filter: (creep)=>!!creep.memory.traits.mining || !!creep.memory.lastSource
         });
         var usage = _.countBy(currentHarvesters, function(harv){
             return harv.memory.lastSource || harv.memory.traits.mining;

@@ -155,7 +155,7 @@ class Spawner {
             Memory.uid = 1;
         }
         if(Memory.resetBehavior){
-            Spawner.resetBehavior();
+            Spawner.resetBehavior(catalog);
         }
         var spawned = false;
         _.forEach(Game.spawns, spawn => {
@@ -163,7 +163,7 @@ class Spawner {
         });
     }
 
-    static resetBehavior(){
+    static resetBehavior(catalog){
         _.forEach(Game.creeps, creep=>{
             var config = _.get(classConfig, creep.memory.class, false);
             var version = _.get(config, ['versions', creep.memory.version || creep.memory.type.replace(creep.memory.class, '')], false);
@@ -173,7 +173,7 @@ class Spawner {
             creep.memory.behaviors = version.behaviors || config.behaviors;
             creep.memory.traits = {};
             creep.memory.action = false;
-            _.forEach(version.behaviors || category.behaviors, (data, name) => {
+            _.forEach(version.behaviors || config.behaviors, (data, name) => {
                 behaviors[name].setup(creep.memory, data, catalog, creep.room);
             });
         });

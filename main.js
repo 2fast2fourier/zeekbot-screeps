@@ -192,7 +192,7 @@ module.exports =
 	    static prioritizeSources(room){
 	        var sources = room.find(FIND_SOURCES);
 	        var currentHarvesters = room.find(FIND_MY_CREEPS, {
-	            filter: (creep)=>!!creep.memory.traits.mining
+	            filter: (creep)=>!!creep.memory.traits.mining || !!creep.memory.lastSource
 	        });
 	        var usage = _.countBy(currentHarvesters, function(harv){
 	            return harv.memory.lastSource || harv.memory.traits.mining;
@@ -543,7 +543,7 @@ module.exports =
 	            Memory.uid = 1;
 	        }
 	        if(Memory.resetBehavior){
-	            Spawner.resetBehavior();
+	            Spawner.resetBehavior(catalog);
 	        }
 	        var spawned = false;
 	        _.forEach(Game.spawns, spawn => {
@@ -551,7 +551,7 @@ module.exports =
 	        });
 	    }
 
-	    static resetBehavior(){
+	    static resetBehavior(catalog){
 	        _.forEach(Game.creeps, creep=>{
 	            var config = _.get(classConfig, creep.memory.class, false);
 	            var version = _.get(config, ['versions', creep.memory.version || creep.memory.type.replace(creep.memory.class, '')], false);
@@ -561,7 +561,7 @@ module.exports =
 	            creep.memory.behaviors = version.behaviors || config.behaviors;
 	            creep.memory.traits = {};
 	            creep.memory.action = false;
-	            _.forEach(version.behaviors || category.behaviors, (data, name) => {
+	            _.forEach(version.behaviors || config.behaviors, (data, name) => {
 	                behaviors[name].setup(creep.memory, data, catalog, creep.room);
 	            });
 	        });
@@ -691,8 +691,7 @@ module.exports =
 	            pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
 	            deliver: {
 	                ignoreClass: [ 'hauler', 'miner', 'extractor' ],
-	                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ],
-	                excludeRemote: true
+	                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ]
 	            }
 	        }
 	    },
@@ -702,13 +701,12 @@ module.exports =
 	                ideal: 1,
 	                additional: {
 	                    count: 1,
-	                    buildHits: 1000,
-	                    energy: 5000
+	                    buildHits: 1000
 	                },
 	                loadout: partList({work: 4, carry: 2, move: 6})
 	            },
 	            nano: {
-	                ideal: 3,
+	                ideal: 1,
 	                requirements: {
 	                    disableAt: 800
 	                },
@@ -753,6 +751,14 @@ module.exports =
 	                    energy: 5000
 	                },
 	                loadout: partList({work: 6, carry: 2, move: 3}),
+	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+	            },
+	            picoupgrade: {
+	                ideal: 2,
+	                requirements: {
+	                    disableAt: 600
+	                },
+	                loadout: partList({work: 4, carry: 2, move: 1}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
 	            },
 	            remoteupgrade: {
@@ -883,9 +889,11 @@ module.exports =
 
 /***/ },
 /* 6 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
+
+	var RoomUtil = __webpack_require__(2);
 
 	class BaseBehavior {
 	    constructor(type){
@@ -1565,7 +1573,7 @@ module.exports =
 	            return true;
 	        }
 	        var target = this.target(creep);
-	        return target && target.pos.roomName == creep.pos.roomName && RoomUtil.getEnergy(target) > 0 && RoomUtil.getEnergyPercent(creep) < 0.9;
+	        return target && target.pos.roomName == creep.pos.roomName && RoomUtil.getStorage(target) > 0 && RoomUtil.getStoragePercent(creep) < 0.9;
 	    }
 
 	    bid(creep, data, catalog){

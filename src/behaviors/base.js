@@ -1,5 +1,7 @@
 "use strict";
 
+var RoomUtil = require('../roomutil');
+
 class BaseBehavior {
     constructor(type){
         this.type = type;

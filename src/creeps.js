@@ -112,8 +112,7 @@ module.exports = {
             pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
             deliver: {
                 ignoreClass: [ 'hauler', 'miner', 'extractor' ],
-                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ],
-                excludeRemote: true
+                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ]
             }
         }
     },
@@ -123,13 +122,12 @@ module.exports = {
                 ideal: 1,
                 additional: {
                     count: 1,
-                    buildHits: 1000,
-                    energy: 5000
+                    buildHits: 1000
                 },
                 loadout: partList({work: 4, carry: 2, move: 6})
             },
             nano: {
-                ideal: 3,
+                ideal: 1,
                 requirements: {
                     disableAt: 800
                 },
@@ -174,6 +172,14 @@ module.exports = {
                     energy: 5000
                 },
                 loadout: partList({work: 6, carry: 2, move: 3}),
+                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+            },
+            picoupgrade: {
+                ideal: 2,
+                requirements: {
+                    disableAt: 600
+                },
+                loadout: partList({work: 4, carry: 2, move: 1}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
             remoteupgrade: {
