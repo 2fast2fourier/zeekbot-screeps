@@ -1,3 +1,5 @@
+"use strict";
+
 var Controller = require('./controller');
 var Spawner = require('./spawner');
 var Behavior = require('./behavior');
@@ -30,7 +32,8 @@ class Util {
                 repairHits,
                 buildHits,
                 repairJobs,
-                buildJobs: buildSites.length
+                buildJobs: buildSites.length,
+                extractor: catalog.getBuildingsByType(spawn.room, STRUCTURE_EXTRACTOR).length > 0
             };
         });
         Memory.stats = stats;

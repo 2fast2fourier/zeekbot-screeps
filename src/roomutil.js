@@ -1,6 +1,15 @@
 "use strict";
 
 class RoomUtil {
+
+    static getStats(room){
+        return _.get(Memory.stats.rooms, room.name, false);
+    }
+
+    static getStat(room, stat, fallback){
+        return _.get(Memory.stats.rooms, [room.name, stat], fallback);
+    }
+
     static exists(id){
         return id != null && id != false && Game.getObjectById(id) != null;
     }
@@ -37,6 +46,36 @@ class RoomUtil {
 
     static energyFull(entity){
         return !(RoomUtil.getEnergy(entity) < RoomUtil.getEnergyCapacity(entity));
+    }
+    
+    static getStorage(entity){
+        if(entity.carryCapacity > 0){
+            return _.sum(entity.carry);
+        }else if(entity.storeCapacity > 0){
+            return _.sum(entity.store);
+        }else if(entity.energyCapacity > 0){
+            return entity.energy;
+        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
+    }
+
+    static getStorageCapacity(entity){
+        if(entity.carryCapacity > 0){
+            return entity.carryCapacity;
+        }else if(entity.storeCapacity > 0){
+            return entity.storeCapacity;
+        }else if(entity.energyCapacity > 0){
+            return entity.energyCapacity;
+        }else if(entity.resourceType && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
+    }
+
+    static getStoragePercent(entity){
+        return RoomUtil.getStorage(entity) / RoomUtil.getStorageCapacity(entity);
     }
 
     static getEnergyPercent(entity){

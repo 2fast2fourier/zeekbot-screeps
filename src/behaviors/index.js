@@ -13,6 +13,7 @@ var Build = require('./build');
 var Deliver = require('./deliver');
 var Drop = require('./drop');
 var EmergencyDeliver = require('./emergencydeliver');
+var Extract = require('./extract');
 var Mining = require('./mining');
 var Repair = require('./repair');
 var Upgrade = require('./upgrade');
@@ -23,6 +24,7 @@ module.exports = {
     defend: new NOP(),
     build: new Build(),
     emergencydeliver: new EmergencyDeliver(),
+    extract: new Extract(),
     deliver: new Deliver(),
     drop: new Drop(),
     mining: new Mining(),

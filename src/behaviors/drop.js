@@ -7,11 +7,11 @@ class DropBehavior extends BaseBehavior {
     constructor(){ super('drop'); }
 
     stillValid(creep, data, catalog){
-        return RoomUtil.getEnergyPercent(creep) > 0.75;
+        return RoomUtil.getStoragePercent(creep) > 0.75;
     }
 
     bid(creep, data, catalog){
-        return 1 - RoomUtil.getEnergyPercent(creep) + _.get(data, 'priority', 0);
+        return 1 - RoomUtil.getStoragePercent(creep) + _.get(data, 'priority', 0);
     }
 
     start(creep, data, catalog){
@@ -19,7 +19,13 @@ class DropBehavior extends BaseBehavior {
     }
 
     process(creep, data, catalog){
-        creep.drop(RESOURCE_ENERGY);
+        var dropped = false;
+        _.forEach(creep.carry, (count, type) =>{
+            if(!dropped && count > 0){
+                var result = creep.drop(type);
+                dropped = result == OK;
+            }
+        });
     }
 };
 

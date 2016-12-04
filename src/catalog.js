@@ -120,6 +120,10 @@ class Catalog {
         return this.buildings[creep.pos.roomName];
     }
 
+    getBuildingsByType(room, type){
+        return _.filter(this.buildings[room.name], structure => structure.structureType == type);
+    }
+
     getHostiles(room){
         return this.hostiles[room.name].concat(this.hostileStructures[room.name]);
     }
