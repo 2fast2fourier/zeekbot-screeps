@@ -105,10 +105,10 @@ var classConfig = {
             }
         },
         behaviors: {
-            pickup: { containerTypes: [ STRUCTURE_CONTAINER ] },
+            pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
             deliver: {
                 ignoreClass: [ 'hauler', 'miner' ],
-                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_LINK, STRUCTURE_SPAWN, STRUCTURE_STORAGE ],
+                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ],
                 excludeRemote: true
             }
         }

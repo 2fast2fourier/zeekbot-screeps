@@ -11,7 +11,7 @@ class RoomUtil {
             filter: (creep)=>!!creep.memory.traits.mining
         });
         var usage = _.countBy(currentHarvesters, function(harv){
-            return harv.memory.traits.mining;
+            return harv.memory.lastSource || harv.memory.traits.mining;
         });
         var leastId = sources[0].id;
         var leastCount = _.get(usage, sources[0].id, 0);

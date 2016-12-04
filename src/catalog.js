@@ -1,6 +1,6 @@
 "use strict";
 
-var RoomUtil = require('roomutil');
+var RoomUtil = require('./roomutil');
 
 class Catalog {
     constructor(){

@@ -1,0 +1,10 @@
+{
+    "version": "0.1.0",
+    "command": "webpack",
+    "isShellCommand": true,
+    "args": [
+        "--watch"
+    ],
+    "isWatching": true,
+    "showOutput": "always"
+}
