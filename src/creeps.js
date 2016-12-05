@@ -178,7 +178,15 @@ module.exports = {
                     count: 1,
                     energy: 5000
                 },
-                loadout: partList({work: 6, carry: 2, move: 3}),
+                loadout: partList({work: 8, carry: 2, move: 3}),
+                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+            },
+            nanoupgrade: {
+                ideal: 3,
+                requirements: {
+                    disableAt: 850
+                },
+                loadout: partList({work: 6, carry: 2, move: 2}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
             picoupgrade: {

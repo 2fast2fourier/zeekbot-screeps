@@ -160,9 +160,9 @@ module.exports =
 	    }
 
 	    static towerRepair(tower, catalog) {
-	        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < structure.hitsMax * Memory.settings.towerRepairPercent && structure.hits < Memory.repairTarget * Memory.settings.towerRepairPercent);
+	        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
 	        if(damagedBuildings.length > 0) {
-	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / structure.hitsMax);
+	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.repairTarget));
 	            tower.repair(damaged[0]);
 	        }
 	    }
@@ -768,7 +768,15 @@ module.exports =
 	                    count: 1,
 	                    energy: 5000
 	                },
-	                loadout: partList({work: 6, carry: 2, move: 3}),
+	                loadout: partList({work: 8, carry: 2, move: 3}),
+	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+	            },
+	            nanoupgrade: {
+	                ideal: 3,
+	                requirements: {
+	                    disableAt: 850
+	                },
+	                loadout: partList({work: 6, carry: 2, move: 2}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
 	            },
 	            picoupgrade: {
