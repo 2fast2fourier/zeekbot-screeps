@@ -75,10 +75,10 @@ class Catalog {
         ];
         var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergy(structure) > 0);
         containers = containers.concat(_.filter(creep.room.find(FIND_DROPPED_ENERGY), container => RoomUtil.getEnergy(container) > 0));
-        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyPickupPriority(container));
+        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) + Catalog.getEnergyPickupOffset(container));
     }
 
-    getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote }){
+    getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
         var types = [
             STRUCTURE_CONTAINER,
             STRUCTURE_EXTENSION,
@@ -87,7 +87,11 @@ class Catalog {
             STRUCTURE_STORAGE,
             STRUCTURE_SPAWN
         ];
-        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergyPercent(structure) < 1);
+        var containers = _.filter(this.buildings[creep.pos.roomName],
+                                  structure => _.includes(containerTypes || types, structure.structureType)
+                                                && RoomUtil.getEnergyPercent(structure) < 1
+                                                && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
+                                 );
 
         var filterClass = _.isArray(ignoreClass);
         if(filterClass || !ignoreCreeps){
@@ -107,7 +111,7 @@ class Catalog {
             containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
         }
 
-        return _.sortBy(containers, container => (RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyDeliveryPriority(container));
+        return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
     }
 
     getBuildings(creep, type){
@@ -169,7 +173,7 @@ class Catalog {
         ];
         var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getResource(structure, resourceType) > 0);
         containers = containers.concat(creep.room.find(FIND_DROPPED_RESOURCES, { resourceType }));
-        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50);
+        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50 + Catalog.getResourceDeliveryOffset(container));
     }
 
     
@@ -180,7 +184,7 @@ class Catalog {
         }
         var priorities = {
             'container': 1,
-            'storage': 100,
+            'storage': 2,
             'link': 1
         };
         return _.get(priorities, target.structureType, 1);
@@ -193,12 +197,51 @@ class Catalog {
         var priorities = {
             'spawn': 0.25,
             'extension': 0.25,
-            'tower': -0.5,
-            'container': 1.5,
-            'storage': 5,
+            'tower': 0.5,
+            'container': 1,
+            'storage': 2,
             'link': 20
         };
         return _.get(priorities, target.structureType, 1);
+    }
+    
+    static getEnergyDeliveryOffset(target){
+        if(!target.structureType){
+            return 0;
+        }
+        var priorities = {
+            'spawn': -0.125,
+            'extension': -0.125,
+            'tower': 0,
+            'container': 0.125,
+            'storage': 0.5,
+            'link': 1
+        };
+        return _.get(priorities, target.structureType, 0);
+    }
+    
+    static getEnergyPickupOffset(target){
+        if(!target.structureType){
+            return 0;
+        }
+        var priorities = {
+            'container': 0.125,
+            'storage': 0.125,
+            'link': 0
+        };
+        return _.get(priorities, target.structureType, 0);
+    }
+
+    static getResourceDeliveryOffset(target){
+        if(!target.structureType){
+            return 0;
+        }
+        var priorities = {
+            'container': 0.125,
+            'storage': 0,
+            'terminal': -0.5
+        };
+        return _.get(priorities, target.structureType, 0);
     }
 }
 

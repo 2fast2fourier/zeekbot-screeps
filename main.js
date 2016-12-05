@@ -653,7 +653,7 @@ module.exports =
 	                },
 	                behaviors: {
 	                    mining: { flag: 'Harvest' },
-	                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'], excludeRemote: true },
+	                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor', 'tender'], excludeRemote: true },
 	                    drop: { priority: 0.75 }
 	                },
 	                remote: true
@@ -704,7 +704,7 @@ module.exports =
 	        behaviors: {
 	            pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
 	            deliver: {
-	                ignoreClass: [ 'hauler', 'miner', 'extractor' ],
+	                ignoreClass: [ 'hauler', 'miner', 'extractor', 'tender' ],
 	                containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_SPAWN ]
 	            }
 	        }
@@ -817,7 +817,7 @@ module.exports =
 	    extractor: {
 	        versions: {
 	            micro: {
-	                ideal: 0,
+	                ideal: 1,
 	                requirements: {
 	                    extractor: true
 	                },
@@ -826,22 +826,35 @@ module.exports =
 	        },
 	        behaviors: {
 	            extract: {},
-	            deliver: { maxRange: 50, ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ] },
-	            // drop: { priority: 10 }
+	            deliver: { maxRange: 3, ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
+	            drop: { priority: 10 }
 	        }
 	    },
 	    tender: {
 	        versions: {
 	            nano: {
-	                ideal: 0,
+	                ideal: 1,
+	                loadout: partList({carry: 6, move: 6}),
 	                requirements: {
 	                    extractor: true
+	                }
+	            },
+	            energy: {
+	                ideal: 1,
+	                loadout: partList({carry: 4, move: 4}),
+	                requirements: {
+	                    extractor: true
+	                },
+	                behaviors: {
+	                    pickup: { containerTypes: [ STRUCTURE_STORAGE ] },
+	                    deliver: { containerTypes: [ STRUCTURE_TERMINAL ], ignoreCreeps: true, maxStorage: 10000 },
+	                    emergencydeliver: {}
 	                }
 	            }
 	        },
 	        behaviors: {
 	            pickup: { mineral: true, containerTypes: [ STRUCTURE_CONTAINER ] },
-	            deliver: { containerTypes: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+	            deliver: { containerTypes: [ STRUCTURE_TERMINAL, STRUCTURE_STORAGE ], ignoreCreeps: true }
 	        }
 	    },
 	    fighter: {
@@ -1829,10 +1842,10 @@ module.exports =
 	        ];
 	        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergy(structure) > 0);
 	        containers = containers.concat(_.filter(creep.room.find(FIND_DROPPED_ENERGY), container => RoomUtil.getEnergy(container) > 0));
-	        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyPickupPriority(container));
+	        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) + Catalog.getEnergyPickupOffset(container));
 	    }
 
-	    getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote }){
+	    getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
 	        var types = [
 	            STRUCTURE_CONTAINER,
 	            STRUCTURE_EXTENSION,
@@ -1841,7 +1854,11 @@ module.exports =
 	            STRUCTURE_STORAGE,
 	            STRUCTURE_SPAWN
 	        ];
-	        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergyPercent(structure) < 1);
+	        var containers = _.filter(this.buildings[creep.pos.roomName],
+	                                  structure => _.includes(containerTypes || types, structure.structureType)
+	                                                && RoomUtil.getEnergyPercent(structure) < 1
+	                                                && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
+	                                 );
 
 	        var filterClass = _.isArray(ignoreClass);
 	        if(filterClass || !ignoreCreeps){
@@ -1861,7 +1878,7 @@ module.exports =
 	            containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
 	        }
 
-	        return _.sortBy(containers, container => (RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyDeliveryPriority(container));
+	        return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
 	    }
 
 	    getBuildings(creep, type){
@@ -1923,7 +1940,7 @@ module.exports =
 	        ];
 	        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getResource(structure, resourceType) > 0);
 	        containers = containers.concat(creep.room.find(FIND_DROPPED_RESOURCES, { resourceType }));
-	        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50);
+	        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50 + Catalog.getResourceDeliveryOffset(container));
 	    }
 
 	    
@@ -1934,7 +1951,7 @@ module.exports =
 	        }
 	        var priorities = {
 	            'container': 1,
-	            'storage': 100,
+	            'storage': 2,
 	            'link': 1
 	        };
 	        return _.get(priorities, target.structureType, 1);
@@ -1947,12 +1964,51 @@ module.exports =
 	        var priorities = {
 	            'spawn': 0.25,
 	            'extension': 0.25,
-	            'tower': -0.5,
-	            'container': 1.5,
-	            'storage': 5,
+	            'tower': 0.5,
+	            'container': 1,
+	            'storage': 2,
 	            'link': 20
 	        };
 	        return _.get(priorities, target.structureType, 1);
+	    }
+	    
+	    static getEnergyDeliveryOffset(target){
+	        if(!target.structureType){
+	            return 0;
+	        }
+	        var priorities = {
+	            'spawn': -0.125,
+	            'extension': -0.125,
+	            'tower': 0,
+	            'container': 0.125,
+	            'storage': 0.5,
+	            'link': 1
+	        };
+	        return _.get(priorities, target.structureType, 0);
+	    }
+	    
+	    static getEnergyPickupOffset(target){
+	        if(!target.structureType){
+	            return 0;
+	        }
+	        var priorities = {
+	            'container': 0.125,
+	            'storage': 0.125,
+	            'link': 0
+	        };
+	        return _.get(priorities, target.structureType, 0);
+	    }
+
+	    static getResourceDeliveryOffset(target){
+	        if(!target.structureType){
+	            return 0;
+	        }
+	        var priorities = {
+	            'container': 0.125,
+	            'storage': 0,
+	            'terminal': -0.5
+	        };
+	        return _.get(priorities, target.structureType, 0);
 	    }
 	}
 
