@@ -7,8 +7,8 @@ class Controller {
     static control(catalog){
         var towers = _.filter(Game.structures, {structureType: STRUCTURE_TOWER});
         towers.forEach(tower => {
-            if(!Controller.towerDefend(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
-                if(!Controller.towerHeal(tower, catalog)){
+            if(!Memory.standDown && !Controller.towerDefend(tower, catalog)){
+                if(!Controller.towerHeal(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
                     Controller.towerRepair(tower, catalog)
                 }
             }
@@ -19,9 +19,12 @@ class Controller {
 
     static towerDefend(tower, catalog) {
         var hostiles = catalog.getHostileCreeps(tower.room);
+        var healer = _.first(hostiles, creep => !!_.find(creep.body, part => part.type == HEAL));
+        if(healer){
+            return tower.attack(healer) == OK;
+        }
         if(hostiles.length > 0) {
             var enemies = _.sortBy(hostiles, (target)=>tower.pos.getRangeTo(target));
-            console.log("Attacking...", enemies[0]);
             return tower.attack(enemies[0]) == OK;
         }
         return false;
@@ -31,7 +34,6 @@ class Controller {
         var injuredCreeps = _.filter(catalog.getCreeps(tower.room), creep => creep.hits < creep.hitsMax);
         if(injuredCreeps.length > 0) {
             var injuries = _.sortBy(injuredCreeps, creep => creep.hits / creep.hitsMax);
-            console.log("Healing...", injuries[0]);
             return tower.heal(injuries[0]) == OK;
         }
         return false;

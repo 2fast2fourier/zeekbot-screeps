@@ -102,6 +102,12 @@ module.exports =
 	        Memory.updateTime = Game.time + 200;
 	    }
 
+	    if(!Memory.settings){
+	        Memory.settings = {
+	            towerRepairThreshold: 20000
+	        };
+	    }
+
 	    Spawner.mourn();
 	    Spawner.spawn(catalog);
 	    Behavior.process(catalog);
@@ -121,8 +127,8 @@ module.exports =
 	    static control(catalog){
 	        var towers = _.filter(Game.structures, {structureType: STRUCTURE_TOWER});
 	        towers.forEach(tower => {
-	            if(!Controller.towerDefend(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
-	                if(!Controller.towerHeal(tower, catalog)){
+	            if(!Memory.standDown && !Controller.towerDefend(tower, catalog)){
+	                if(!Controller.towerHeal(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
 	                    Controller.towerRepair(tower, catalog)
 	                }
 	            }
@@ -133,9 +139,12 @@ module.exports =
 
 	    static towerDefend(tower, catalog) {
 	        var hostiles = catalog.getHostileCreeps(tower.room);
+	        var healer = _.first(hostiles, creep => !!_.find(creep.body, part => part.type == HEAL));
+	        if(healer){
+	            return tower.attack(healer) == OK;
+	        }
 	        if(hostiles.length > 0) {
 	            var enemies = _.sortBy(hostiles, (target)=>tower.pos.getRangeTo(target));
-	            console.log("Attacking...", enemies[0]);
 	            return tower.attack(enemies[0]) == OK;
 	        }
 	        return false;
@@ -145,7 +154,6 @@ module.exports =
 	        var injuredCreeps = _.filter(catalog.getCreeps(tower.room), creep => creep.hits < creep.hitsMax);
 	        if(injuredCreeps.length > 0) {
 	            var injuries = _.sortBy(injuredCreeps, creep => creep.hits / creep.hitsMax);
-	            console.log("Healing...", injuries[0]);
 	            return tower.heal(injuries[0]) == OK;
 	        }
 	        return false;
@@ -647,7 +655,7 @@ module.exports =
 	        },
 	        behaviors: {
 	            mining: {},
-	            deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'] },
+	            deliver: { maxRange: 2, ignoreCreeps: true },
 	            drop: { priority: 10 }
 	        }
 	    },
@@ -658,7 +666,7 @@ module.exports =
 	                critical: 400,
 	                loadout: partList({carry: 4, move: 4}),
 	                behaviors: {
-	                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+	                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK ] },
 	                    deliver: { containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_SPAWN ], ignoreCreeps: true }
 	                }
 	            },
@@ -709,6 +717,10 @@ module.exports =
 	                ideal: 1,
 	                requirements: {
 	                    disableAt: 800
+	                },
+	                additional: {
+	                    count: 1,
+	                    buildHits: 1000
 	                },
 	                loadout: partList({work: 2, carry: 2, move: 4})
 	            },
@@ -1573,7 +1585,13 @@ module.exports =
 	            return true;
 	        }
 	        var target = this.target(creep);
-	        return target && target.pos.roomName == creep.pos.roomName && RoomUtil.getStorage(target) > 0 && RoomUtil.getStoragePercent(creep) < 0.9;
+	        var storage;
+	        if(creep.memory.mineralType){
+	            storage = RoomUtil.getResource(target, creep.memory.mineralType);
+	        }else{
+	            storage = RoomUtil.getEnergy(target);
+	        }
+	        return target && target.pos.roomName == creep.pos.roomName && storage > 0 && RoomUtil.getStoragePercent(creep) < 0.9;
 	    }
 
 	    bid(creep, data, catalog){
@@ -1796,7 +1814,7 @@ module.exports =
 	            STRUCTURE_STORAGE
 	        ];
 	        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergy(structure) > 0);
-	        containers = containers.concat(creep.room.find(FIND_DROPPED_ENERGY));
+	        containers = containers.concat(_.filter(creep.room.find(FIND_DROPPED_ENERGY), container => RoomUtil.getEnergy(container) > 0));
 	        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyPickupPriority(container));
 	    }
 
@@ -1897,9 +1915,6 @@ module.exports =
 	    
 	    
 	    static getEnergyPickupPriority(target){
-	        if(target.amount > 0){
-	            return Math.max(0, 1 - target.amount / 200);
-	        }
 	        if(!target.structureType){
 	            return 1;
 	        }
@@ -1918,7 +1933,7 @@ module.exports =
 	        var priorities = {
 	            'spawn': 0.25,
 	            'extension': 0.25,
-	            'tower': 0.5,
+	            'tower': -0.5,
 	            'container': 1.5,
 	            'storage': 5,
 	            'link': 20

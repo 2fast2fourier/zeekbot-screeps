@@ -74,7 +74,7 @@ class Catalog {
             STRUCTURE_STORAGE
         ];
         var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergy(structure) > 0);
-        containers = containers.concat(creep.room.find(FIND_DROPPED_ENERGY));
+        containers = containers.concat(_.filter(creep.room.find(FIND_DROPPED_ENERGY), container => RoomUtil.getEnergy(container) > 0));
         return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) * Catalog.getEnergyPickupPriority(container));
     }
 
@@ -175,9 +175,6 @@ class Catalog {
     
     
     static getEnergyPickupPriority(target){
-        if(target.amount > 0){
-            return Math.max(0, 1 - target.amount / 200);
-        }
         if(!target.structureType){
             return 1;
         }
@@ -196,7 +193,7 @@ class Catalog {
         var priorities = {
             'spawn': 0.25,
             'extension': 0.25,
-            'tower': 0.5,
+            'tower': -0.5,
             'container': 1.5,
             'storage': 5,
             'link': 20

@@ -68,7 +68,7 @@ module.exports = {
         },
         behaviors: {
             mining: {},
-            deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor'] },
+            deliver: { maxRange: 2, ignoreCreeps: true },
             drop: { priority: 10 }
         }
     },
@@ -79,7 +79,7 @@ module.exports = {
                 critical: 400,
                 loadout: partList({carry: 4, move: 4}),
                 behaviors: {
-                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+                    pickup: { containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK ] },
                     deliver: { containerTypes: [ STRUCTURE_EXTENSION, STRUCTURE_SPAWN ], ignoreCreeps: true }
                 }
             },
@@ -130,6 +130,10 @@ module.exports = {
                 ideal: 1,
                 requirements: {
                     disableAt: 800
+                },
+                additional: {
+                    count: 1,
+                    buildHits: 1000
                 },
                 loadout: partList({work: 2, carry: 2, move: 4})
             },

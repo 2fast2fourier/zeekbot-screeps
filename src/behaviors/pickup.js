@@ -11,7 +11,13 @@ class PickupBehavior extends RemoteBaseBehavior {
             return true;
         }
         var target = this.target(creep);
-        return target && target.pos.roomName == creep.pos.roomName && RoomUtil.getStorage(target) > 0 && RoomUtil.getStoragePercent(creep) < 0.9;
+        var storage;
+        if(creep.memory.mineralType){
+            storage = RoomUtil.getResource(target, creep.memory.mineralType);
+        }else{
+            storage = RoomUtil.getEnergy(target);
+        }
+        return target && target.pos.roomName == creep.pos.roomName && storage > 0 && RoomUtil.getStoragePercent(creep) < 0.9;
     }
 
     bid(creep, data, catalog){

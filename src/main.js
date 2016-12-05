@@ -55,6 +55,12 @@ module.exports.loop = function () {
         Memory.updateTime = Game.time + 200;
     }
 
+    if(!Memory.settings){
+        Memory.settings = {
+            towerRepairThreshold: 20000
+        };
+    }
+
     Spawner.mourn();
     Spawner.spawn(catalog);
     Behavior.process(catalog);
