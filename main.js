@@ -160,7 +160,7 @@ module.exports =
 	    }
 
 	    static towerRepair(tower, catalog) {
-	        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < structure.hitsMax && structure.hits < Memory.settings.towerRepairThreshold);
+	        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < structure.hitsMax * Memory.settings.towerRepairPercent && structure.hits < Memory.repairTarget * Memory.settings.towerRepairPercent);
 	        if(damagedBuildings.length > 0) {
 	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / structure.hitsMax);
 	            tower.repair(damaged[0]);
@@ -464,6 +464,9 @@ module.exports =
 	            if(requirements.extractor && !roomStats.extractor){
 	                return false;
 	            }
+	            if(requirements.disableEnergy > 0 && roomStats.energy > requirements.disableEnergy){
+	                return false;
+	            }
 	            if(requirements.flag && !Game.flags[requirements.flag]){
 	                return false;
 	            }
@@ -634,6 +637,9 @@ module.exports =
 	            pico: {
 	                bootstrap: 1,
 	                loadout: partList({work: 2, carry: 1, move: 1}),
+	                requirements: {
+	                    disableEnergy: 2000
+	                },
 	                additional: {
 	                    unless: 1,
 	                    spawn: 500

@@ -47,6 +47,9 @@ module.exports = {
             pico: {
                 bootstrap: 1,
                 loadout: partList({work: 2, carry: 1, move: 1}),
+                requirements: {
+                    disableEnergy: 2000
+                },
                 additional: {
                     unless: 1,
                     spawn: 500

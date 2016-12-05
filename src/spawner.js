@@ -68,6 +68,9 @@ class Spawner {
             if(requirements.extractor && !roomStats.extractor){
                 return false;
             }
+            if(requirements.disableEnergy > 0 && roomStats.energy > requirements.disableEnergy){
+                return false;
+            }
             if(requirements.flag && !Game.flags[requirements.flag]){
                 return false;
             }
