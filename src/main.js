@@ -40,6 +40,7 @@ class Util {
                 mineralId: _.get(mineral, 'id', false),
                 mineralType: _.get(mineral, 'mineralType', false),
                 energy: RoomUtil.getEnergy(room.storage),
+                terminalEnergy: RoomUtil.getEnergy(catalog.getFirstBuilding(room, STRUCTURE_TERMINAL)),
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
         });
@@ -57,7 +58,7 @@ module.exports.loop = function () {
 
     if(!Memory.settings){
         Memory.settings = {
-            towerRepairThreshold: 20000
+            towerRepairPercent: 0.1
         };
     }
 

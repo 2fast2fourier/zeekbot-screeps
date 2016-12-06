@@ -128,6 +128,10 @@ class Catalog {
         return _.filter(this.buildings[room.name], structure => structure.structureType == type);
     }
 
+    getFirstBuilding(room, type){
+        return _.first(_.filter(this.buildings[room.name], structure => structure.structureType == type));
+    }
+
     getHostiles(room){
         return this.hostiles[room.name].concat(this.hostileStructures[room.name]);
     }
@@ -215,7 +219,7 @@ class Catalog {
             'tower': 0,
             'container': 0.125,
             'storage': 0.5,
-            'link': 1
+            'link': 0.125
         };
         return _.get(priorities, target.structureType, 0);
     }

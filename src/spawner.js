@@ -18,10 +18,12 @@ class Spawner {
     }
 
     static shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats){
-        if(!Spawner.checkRequirements(spawn, catalog, category, version, roomStats)){
+        if(!Spawner.checkRequirements(spawn, catalog, category, version, roomStats) ||
+            Spawner.checkDisable(spawn, catalog, category, version, roomStats)){
             return false;
         }
         if(version.remote || category.remote){
+            //TODO fix additional support for remote types
             return _.get(catalog.remoteTypeCount, fullType, 0) < version.ideal;
         }
         return Spawner.getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType) > 0;
@@ -81,6 +83,28 @@ class Spawner {
         return true;
     }
 
+    static checkDisable(spawn, catalog, category, version, roomStats){
+        var disable = version.disable;
+        if(disable){
+            if(disable.spawnCapacity > 0 && roomStats.spawn >= disable.spawnCapacity){
+                return true;
+            }
+            if(disable.extractor && roomStats.extractor){
+                return true;
+            }
+            if(disable.energy > 0 && roomStats.energy >= disable.energy){
+                return true;
+            }
+            if(disable.flag && !!Game.flags[disable.flag]){
+                return true;
+            }
+            if(disable.terminalEnergy > 0 && disable.terminalEnergy <= roomStats.terminalEnergy){
+                return true;
+            }
+        }
+        return false;
+    }
+
     static findCriticalDeficit(spawn, catalog){
         var roomStats = Memory.stats.rooms[spawn.room.name];
         var typeCount = catalog.getTypeCount(spawn.room);
@@ -89,7 +113,10 @@ class Spawner {
         var deficit = 0;
         _.forEach(classConfig, (config, className) => {
             _.forEach(config.versions, (version, typeName) =>{
-                if(version.critical > 0 && version.critical <= roomStats.spawn && Spawner.checkRequirements(spawn, catalog, config, version, roomStats)){
+                if(version.critical > 0
+                        && version.critical <= roomStats.spawn
+                        && Spawner.checkRequirements(spawn, catalog, config, version, roomStats)
+                        && !Spawner.checkDisable(spawn, catalog, config, version, roomStats)){
                     var count = Spawner.getSpawnCount(spawn, catalog, config, version, roomStats, className, typeName+className);
                     if(count > 0 && !spawn.spawning){
                         deficits[className] = config;
@@ -139,7 +166,9 @@ class Spawner {
         _.forEach(config, function(category, className){
             _.forEach(category.versions, function(version, prefix){
                 var fullType = prefix + className;
-                if(!startedSpawn && Spawner.canSpawn(spawn, version.loadout) && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
+                if(!startedSpawn
+                        && Spawner.canSpawn(spawn, version.loadout)
+                        && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
                     var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
                     startedSpawn = !!spawned;
                     Memory.uid++;

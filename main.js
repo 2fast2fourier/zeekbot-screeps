@@ -87,6 +87,7 @@ module.exports =
 	                mineralId: _.get(mineral, 'id', false),
 	                mineralType: _.get(mineral, 'mineralType', false),
 	                energy: RoomUtil.getEnergy(room.storage),
+	                terminalEnergy: RoomUtil.getEnergy(catalog.getFirstBuilding(room, STRUCTURE_TERMINAL)),
 	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
 	            };
 	        });
@@ -104,7 +105,7 @@ module.exports =
 
 	    if(!Memory.settings){
 	        Memory.settings = {
-	            towerRepairThreshold: 20000
+	            towerRepairPercent: 0.1
 	        };
 	    }
 
@@ -414,10 +415,12 @@ module.exports =
 	    }
 
 	    static shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats){
-	        if(!Spawner.checkRequirements(spawn, catalog, category, version, roomStats)){
+	        if(!Spawner.checkRequirements(spawn, catalog, category, version, roomStats) ||
+	            Spawner.checkDisable(spawn, catalog, category, version, roomStats)){
 	            return false;
 	        }
 	        if(version.remote || category.remote){
+	            //TODO fix additional support for remote types
 	            return _.get(catalog.remoteTypeCount, fullType, 0) < version.ideal;
 	        }
 	        return Spawner.getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType) > 0;
@@ -477,6 +480,28 @@ module.exports =
 	        return true;
 	    }
 
+	    static checkDisable(spawn, catalog, category, version, roomStats){
+	        var disable = version.disable;
+	        if(disable){
+	            if(disable.spawnCapacity > 0 && roomStats.spawn >= disable.spawnCapacity){
+	                return true;
+	            }
+	            if(disable.extractor && roomStats.extractor){
+	                return true;
+	            }
+	            if(disable.energy > 0 && roomStats.energy >= disable.energy){
+	                return true;
+	            }
+	            if(disable.flag && !!Game.flags[disable.flag]){
+	                return true;
+	            }
+	            if(disable.terminalEnergy > 0 && disable.terminalEnergy <= roomStats.terminalEnergy){
+	                return true;
+	            }
+	        }
+	        return false;
+	    }
+
 	    static findCriticalDeficit(spawn, catalog){
 	        var roomStats = Memory.stats.rooms[spawn.room.name];
 	        var typeCount = catalog.getTypeCount(spawn.room);
@@ -485,7 +510,10 @@ module.exports =
 	        var deficit = 0;
 	        _.forEach(classConfig, (config, className) => {
 	            _.forEach(config.versions, (version, typeName) =>{
-	                if(version.critical > 0 && version.critical <= roomStats.spawn && Spawner.checkRequirements(spawn, catalog, config, version, roomStats)){
+	                if(version.critical > 0
+	                        && version.critical <= roomStats.spawn
+	                        && Spawner.checkRequirements(spawn, catalog, config, version, roomStats)
+	                        && !Spawner.checkDisable(spawn, catalog, config, version, roomStats)){
 	                    var count = Spawner.getSpawnCount(spawn, catalog, config, version, roomStats, className, typeName+className);
 	                    if(count > 0 && !spawn.spawning){
 	                        deficits[className] = config;
@@ -535,7 +563,9 @@ module.exports =
 	        _.forEach(config, function(category, className){
 	            _.forEach(category.versions, function(version, prefix){
 	                var fullType = prefix + className;
-	                if(!startedSpawn && Spawner.canSpawn(spawn, version.loadout) && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
+	                if(!startedSpawn
+	                        && Spawner.canSpawn(spawn, version.loadout)
+	                        && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
 	                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
 	                    startedSpawn = !!spawned;
 	                    Memory.uid++;
@@ -613,8 +643,8 @@ module.exports =
 	            nano: {
 	                ideal: 2,
 	                critical: 750,
-	                requirements: {
-	                    disableAt: 900
+	                disable: {
+	                    spawnCapacity: 900
 	                },
 	                additional: {
 	                    unless: 1,
@@ -625,8 +655,8 @@ module.exports =
 	            pano: {
 	                bootstrap: 1,
 	                critical: 500,
-	                requirements: {
-	                    disableAt: 750
+	                disable: {
+	                    spawnCapacity: 750
 	                },
 	                additional: {
 	                    unless: 3,
@@ -636,13 +666,20 @@ module.exports =
 	            },
 	            pico: {
 	                bootstrap: 1,
+	                critical: 300,
 	                loadout: partList({work: 2, carry: 1, move: 1}),
-	                requirements: {
-	                    disableEnergy: 2000
+	                disable: {
+	                    energy: 2000
 	                },
 	                additional: {
 	                    unless: 1,
 	                    spawn: 500
+	                },
+	                behaviors: {
+	                    mining: {},
+	                    deliver: { maxRange: 2, ignoreCreeps: true },
+	                    drop: { priority: 10 },
+	                    emergencydeliver: { }
 	                }
 	            },
 	            remote: {
@@ -686,18 +723,22 @@ module.exports =
 	            },
 	            pico: {
 	                bootstrap: 2,
-	                loadout: partList({carry: 2, move: 4})
+	                critical: 200,
+	                disable: {
+	                    spawnCapacity: 500
+	                },
+	                loadout: partList({carry: 2, move: 2})
 	            },
 	            remote: {
-	                ideal: 1,
-	                loadout: partList({carry: 6, move: 6}),
+	                ideal: 2,
+	                loadout: partList({carry: 10, move: 5}),
 	                remote: true,
 	                requirements: {
 	                    flag: 'Collect'
 	                },
 	                behaviors: {
-	                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER ]  },
-	                    deliver: { flag: 'Base', ignoreCreeps: true }
+	                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+	                    deliver: { flag: 'Dropoff', ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ], maxStorage: 25000 }
 	                },
 	            }
 	        },
@@ -721,8 +762,8 @@ module.exports =
 	            },
 	            nano: {
 	                ideal: 1,
-	                requirements: {
-	                    disableAt: 800
+	                disable: {
+	                    spawnCapacity: 800
 	                },
 	                additional: {
 	                    count: 1,
@@ -752,8 +793,8 @@ module.exports =
 	            },
 	            picorepair: {
 	                ideal: 1,
-	                requirements: {
-	                    disableAt: 700
+	                disable: {
+	                    spawnCapacity: 700
 	                },
 	                additional: {
 	                    count: 1,
@@ -773,16 +814,16 @@ module.exports =
 	            },
 	            nanoupgrade: {
 	                ideal: 3,
-	                requirements: {
-	                    disableAt: 850
+	                disable: {
+	                    spawnCapacity: 850
 	                },
 	                loadout: partList({work: 6, carry: 2, move: 2}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
 	            },
 	            picoupgrade: {
 	                ideal: 2,
-	                requirements: {
-	                    disableAt: 600
+	                disable: {
+	                    spawnCapacity: 600
 	                },
 	                loadout: partList({work: 4, carry: 2, move: 1}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
@@ -845,9 +886,12 @@ module.exports =
 	                requirements: {
 	                    extractor: true
 	                },
+	                disable: {
+	                    terminalEnergy: 20000
+	                },
 	                behaviors: {
 	                    pickup: { containerTypes: [ STRUCTURE_STORAGE ] },
-	                    deliver: { containerTypes: [ STRUCTURE_TERMINAL ], ignoreCreeps: true, maxStorage: 10000 },
+	                    deliver: { containerTypes: [ STRUCTURE_TERMINAL ], ignoreCreeps: true, maxStorage: 20000 },
 	                    emergencydeliver: {}
 	                }
 	            }
@@ -859,12 +903,34 @@ module.exports =
 	    },
 	    fighter: {
 	        versions: {
+	            nano: {
+	                ideal: 2,
+	                requirements: {
+	                    flag: 'Assault'
+	                },
+	                loadout: partList({tough: 9, move: 12, attack: 15}),
+	                behaviors: { attack: { flag: 'Assault' } },
+	                remote: true
+	            },
 	            pico: {
 	                ideal: 2,
 	                requirements: {
 	                    flag: 'Attack'
 	                },
 	                loadout: partList({tough: 8, move: 8, attack: 8}),
+	                remote: true
+	            }
+	        },
+	        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
+	    },
+	    healer: {
+	        versions: {
+	            pico: {
+	                ideal: 1,
+	                requirements: {
+	                    flag: 'Heal'
+	                },
+	                loadout: partList({tough: 8, move: 6, heal: 4}),
 	                remote: true
 	            }
 	        },
@@ -1895,6 +1961,10 @@ module.exports =
 	        return _.filter(this.buildings[room.name], structure => structure.structureType == type);
 	    }
 
+	    getFirstBuilding(room, type){
+	        return _.first(_.filter(this.buildings[room.name], structure => structure.structureType == type));
+	    }
+
 	    getHostiles(room){
 	        return this.hostiles[room.name].concat(this.hostileStructures[room.name]);
 	    }
@@ -1982,7 +2052,7 @@ module.exports =
 	            'tower': 0,
 	            'container': 0.125,
 	            'storage': 0.5,
-	            'link': 1
+	            'link': 0.125
 	        };
 	        return _.get(priorities, target.structureType, 0);
 	    }

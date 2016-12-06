@@ -23,8 +23,8 @@ module.exports = {
             nano: {
                 ideal: 2,
                 critical: 750,
-                requirements: {
-                    disableAt: 900
+                disable: {
+                    spawnCapacity: 900
                 },
                 additional: {
                     unless: 1,
@@ -35,8 +35,8 @@ module.exports = {
             pano: {
                 bootstrap: 1,
                 critical: 500,
-                requirements: {
-                    disableAt: 750
+                disable: {
+                    spawnCapacity: 750
                 },
                 additional: {
                     unless: 3,
@@ -46,13 +46,20 @@ module.exports = {
             },
             pico: {
                 bootstrap: 1,
+                critical: 300,
                 loadout: partList({work: 2, carry: 1, move: 1}),
-                requirements: {
-                    disableEnergy: 2000
+                disable: {
+                    energy: 2000
                 },
                 additional: {
                     unless: 1,
                     spawn: 500
+                },
+                behaviors: {
+                    mining: {},
+                    deliver: { maxRange: 2, ignoreCreeps: true },
+                    drop: { priority: 10 },
+                    emergencydeliver: { }
                 }
             },
             remote: {
@@ -96,18 +103,22 @@ module.exports = {
             },
             pico: {
                 bootstrap: 2,
-                loadout: partList({carry: 2, move: 4})
+                critical: 200,
+                disable: {
+                    spawnCapacity: 500
+                },
+                loadout: partList({carry: 2, move: 2})
             },
             remote: {
-                ideal: 1,
-                loadout: partList({carry: 6, move: 6}),
+                ideal: 2,
+                loadout: partList({carry: 10, move: 5}),
                 remote: true,
                 requirements: {
                     flag: 'Collect'
                 },
                 behaviors: {
-                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER ]  },
-                    deliver: { flag: 'Base', ignoreCreeps: true }
+                    pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
+                    deliver: { flag: 'Dropoff', ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ], maxStorage: 25000 }
                 },
             }
         },
@@ -131,8 +142,8 @@ module.exports = {
             },
             nano: {
                 ideal: 1,
-                requirements: {
-                    disableAt: 800
+                disable: {
+                    spawnCapacity: 800
                 },
                 additional: {
                     count: 1,
@@ -162,8 +173,8 @@ module.exports = {
             },
             picorepair: {
                 ideal: 1,
-                requirements: {
-                    disableAt: 700
+                disable: {
+                    spawnCapacity: 700
                 },
                 additional: {
                     count: 1,
@@ -183,16 +194,16 @@ module.exports = {
             },
             nanoupgrade: {
                 ideal: 3,
-                requirements: {
-                    disableAt: 850
+                disable: {
+                    spawnCapacity: 850
                 },
                 loadout: partList({work: 6, carry: 2, move: 2}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
             picoupgrade: {
                 ideal: 2,
-                requirements: {
-                    disableAt: 600
+                disable: {
+                    spawnCapacity: 600
                 },
                 loadout: partList({work: 4, carry: 2, move: 1}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
@@ -255,9 +266,12 @@ module.exports = {
                 requirements: {
                     extractor: true
                 },
+                disable: {
+                    terminalEnergy: 20000
+                },
                 behaviors: {
                     pickup: { containerTypes: [ STRUCTURE_STORAGE ] },
-                    deliver: { containerTypes: [ STRUCTURE_TERMINAL ], ignoreCreeps: true, maxStorage: 10000 },
+                    deliver: { containerTypes: [ STRUCTURE_TERMINAL ], ignoreCreeps: true, maxStorage: 20000 },
                     emergencydeliver: {}
                 }
             }
@@ -269,12 +283,34 @@ module.exports = {
     },
     fighter: {
         versions: {
+            nano: {
+                ideal: 2,
+                requirements: {
+                    flag: 'Assault'
+                },
+                loadout: partList({tough: 9, move: 12, attack: 15}),
+                behaviors: { attack: { flag: 'Assault' } },
+                remote: true
+            },
             pico: {
                 ideal: 2,
                 requirements: {
                     flag: 'Attack'
                 },
                 loadout: partList({tough: 8, move: 8, attack: 8}),
+                remote: true
+            }
+        },
+        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
+    },
+    healer: {
+        versions: {
+            pico: {
+                ideal: 1,
+                requirements: {
+                    flag: 'Heal'
+                },
+                loadout: partList({tough: 8, move: 6, heal: 4}),
                 remote: true
             }
         },
