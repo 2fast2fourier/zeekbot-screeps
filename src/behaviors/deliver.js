@@ -19,7 +19,7 @@ class DeliverBehavior extends RemoteBaseBehavior {
         if(storage == 0 || target == null){
             return false;
         }else{
-            return RoomUtil.getStoragePercent(target) < 0.85;
+            return RoomUtil.getStoragePercent(target) < 0.85 && target.pos.roomName == creep.pos.roomName;
         }
     }
 

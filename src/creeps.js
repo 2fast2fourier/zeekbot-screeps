@@ -116,9 +116,12 @@ module.exports = {
                 requirements: {
                     flag: 'Collect'
                 },
+                disable: {
+                    energy: 100000
+                },
                 behaviors: {
                     pickup: { flag: 'Collect', containerTypes: [ STRUCTURE_CONTAINER, STRUCTURE_STORAGE ] },
-                    deliver: { flag: 'Dropoff', ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ], maxStorage: 25000 }
+                    deliver: { flag: 'Dropoff', ignoreCreeps: true, containerTypes: [ STRUCTURE_STORAGE ], maxStorage: 100000 }
                 },
             }
         },
