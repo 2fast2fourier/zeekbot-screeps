@@ -64,14 +64,14 @@ module.exports = {
             },
             remote: {
                 ideal: 2,
-                loadout: partList({work: 6, carry: 2, move: 2}),
+                loadout: partList({work: 6, carry: 2, move: 4}),
                 requirements: {
                     flag: 'Harvest'
                 },
                 behaviors: {
-                    mining: { flag: 'Harvest' },
-                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor', 'tender'], excludeRemote: true },
-                    drop: { priority: 0.75 }
+                    mining: { flag: 'Harvest', maxRange: 5, approachFlag: true },
+                    deliver: { maxRange: 1, ignoreCreeps: true },
+                    drop: { priority: 1 }
                 },
                 remote: true
             }
@@ -187,7 +187,7 @@ module.exports = {
                 ideal: 1,
                 additional: {
                     count: 1,
-                    energy: 5000
+                    energy: 50000
                 },
                 loadout: partList({work: 8, carry: 2, move: 3}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
@@ -207,6 +207,20 @@ module.exports = {
                 },
                 loadout: partList({work: 4, carry: 2, move: 1}),
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+            },
+            remote: {
+                ideal: 1,
+                requirements: {
+                    flag: 'Work'
+                },
+                behaviors: {
+                    pickup: { flag: 'Work' },
+                    emergencydeliver: {},
+                    build: {},
+                    repair: { priority: 2 }
+                },
+                remote: true,
+                loadout: partList({work: 4, carry: 2, move: 6})
             },
             remoteupgrade: {
                 ideal: 2,
@@ -240,7 +254,8 @@ module.exports = {
             micro: {
                 ideal: 1,
                 requirements: {
-                    extractor: true
+                    extractor: true,
+                    mineralAmount: 1
                 },
                 loadout: partList({work: 10, carry: 2, move: 6})
             }
@@ -257,7 +272,8 @@ module.exports = {
                 ideal: 1,
                 loadout: partList({carry: 6, move: 6}),
                 requirements: {
-                    extractor: true
+                    extractor: true,
+                    mineralAmount: 1
                 }
             },
             energy: {
@@ -288,8 +304,8 @@ module.exports = {
                 requirements: {
                     flag: 'Assault'
                 },
-                loadout: partList({tough: 9, move: 12, attack: 15}),
-                behaviors: { attack: { flag: 'Assault' } },
+                loadout: partList({tough: 17, move: 16, attack: 15}),
+                behaviors: { attack: { flag: 'Assault', maxRange: 10 } },
                 remote: true
             },
             pico: {
@@ -308,13 +324,13 @@ module.exports = {
             pico: {
                 ideal: 1,
                 requirements: {
-                    flag: 'Heal'
+                    flag: 'Assault'
                 },
                 loadout: partList({tough: 8, move: 6, heal: 4}),
                 remote: true
             }
         },
-        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
+        behaviors: { heal: { flag: 'Assault' } }
     },
     claimer: {
         versions: {

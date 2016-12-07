@@ -70,6 +70,9 @@ class Spawner {
             if(requirements.extractor && !roomStats.extractor){
                 return false;
             }
+            if(requirements.mineralAmount > 0 && roomStats.mineralAmount < requirements.mineralAmount){
+                return false
+            }
             if(requirements.disableEnergy > 0 && roomStats.energy > requirements.disableEnergy){
                 return false;
             }

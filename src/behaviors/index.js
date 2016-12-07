@@ -14,6 +14,7 @@ var Deliver = require('./deliver');
 var Drop = require('./drop');
 var EmergencyDeliver = require('./emergencydeliver');
 var Extract = require('./extract');
+var Heal = require('./heal');
 var Mining = require('./mining');
 var Repair = require('./repair');
 var Upgrade = require('./upgrade');
@@ -27,6 +28,7 @@ module.exports = {
     extract: new Extract(),
     deliver: new Deliver(),
     drop: new Drop(),
+    heal: new Heal(),
     mining: new Mining(),
     repair: new Repair(),
     upgrade: new Upgrade(),

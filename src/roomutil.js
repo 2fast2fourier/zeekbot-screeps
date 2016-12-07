@@ -33,6 +33,15 @@ class RoomUtil {
         return leastId;
     }
 
+    static getNearestSource(creep, maxRange){
+        if(maxRange > 0){
+            var sources = _.filter(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange);
+            return _.first(_.sortBy(sources, source => creep.pos.getRangeTo(source)));
+        }else{
+            return _.first(_.sortBy(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange));
+        }
+    }
+
     static calculateSourceEnergy(room){
         var energy = 0;
         var sources = room.find(FIND_SOURCES);

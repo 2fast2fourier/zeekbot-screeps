@@ -10,11 +10,7 @@ class MiningBehavior extends RemoteBaseBehavior {
         if(super.stillValid(creep, data, catalog)){
             return true;
         }
-        var target = Game.getObjectById(creep.memory.traits.mining);
-        if(target && data.maxRange && data.maxRange < creep.pos.getRangeTo(target)){
-            return false;
-        }
-        return creep.carry.energy < creep.carryCapacity - 10 && target;
+        return creep.carry.energy < creep.carryCapacity - 10 && this.exists(creep);
     }
 
     bid(creep, data, catalog){
@@ -32,12 +28,14 @@ class MiningBehavior extends RemoteBaseBehavior {
             return true;
         }
         if(creep.memory.lastSource && RoomUtil.exists(creep.memory.lastSource)){
-            creep.memory.traits.mining = creep.memory.lastSource;
+            this.setTrait(creep, creep.memory.lastSource);
+        }else if(data.maxRange > 0){
+            this.setTrait(creep, _.get(RoomUtil.getNearestSource(creep, data.maxRange), 'id', null));
         }else{
-            creep.memory.traits.mining = RoomUtil.findFreeMiningId(creep.room, creep, catalog);
+            this.setTrait(creep, RoomUtil.findFreeMiningId(creep.room, creep, catalog));
         }
         
-        return RoomUtil.exists(creep.memory.traits.mining);
+        return this.exists(creep);
     }
 
     process(creep, data, catalog){

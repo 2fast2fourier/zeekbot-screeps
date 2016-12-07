@@ -39,6 +39,7 @@ class Util {
                 extractor: catalog.getBuildingsByType(room, STRUCTURE_EXTRACTOR).length > 0,
                 mineralId: _.get(mineral, 'id', false),
                 mineralType: _.get(mineral, 'mineralType', false),
+                mineralAmount: _.get(mineral, 'mineralAmount', 0),
                 energy: RoomUtil.getEnergy(room.storage),
                 terminalEnergy: RoomUtil.getEnergy(catalog.getFirstBuilding(room, STRUCTURE_TERMINAL)),
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))

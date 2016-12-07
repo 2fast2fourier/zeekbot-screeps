@@ -49,8 +49,8 @@ module.exports =
 
 	var Controller = __webpack_require__(1);
 	var Spawner = __webpack_require__(3);
-	var Behavior = __webpack_require__(18);
-	var Catalog = __webpack_require__(19);
+	var Behavior = __webpack_require__(19);
+	var Catalog = __webpack_require__(20);
 	var RoomUtil = __webpack_require__(2);
 
 	class Util {
@@ -86,6 +86,7 @@ module.exports =
 	                extractor: catalog.getBuildingsByType(room, STRUCTURE_EXTRACTOR).length > 0,
 	                mineralId: _.get(mineral, 'id', false),
 	                mineralType: _.get(mineral, 'mineralType', false),
+	                mineralAmount: _.get(mineral, 'mineralAmount', 0),
 	                energy: RoomUtil.getEnergy(room.storage),
 	                terminalEnergy: RoomUtil.getEnergy(catalog.getFirstBuilding(room, STRUCTURE_TERMINAL)),
 	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
@@ -215,6 +216,15 @@ module.exports =
 	            }
 	        });
 	        return leastId;
+	    }
+
+	    static getNearestSource(creep, maxRange){
+	        if(maxRange > 0){
+	            var sources = _.filter(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange);
+	            return _.first(_.sortBy(sources, source => creep.pos.getRangeTo(source)));
+	        }else{
+	            return _.first(_.sortBy(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange));
+	        }
 	    }
 
 	    static calculateSourceEnergy(room){
@@ -467,6 +477,9 @@ module.exports =
 	            if(requirements.extractor && !roomStats.extractor){
 	                return false;
 	            }
+	            if(requirements.mineralAmount > 0 && roomStats.mineralAmount < requirements.mineralAmount){
+	                return false
+	            }
 	            if(requirements.disableEnergy > 0 && roomStats.energy > requirements.disableEnergy){
 	                return false;
 	            }
@@ -684,14 +697,14 @@ module.exports =
 	            },
 	            remote: {
 	                ideal: 2,
-	                loadout: partList({work: 6, carry: 2, move: 2}),
+	                loadout: partList({work: 6, carry: 2, move: 4}),
 	                requirements: {
 	                    flag: 'Harvest'
 	                },
 	                behaviors: {
-	                    mining: { flag: 'Harvest' },
-	                    deliver: { maxRange: 1, ignoreClass: ['miner', 'extractor', 'tender'], excludeRemote: true },
-	                    drop: { priority: 0.75 }
+	                    mining: { flag: 'Harvest', maxRange: 5, approachFlag: true },
+	                    deliver: { maxRange: 1, ignoreCreeps: true },
+	                    drop: { priority: 1 }
 	                },
 	                remote: true
 	            }
@@ -807,7 +820,7 @@ module.exports =
 	                ideal: 1,
 	                additional: {
 	                    count: 1,
-	                    energy: 5000
+	                    energy: 50000
 	                },
 	                loadout: partList({work: 8, carry: 2, move: 3}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
@@ -827,6 +840,20 @@ module.exports =
 	                },
 	                loadout: partList({work: 4, carry: 2, move: 1}),
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
+	            },
+	            remote: {
+	                ideal: 1,
+	                requirements: {
+	                    flag: 'Work'
+	                },
+	                behaviors: {
+	                    pickup: { flag: 'Work' },
+	                    emergencydeliver: {},
+	                    build: {},
+	                    repair: { priority: 2 }
+	                },
+	                remote: true,
+	                loadout: partList({work: 4, carry: 2, move: 6})
 	            },
 	            remoteupgrade: {
 	                ideal: 2,
@@ -860,7 +887,8 @@ module.exports =
 	            micro: {
 	                ideal: 1,
 	                requirements: {
-	                    extractor: true
+	                    extractor: true,
+	                    mineralAmount: 1
 	                },
 	                loadout: partList({work: 10, carry: 2, move: 6})
 	            }
@@ -877,7 +905,8 @@ module.exports =
 	                ideal: 1,
 	                loadout: partList({carry: 6, move: 6}),
 	                requirements: {
-	                    extractor: true
+	                    extractor: true,
+	                    mineralAmount: 1
 	                }
 	            },
 	            energy: {
@@ -908,8 +937,8 @@ module.exports =
 	                requirements: {
 	                    flag: 'Assault'
 	                },
-	                loadout: partList({tough: 9, move: 12, attack: 15}),
-	                behaviors: { attack: { flag: 'Assault' } },
+	                loadout: partList({tough: 17, move: 16, attack: 15}),
+	                behaviors: { attack: { flag: 'Assault', maxRange: 10 } },
 	                remote: true
 	            },
 	            pico: {
@@ -928,13 +957,13 @@ module.exports =
 	            pico: {
 	                ideal: 1,
 	                requirements: {
-	                    flag: 'Heal'
+	                    flag: 'Assault'
 	                },
 	                loadout: partList({tough: 8, move: 6, heal: 4}),
 	                remote: true
 	            }
 	        },
-	        behaviors: { attack: { flag: 'Attack' }, defend: { flag: 'Base' } }
+	        behaviors: { heal: { flag: 'Assault' } }
 	    },
 	    claimer: {
 	        versions: {
@@ -971,10 +1000,11 @@ module.exports =
 	var Drop = __webpack_require__(11);
 	var EmergencyDeliver = __webpack_require__(12);
 	var Extract = __webpack_require__(13);
-	var Mining = __webpack_require__(14);
-	var Repair = __webpack_require__(15);
-	var Upgrade = __webpack_require__(16);
-	var Pickup = __webpack_require__(17);
+	var Heal = __webpack_require__(14);
+	var Mining = __webpack_require__(15);
+	var Repair = __webpack_require__(16);
+	var Upgrade = __webpack_require__(17);
+	var Pickup = __webpack_require__(18);
 
 	module.exports = {
 	    attack: new Attack(),
@@ -984,6 +1014,7 @@ module.exports =
 	    extract: new Extract(),
 	    deliver: new Deliver(),
 	    drop: new Drop(),
+	    heal: new Heal(),
 	    mining: new Mining(),
 	    repair: new Repair(),
 	    upgrade: new Upgrade(),
@@ -1045,19 +1076,32 @@ module.exports =
 	        if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
 	            return true;
 	        }
+	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	            return true;
+	        }
 	        return false;
 	    }
 	    bid(creep, data, catalog){
 	        var flag = Game.flags[data.flag];
+	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	            return true;
+	        }
 	        return flag && creep.pos.roomName != flag.pos.roomName;
 	    }
 	    start(creep, data, catalog){
 	        var flag = Game.flags[data.flag];
+	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	            return true;
+	        }
 	        return flag && creep.pos.roomName != flag.pos.roomName;
 	    }
 	    process(creep, data, catalog){
 	        var flag = Game.flags[data.flag];
 	        if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
+	            creep.moveTo(flag);
+	            return true;
+	        }
+	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
 	            creep.moveTo(flag);
 	            return true;
 	        }
@@ -1169,16 +1213,18 @@ module.exports =
 	    process(creep, data, catalog){
 	        var sayings = ['~biff~', 'bam!', 'zing'];
 	        var hostiles = catalog.hostiles[creep.pos.roomName];
+	        if(data.maxRange > 0){
+	            hostiles = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < data.maxRange);
+	        }
 	        var hostileStructures = catalog.hostileStructures[creep.pos.roomName];
 	        
 	        var targetFlag = Game.flags[_.get(Memory, 'targetFlag', _.get(data, 'flag', 'Base'))];
 	        if(!targetFlag){
 	            targetFlag = Game.flags['Base'];
 	        }
-	        // console.log(targetFlag, _.get(Memory, 'targetFlag', _.get(data, 'flag', 'Base')));
 	        var manualTarget = _.get(Memory, 'manualTarget', false);
 	        var target = false;
-	        if(targetFlag && (creep.pos.roomName != targetFlag.pos.roomName || (hostiles.length < 1 && hostileStructures.length < 1 && !manualTarget))){
+	        if(targetFlag && (creep.pos.roomName != targetFlag.pos.roomName || (hostiles.length < 1 && !manualTarget))){
 	            if(creep.pos.getRangeTo(targetFlag) > 2){
 	                creep.moveTo(targetFlag);
 	            }
@@ -1190,10 +1236,12 @@ module.exports =
 	        }else if(hostiles.length > 0){
 	            var enemies = _.sortBy(hostiles, (target)=>creep.pos.getRangeTo(target));
 	            target = enemies[0];
-	        }else if(hostileStructures.length > 0){
-	            var enemies = _.sortBy(hostileStructures, (target)=>creep.pos.getRangeTo(target));
-	            target = enemies[0];
 	        }
+	        // else if(hostileStructures.length > 0){
+	        //     var enemies = _.sortBy(hostileStructures, (target)=>creep.pos.getRangeTo(target));
+	        //     target = enemies[0];
+	        //     // console.log(target);
+	        // }
 	        if(target){
 	            var result = creep.attack(target);
 	            if(result == ERR_NOT_IN_RANGE) {
@@ -1479,6 +1527,57 @@ module.exports =
 	"use strict";
 
 	var RoomUtil = __webpack_require__(2);
+	var { BaseBehavior } = __webpack_require__(6);
+
+	class HealBehavior extends BaseBehavior {
+
+	    stillValid(creep, data, catalog){
+	        return true;
+	    }
+
+	    bid(creep, data, catalog){
+	        return 0;
+	    }
+
+	    start(creep, data, catalog){
+	        return true;
+	    }
+
+	    process(creep, data, catalog){
+	        var patients = _.filter(catalog.getCreeps(creep.room), patient => patient.hits < patient.hitsMax);
+	        var targetFlag = Game.flags[_.get(Memory, 'targetFlag', _.get(data, 'flag', 'Base'))];
+	        if(!targetFlag){
+	            targetFlag = Game.flags['Base'];
+	        }
+	        var target = false;
+	        if(targetFlag && (creep.pos.roomName != targetFlag.pos.roomName || (patients.length < 1))){
+	            if(creep.pos.getRangeTo(targetFlag) > 1){
+	                creep.moveTo(targetFlag);
+	            }
+	        }else if(patients.length > 0){
+	            var targets = _.sortBy(patients, (target)=>creep.pos.getRangeTo(target));
+	            target = targets[0];
+	        }
+	        if(target){
+	            var result = creep.heal(target);
+	            if(result == ERR_NOT_IN_RANGE) {
+	                creep.moveTo(target);
+	            }else if(result == OK){
+	                creep.say('beyoop');
+	            }
+	        }
+	    }
+	};
+
+	module.exports = HealBehavior;
+
+/***/ },
+/* 15 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var RoomUtil = __webpack_require__(2);
 	var { RemoteBaseBehavior } = __webpack_require__(6);
 
 	class MiningBehavior extends RemoteBaseBehavior {
@@ -1488,11 +1587,7 @@ module.exports =
 	        if(super.stillValid(creep, data, catalog)){
 	            return true;
 	        }
-	        var target = Game.getObjectById(creep.memory.traits.mining);
-	        if(target && data.maxRange && data.maxRange < creep.pos.getRangeTo(target)){
-	            return false;
-	        }
-	        return creep.carry.energy < creep.carryCapacity - 10 && target;
+	        return creep.carry.energy < creep.carryCapacity - 10 && this.exists(creep);
 	    }
 
 	    bid(creep, data, catalog){
@@ -1510,12 +1605,14 @@ module.exports =
 	            return true;
 	        }
 	        if(creep.memory.lastSource && RoomUtil.exists(creep.memory.lastSource)){
-	            creep.memory.traits.mining = creep.memory.lastSource;
+	            this.setTrait(creep, creep.memory.lastSource);
+	        }else if(data.maxRange > 0){
+	            this.setTrait(creep, _.get(RoomUtil.getNearestSource(creep, data.maxRange), 'id', null));
 	        }else{
-	            creep.memory.traits.mining = RoomUtil.findFreeMiningId(creep.room, creep, catalog);
+	            this.setTrait(creep, RoomUtil.findFreeMiningId(creep.room, creep, catalog));
 	        }
 	        
-	        return RoomUtil.exists(creep.memory.traits.mining);
+	        return this.exists(creep);
 	    }
 
 	    process(creep, data, catalog){
@@ -1537,7 +1634,7 @@ module.exports =
 	module.exports = MiningBehavior;
 
 /***/ },
-/* 15 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1604,7 +1701,7 @@ module.exports =
 	module.exports = RepairBehavior;
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1662,7 +1759,7 @@ module.exports =
 	module.exports = UpgradeBehavior;
 
 /***/ },
-/* 17 */
+/* 18 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1746,7 +1843,7 @@ module.exports =
 	module.exports = PickupBehavior;
 
 /***/ },
-/* 18 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -1828,7 +1925,7 @@ module.exports =
 	module.exports = Behavior;
 
 /***/ },
-/* 19 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
