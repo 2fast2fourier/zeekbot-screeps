@@ -64,7 +64,7 @@ module.exports = {
             },
             remote: {
                 ideal: 2,
-                loadout: partList({work: 6, carry: 2, move: 4}),
+                loadout: partList({move: 4, work: 6, carry: 2}),
                 requirements: {
                     flag: 'Harvest'
                 },
@@ -111,7 +111,7 @@ module.exports = {
             },
             remote: {
                 ideal: 2,
-                loadout: partList({carry: 10, move: 5}),
+                loadout: partList({move: 5, carry: 10}),
                 remote: true,
                 requirements: {
                     flag: 'Collect'
@@ -220,7 +220,7 @@ module.exports = {
                     repair: { priority: 2 }
                 },
                 remote: true,
-                loadout: partList({work: 4, carry: 2, move: 6})
+                loadout: partList({move: 6, work: 4, carry: 2})
             },
             remoteupgrade: {
                 ideal: 2,
@@ -236,7 +236,7 @@ module.exports = {
                 requirements: {
                     flag: 'Repair'
                 },
-                loadout: partList({work: 2, carry: 2, move: 4}),
+                loadout: partList({move: 4, work: 2, carry: 2}),
                 behaviors: { pickup: {}, repair: { flag: 'Repair' }, emergencydeliver: {} },
                 remote: true
             }
