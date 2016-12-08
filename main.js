@@ -1167,21 +1167,21 @@ module.exports =
 	        if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
 	            return true;
 	        }
-	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) >= data.maxRange){
 	            return true;
 	        }
 	        return false;
 	    }
 	    bid(creep, data, catalog){
 	        var flag = this.getFlag(creep, data);
-	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) >= data.maxRange){
 	            return true;
 	        }
 	        return flag && creep.pos.roomName != flag.pos.roomName;
 	    }
 	    start(creep, data, catalog){
 	        var flag = this.getFlag(creep, data);
-	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	        if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) >= data.maxRange){
 	            return true;
 	        }
 	        return flag && creep.pos.roomName != flag.pos.roomName;
@@ -1192,7 +1192,7 @@ module.exports =
 	            creep.moveTo(flag);
 	            return true;
 	        }
-	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
+	        if(flag && data.approachFlag && creep.pos.getRangeTo(flag) >= data.maxRange){
 	            creep.moveTo(flag);
 	            return true;
 	        }
