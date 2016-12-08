@@ -19,13 +19,21 @@ class AttackBehavior extends BaseBehavior {
 
     process(creep, data, catalog){
         var sayings = ['~biff~', 'bam!', 'zing'];
-        var hostiles = catalog.hostiles[creep.pos.roomName];
-        if(data.maxRange > 0){
+        var hostiles = catalog.getHostileCreeps(creep.room);
+        if(data.maxRange > 0 || creep.hits < creep.hitsMax){
+            var range = data.maxRange;
+            if(creep.hits < creep.hitsMax){
+                range = 10;
+            }
             hostiles = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < data.maxRange);
         }
-        var hostileStructures = catalog.hostileStructures[creep.pos.roomName];
-        
-        var targetFlag = Game.flags[_.get(Memory, 'targetFlag', _.get(data, 'flag', 'Base'))];
+        // var hostileStructures = catalog.getHostileStructures(creep.room);
+        var targetFlag;
+        if(data.flag === true){
+            targetFlag = Game.flags[creep.memory.flag];
+        }else{
+            targetFlag = Game.flags[_.get(Memory, 'targetFlag', _.get(data, 'flag', 'Base'))];
+        }
         if(!targetFlag){
             targetFlag = Game.flags['Base'];
         }
@@ -49,8 +57,16 @@ class AttackBehavior extends BaseBehavior {
         //     target = enemies[0];
         //     // console.log(target);
         // }
+        if(data.ranged && creep.pos.getRangeTo(target) < 2){// && RoomUtil.intactPartCount('move') > 0){
+            creep.move((creep.pos.getDirectionTo(target)+4)%8);
+        }
         if(target){
-            var result = creep.attack(target);
+            var result;
+            if(data.ranged){
+                result = creep.rangedAttack(target);
+            }else{
+                result = creep.attack(target);
+            }
             if(result == ERR_NOT_IN_RANGE) {
                 creep.moveTo(target);
             }else if(result == OK){

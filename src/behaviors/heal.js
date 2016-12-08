@@ -36,6 +36,7 @@ class HealBehavior extends BaseBehavior {
             var result = creep.heal(target);
             if(result == ERR_NOT_IN_RANGE) {
                 creep.moveTo(target);
+                creep.rangedHeal(target)
             }else if(result == OK){
                 creep.say('beyoop');
             }

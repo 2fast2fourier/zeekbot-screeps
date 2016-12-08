@@ -37,6 +37,7 @@ class Catalog {
         this.remoteCreeps = _.filter(Game.creeps, creep => creep.memory.remote);
         this.remoteClassCount = _.countBy(this.remoteCreeps, creep => creep.memory.class);
         this.remoteTypeCount = _.countBy(this.remoteCreeps, creep => creep.memory.type);
+        // _.forEach(this.remoteTypeCount, (count, type)=>console.log(type, count));
     }
 
     calculateEnergy(creep){
@@ -114,6 +115,10 @@ class Catalog {
         return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
     }
 
+    getMyBuildings(room){
+        return this.buildings[room.name];
+    }
+
     getBuildings(creep, type){
         if(_.isArray(type)){
             return _.filter(this.buildings[creep.pos.roomName], structure => _.includes(type, structure.structureType));
@@ -133,14 +138,20 @@ class Catalog {
     }
 
     getHostiles(room){
-        return this.hostiles[room.name].concat(this.hostileStructures[room.name]);
+        return this.getHostileCreeps(room).concat(this.getHostileStructures(room));
     }
 
     getHostileCreeps(room){
+        if(!this.hostiles[room.name]){
+            this.hostiles[room.name] = room.find(FIND_HOSTILE_CREEPS);
+        }
         return this.hostiles[room.name];
     }
 
     getHostileStructures(room){
+        if(!this.hostileStructures[room.name]){
+            this.hostileStructures[room.name] = room.find(FIND_HOSTILE_STRUCTURES);
+        }
         return this.hostileStructures[room.name];
     }
 

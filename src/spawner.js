@@ -13,8 +13,23 @@ class Spawner {
         }
     }
 
-    static canSpawn(spawn, loadout){
-        return !spawn.spawning && spawn.canCreateCreep(loadout) == OK;
+    static partList(args){
+        var parts = [];
+        _.forEach(args, (count, name)=>{
+            for(var iy=0;iy<count;iy++){
+                parts.push(name);
+            }
+        });
+        return parts;
+    }
+
+    static calculateCost(partList){
+        var prices = { work: 100, carry: 50, move: 50, attack: 80, tough: 10, ranged_attack: 150, claim: 600, heal: 250 };
+        var cost = 0;
+        _.forEach(partList, (count, name)=>{
+            cost += prices[name] * count;
+        });
+        return cost;
     }
 
     static shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats){
@@ -24,6 +39,7 @@ class Spawner {
         }
         if(version.remote || category.remote){
             //TODO fix additional support for remote types
+            // console.log(fullType);
             return _.get(catalog.remoteTypeCount, fullType, 0) < version.ideal;
         }
         return Spawner.getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType) > 0;
@@ -64,16 +80,13 @@ class Spawner {
     static checkRequirements(spawn, catalog, category, version, roomStats){
         var requirements = version.requirements;
         if(requirements){
-            if(requirements.disableAt > 0 && roomStats.spawn >= requirements.disableAt){
-                return false;
-            }
             if(requirements.extractor && !roomStats.extractor){
                 return false;
             }
             if(requirements.mineralAmount > 0 && roomStats.mineralAmount < requirements.mineralAmount){
                 return false
             }
-            if(requirements.disableEnergy > 0 && roomStats.energy > requirements.disableEnergy){
+            if(requirements.energy > 0 && roomStats.energy < requirements.energy){
                 return false;
             }
             if(requirements.flag && !Game.flags[requirements.flag]){
@@ -81,6 +94,16 @@ class Spawner {
             }
             if(requirements.repairHits > 0 && requirements.repairHits > roomStats.repairHits){
                 return false;
+            }
+            if(requirements.flagClear > 0 && !!Game.flags[requirements.flag]){
+                var flag = Game.flags[requirements.flag];
+                if(!flag.room){
+                    return false;
+                }
+                var hostiles = _.filter(catalog.getHostileCreeps(flag.room), hostile => flag.pos.getRangeTo(hostile) < requirements.flagClear);
+                if(hostiles.length > 0){
+                    return false;
+                }
             }
         }
         return true;
@@ -142,7 +165,8 @@ class Spawner {
             behaviors: version.behaviors || category.behaviors,
             traits: {},
             action: false,
-            remote: version.remote || category.remote
+            remote: version.remote || category.remote,
+            flag: version.flag || category.flag
         };
         
         _.forEach(version.behaviors || category.behaviors, (data, name) => {
@@ -169,16 +193,17 @@ class Spawner {
         _.forEach(config, function(category, className){
             _.forEach(category.versions, function(version, prefix){
                 var fullType = prefix + className;
-                if(!startedSpawn
-                        && Spawner.canSpawn(spawn, version.loadout)
-                        && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
-                    var spawned = spawn.createCreep(version.loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
-                    startedSpawn = !!spawned;
-                    Memory.uid++;
-                    console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(spawn, catalog, category, version, fullType)+1, spawned);
-                    //HACK reset deficit count until next tick, so we don't accidentally interrupt any jobs
-                    catalog.deficits[spawn.room.name] = 0;
-                    catalog.deficitCounts[spawn.room.name] = {};
+                if(!startedSpawn && !spawn.spawning && Spawner.shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats)){
+                    var loadout = Spawner.partList(version.parts);
+                    if(spawn.canCreateCreep(loadout) == OK){
+                        var spawned = spawn.createCreep(loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
+                        startedSpawn = !!spawned;
+                        Memory.uid++;
+                        console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(spawn, catalog, category, version, fullType)+1, 'cost:', Spawner.calculateCost(version.parts));
+                        //HACK reset deficit count until next tick, so we don't accidentally interrupt any jobs
+                        catalog.deficits[spawn.room.name] = 0;
+                        catalog.deficitCounts[spawn.room.name] = {};
+                    }
                 }
             });
         });

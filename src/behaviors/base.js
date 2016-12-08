@@ -42,8 +42,15 @@ class BaseBehavior {
 class RemoteBaseBehavior extends BaseBehavior {
     constructor(type){ super(type); }
 
+    getFlag(creep, data){
+        if(data.flag === true){
+            return Game.flags[creep.memory.flag];
+        }
+        return Game.flags[data.flag];
+    }
+
     stillValid(creep, data, catalog){
-        var flag = Game.flags[data.flag];
+        var flag = this.getFlag(creep, data);
         if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
             return true;
         }
@@ -53,21 +60,21 @@ class RemoteBaseBehavior extends BaseBehavior {
         return false;
     }
     bid(creep, data, catalog){
-        var flag = Game.flags[data.flag];
+        var flag = this.getFlag(creep, data);
         if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
             return true;
         }
         return flag && creep.pos.roomName != flag.pos.roomName;
     }
     start(creep, data, catalog){
-        var flag = Game.flags[data.flag];
+        var flag = this.getFlag(creep, data);
         if(flag && creep.pos.roomName == flag.pos.roomName && data.approachFlag && creep.pos.getRangeTo(flag) > data.maxRange){
             return true;
         }
         return flag && creep.pos.roomName != flag.pos.roomName;
     }
     process(creep, data, catalog){
-        var flag = Game.flags[data.flag];
+        var flag = this.getFlag(creep, data);
         if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
             creep.moveTo(flag);
             return true;
@@ -80,18 +87,18 @@ class RemoteBaseBehavior extends BaseBehavior {
     }
 }
 
-class BaseFlagBehavior {
+class BaseFlagBehavior extends RemoteBaseBehavior {
 
     stillValid(creep, data, catalog){
-        return !!Game.flags[data.flag];
+        return !!this.getFlag(creep, data);
     }
 
     bid(creep, data, catalog){
-        return !!Game.flags[data.flag];
+        return !!this.getFlag(creep, data);
     }
 
     start(creep, data, catalog){
-        return !!Game.flags[data.flag];
+        return !!this.getFlag(creep, data);
     }
 
     process(creep, data, catalog){ }
