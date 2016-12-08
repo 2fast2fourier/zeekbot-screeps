@@ -71,7 +71,7 @@ module.exports = {
                 loadout: partList({move: 4, work: 6, carry: 2}),
                 parts: {move: 4, work: 6, carry: 2},
                 requirements: {
-                    flag: 'Harvest', energy: 25000, flagClear: 10
+                    flag: 'Harvest', energy: 60000, flagClear: 10
                 },
                 behaviors: {
                     mining: { flag: 'Harvest', maxRange: 5, approachFlag: true },
@@ -122,7 +122,7 @@ module.exports = {
                 parts: {move: 5, carry: 10},
                 remote: true,
                 requirements: {
-                    flag: 'Collect', energy: 25000, flagClear: 20
+                    flag: 'Collect', energy: 60000, flagClear: 20
                 },
                 disable: {
                     energy: 500000
@@ -233,7 +233,7 @@ module.exports = {
                     flag: 'Work'
                 },
                 behaviors: {
-                    pickup: { flag: 'Work', energy: 25000, flagClear: 20 },
+                    pickup: { flag: 'Work', energy: 60000, flagClear: 20 },
                     emergencydeliver: {},
                     build: {},
                     repair: { priority: 2 }
@@ -245,7 +245,7 @@ module.exports = {
             remoteupgrade: {
                 ideal: 2,
                 requirements: {
-                    flag: 'Upgrade', energy: 25000, flagClear: 20
+                    flag: 'Upgrade', energy: 60000, flagClear: 20
                 },
                 loadout: partList({work: 6, carry: 4, move: 3}),
                 parts: {work: 6, carry: 4, move: 3},
@@ -255,7 +255,7 @@ module.exports = {
             remoterepair: {
                 ideal: 1,
                 requirements: {
-                    flag: 'Repair', energy: 25000, flagClear: 20
+                    flag: 'Repair', energy: 60000, flagClear: 20
                 },
                 loadout: partList({move: 4, work: 2, carry: 2}),
                 parts: {move: 4, work: 2, carry: 2},
@@ -327,7 +327,7 @@ module.exports = {
             a1: {
                 ideal: 1,
                 parts: {move: 4, work: 7, carry: 2},
-                requirements: { flag: 'Keep-1-Mine', energy: 25000, flagClear: 10 },
+                requirements: { flag: 'Keep-1-Mine', energy: 60000, flagClear: 10 },
                 flag: 'Keep-1-Mine'
             }
         },
@@ -381,7 +381,7 @@ module.exports = {
                 ideal: 1,
                 requirements: {
                     flag: 'Heal',
-                    energy: 25000
+                    energy: 60000
                 },
                 loadout: partList({tough: 4, move: 8, heal: 4}),
                 parts: {tough: 4, move: 8, heal: 4},
