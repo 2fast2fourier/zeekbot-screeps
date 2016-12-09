@@ -343,12 +343,12 @@ module.exports = {
     fighter: {
         versions: {
             ranged: {
-                ideal: 1,
+                ideal: 2,
                 requirements: {
-                    flag: 'Assault'
+                    flag: 'Defend'
                 },
                 parts: {tough: 10, move: 10, ranged_attack: 10},
-                behaviors: { attack: { flag: 'Assault', maxRange: 10, ranged: true } },
+                behaviors: { attack: { flag: 'Defend', maxRange: 10, ranged: true } },
                 remote: true
             },
             nano: {
@@ -369,7 +369,8 @@ module.exports = {
                 ideal: 2,
                 requirements: {
                     flag: 'Heal',
-                    energy: 25000
+                    energy: 25000,
+                    flagClear: 25
                 },
                 parts: {tough: 4, move: 8, heal: 4},
                 remote: true
