@@ -1895,7 +1895,7 @@ module.exports =
 	        }else{
 	            targets = catalog.getEnergyContainers(creep, data.containerTypes);
 	        }
-	        if(storage > 0.99 || !targets.length){
+	        if(storage > 0.5 || !targets.length){
 	            return false;
 	        }
 	        return storage + creep.pos.getRangeTo(targets[0])/50;
