@@ -11,7 +11,7 @@ class RepairBehavior extends RemoteBaseBehavior {
             return true;
         }
         var target = Game.getObjectById(creep.memory.traits.repair);
-        return creep.carry.energy > 0 && target && target.pos.roomName == creep.pos.roomName && target.hits < target.hitsMax && target.hits < Memory.repairTarget;
+        return creep.carry.energy > 0 && target && target.hits < target.hitsMax && target.hits < Memory.repairTarget;
     }
 
     bid(creep, data, catalog){

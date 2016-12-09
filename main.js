@@ -861,9 +861,8 @@ module.exports =
 	                ideal: 1,
 	                additional: {
 	                    count: 1,
-	                    energy: 50000
+	                    energy: 25000
 	                },
-	                loadout: partList({work: 8, carry: 2, move: 3}),
 	                parts: {work: 8, carry: 2, move: 3},
 	                behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
 	            },
@@ -1163,6 +1162,9 @@ module.exports =
 	    }
 
 	    stillValid(creep, data, catalog){
+	        if(this.exists(creep)){
+	            return false;
+	        }
 	        var flag = this.getFlag(creep, data);
 	        if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
 	            return true;
@@ -1187,6 +1189,9 @@ module.exports =
 	        return flag && creep.pos.roomName != flag.pos.roomName;
 	    }
 	    process(creep, data, catalog){
+	        if(this.exists(creep)){
+	            return false;
+	        }
 	        var flag = this.getFlag(creep, data);
 	        if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
 	            creep.moveTo(flag);
@@ -1758,7 +1763,7 @@ module.exports =
 	            return true;
 	        }
 	        var target = Game.getObjectById(creep.memory.traits.repair);
-	        return creep.carry.energy > 0 && target && target.pos.roomName == creep.pos.roomName && target.hits < target.hitsMax && target.hits < Memory.repairTarget;
+	        return creep.carry.energy > 0 && target && target.hits < target.hitsMax && target.hits < Memory.repairTarget;
 	    }
 
 	    bid(creep, data, catalog){

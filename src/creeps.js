@@ -203,9 +203,8 @@ module.exports = {
                 ideal: 1,
                 additional: {
                     count: 1,
-                    energy: 50000
+                    energy: 25000
                 },
-                loadout: partList({work: 8, carry: 2, move: 3}),
                 parts: {work: 8, carry: 2, move: 3},
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },

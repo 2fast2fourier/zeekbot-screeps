@@ -50,6 +50,9 @@ class RemoteBaseBehavior extends BaseBehavior {
     }
 
     stillValid(creep, data, catalog){
+        if(this.exists(creep)){
+            return false;
+        }
         var flag = this.getFlag(creep, data);
         if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
             return true;
@@ -74,6 +77,9 @@ class RemoteBaseBehavior extends BaseBehavior {
         return flag && creep.pos.roomName != flag.pos.roomName;
     }
     process(creep, data, catalog){
+        if(this.exists(creep)){
+            return false;
+        }
         var flag = this.getFlag(creep, data);
         if(flag && (creep.pos.roomName != flag.pos.roomName || RoomUtil.onEdge(creep.pos))){
             creep.moveTo(flag);
