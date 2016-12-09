@@ -18,7 +18,6 @@ module.exports = {
             micro: {
                 ideal: 2,
                 critical: 900,
-                loadout: partList({work: 6, carry: 2, move: 4}),
                 parts: {work: 6, carry: 2, move: 4}
             },
             nano: {
@@ -31,7 +30,6 @@ module.exports = {
                     unless: 1,
                     spawn: 900
                 },
-                loadout: partList({work: 6, carry: 2, move: 1}),
                 parts: {work: 6, carry: 2, move: 1}
             },
             pano: {
@@ -44,13 +42,11 @@ module.exports = {
                     unless: 3,
                     spawn: 750
                 },
-                loadout: partList({work: 4, carry: 1, move: 1}),
                 parts: {work: 4, carry: 1, move: 1}
             },
             pico: {
                 bootstrap: 1,
                 critical: 300,
-                loadout: partList({work: 2, carry: 1, move: 1}),
                 parts: {work: 2, carry: 1, move: 1},
                 disable: {
                     energy: 2000
@@ -68,7 +64,6 @@ module.exports = {
             },
             remote: {
                 ideal: 2,
-                loadout: partList({move: 4, work: 6, carry: 2}),
                 parts: {move: 4, work: 6, carry: 2},
                 requirements: {
                     flag: 'Harvest', energy: 60000, flagClear: 10
@@ -104,7 +99,6 @@ module.exports = {
                     count: 2,
                     upgradeDistance: 20
                 },
-                loadout: partList({carry: 5, move: 5}),
                 parts: {carry: 5, move: 5}
             },
             pico: {
@@ -113,12 +107,10 @@ module.exports = {
                 disable: {
                     spawnCapacity: 500
                 },
-                loadout: partList({carry: 2, move: 2}),
                 parts: {carry: 2, move: 2}
             },
             remote: {
                 ideal: 4,
-                loadout: partList({move: 5, carry: 10}),
                 parts: {move: 5, carry: 10},
                 remote: true,
                 requirements: {
@@ -149,7 +141,6 @@ module.exports = {
                     count: 1,
                     buildHits: 1000
                 },
-                loadout: partList({work: 4, carry: 2, move: 6}),
                 parts: {work: 4, carry: 2, move: 6}
             },
             nano: {
@@ -161,7 +152,6 @@ module.exports = {
                     count: 1,
                     buildHits: 1000
                 },
-                loadout: partList({work: 2, carry: 2, move: 4}),
                 parts: {work: 2, carry: 2, move: 4}
             },
             pico: {
@@ -170,7 +160,6 @@ module.exports = {
                     count: 1,
                     buildHits: 1000
                 },
-                loadout: partList({work: 1, carry: 2, move: 2}),
                 parts: {work: 1, carry: 2, move: 2}
             },
             repair: {
@@ -182,7 +171,6 @@ module.exports = {
                     count: 1,
                     repairHits: 20000
                 },
-                loadout: partList({work: 4, carry: 2, move: 4}),
                 parts: {work: 4, carry: 2, move: 4},
                 behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
             },
@@ -195,7 +183,6 @@ module.exports = {
                     count: 1,
                     repairHits: 10000
                 },
-                loadout: partList({work: 2, carry: 2, move: 4}),
                 parts: {work: 2, carry: 2, move: 4},
                 behaviors: { pickup: {}, repair: {}, emergencydeliver: {} }
             },
@@ -213,7 +200,6 @@ module.exports = {
                 disable: {
                     spawnCapacity: 850
                 },
-                loadout: partList({work: 6, carry: 2, move: 2}),
                 parts: {work: 6, carry: 2, move: 2},
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
@@ -222,7 +208,6 @@ module.exports = {
                 disable: {
                     spawnCapacity: 600
                 },
-                loadout: partList({work: 4, carry: 2, move: 1}),
                 parts: {work: 4, carry: 2, move: 1},
                 behaviors: { pickup: {}, upgrade: {}, emergencydeliver: {} }
             },
@@ -238,7 +223,6 @@ module.exports = {
                     repair: { priority: 2 }
                 },
                 remote: true,
-                loadout: partList({move: 6, work: 4, carry: 2}),
                 parts: {move: 6, work: 4, carry: 2}
             },
             remoteupgrade: {
@@ -246,7 +230,6 @@ module.exports = {
                 requirements: {
                     flag: 'Upgrade', energy: 60000, flagClear: 20
                 },
-                loadout: partList({work: 6, carry: 4, move: 3}),
                 parts: {work: 6, carry: 4, move: 3},
                 behaviors: { pickup: {}, upgrade: { flag: 'Upgrade' }, emergencydeliver: {} },
                 remote: true
@@ -256,7 +239,6 @@ module.exports = {
                 requirements: {
                     flag: 'Repair', energy: 60000, flagClear: 20
                 },
-                loadout: partList({move: 4, work: 2, carry: 2}),
                 parts: {move: 4, work: 2, carry: 2},
                 behaviors: { pickup: {}, repair: { flag: 'Repair' }, emergencydeliver: {} },
                 remote: true
@@ -278,7 +260,6 @@ module.exports = {
                     extractor: true,
                     mineralAmount: 1
                 },
-                loadout: partList({work: 10, carry: 2, move: 6}),
                 parts: {work: 10, carry: 2, move: 6}
             }
         },
@@ -292,7 +273,6 @@ module.exports = {
         versions: {
             nano: {
                 ideal: 1,
-                loadout: partList({carry: 6, move: 6}),
                 parts: {carry: 6, move: 6},
                 requirements: {
                     extractor: true,
@@ -301,7 +281,6 @@ module.exports = {
             },
             energy: {
                 ideal: 1,
-                loadout: partList({carry: 4, move: 4}),
                 parts: {carry: 4, move: 4},
                 requirements: {
                     extractor: true
@@ -328,6 +307,12 @@ module.exports = {
                 parts: {move: 4, work: 7, carry: 2},
                 requirements: { flag: 'Keep-1-Mine', energy: 60000, flagClear: 10 },
                 flag: 'Keep-1-Mine'
+            },
+            a2: {
+                ideal: 1,
+                parts: {move: 4, work: 7, carry: 2},
+                requirements: { flag: 'Keep-2-Mine', energy: 60000, flagClear: 10 },
+                flag: 'Keep-2-Mine'
             }
         },
         behaviors: {
@@ -344,6 +329,12 @@ module.exports = {
                 parts: {tough: 17, move: 16, attack: 15},
                 requirements: { flag: 'Keep-1' },
                 flag: 'Keep-1'
+            },
+            a2: {
+                ideal: 2,
+                parts: {tough: 17, move: 16, attack: 15},
+                requirements: { flag: 'Keep-2' },
+                flag: 'Keep-2'
             }
         },
         behaviors: { attack: { flag: true, maxRange: 10 } },
@@ -356,7 +347,6 @@ module.exports = {
                 requirements: {
                     flag: 'Assault'
                 },
-                loadout: partList({tough: 10, move: 10, ranged_attack: 10}),
                 parts: {tough: 10, move: 10, ranged_attack: 10},
                 behaviors: { attack: { flag: 'Assault', maxRange: 10, ranged: true } },
                 remote: true
@@ -366,7 +356,6 @@ module.exports = {
                 requirements: {
                     flag: 'Assault'
                 },
-                loadout: partList({tough: 17, move: 16, attack: 15}),
                 parts: {tough: 17, move: 16, attack: 15},
                 behaviors: { attack: { flag: 'Assault', maxRange: 10 } },
                 remote: true
@@ -377,12 +366,11 @@ module.exports = {
     healer: {
         versions: {
             pico: {
-                ideal: 1,
+                ideal: 2,
                 requirements: {
                     flag: 'Heal',
-                    energy: 60000
+                    energy: 25000
                 },
-                loadout: partList({tough: 4, move: 8, heal: 4}),
                 parts: {tough: 4, move: 8, heal: 4},
                 remote: true
             }
@@ -396,7 +384,6 @@ module.exports = {
                 requirements: {
                     flag: 'Reserve'
                 },
-                loadout: [ CLAIM, MOVE ],
                 parts: {move: 2, claim: 2},
                 remote: true
             }
