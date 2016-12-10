@@ -1,140 +1,126 @@
 "use strict";
 
-var RoomUtil = require('./roomutil');
+var JobManager = require('./jobmanager');
 
 class Catalog {
     constructor(){
-        this.traits = {};
-        this.buildings = {};
-        this.hostiles = {};
-        this.hostileStructures = {};
-        this.energy = {};
-        this.creeps = {};
-        this.classCounts = {};
-        this.creepTypes = {};
-        this.deficitCounts = {};
-        this.deficits = {};
-        
-        _.forEach(Game.creeps, creep => {
-            var roomName = creep.pos.roomName;
-            _.forEach(creep.memory.traits, (value, trait) => this.addTrait(creep, trait, value));
-            if(!this.hostiles[roomName]){
-                this.hostiles[roomName] = creep.room.find(FIND_HOSTILE_CREEPS);
-            }
-            if(!this.buildings[roomName]){
-                this.buildings[roomName] = creep.room.find(FIND_STRUCTURES);
-            }
-            if(!this.hostileStructures[roomName]){
-                this.hostileStructures[roomName] = creep.room.find(FIND_HOSTILE_STRUCTURES);
-            }
-            if(this.energy[roomName] === undefined){
-                this.energy[roomName] = this.calculateEnergy(creep);
-            }
-        });
+        this.types = {
+            collect: [ STRUCTURE_CONTAINER ],
+            dropoff: [ STRUCTURE_STORAGE ],
+            energy: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK ],
+            allResources: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL, STRUCTURE_LAB, STRUCTURE_LINK ],
+            spawn: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ],
+            energyNeeds: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_STORAGE ],
+            storage: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ],
+            walls: [ STRUCTURE_WALL, STRUCTURE_RAMPART ]
+        };
 
-        this.traitCount = _.mapValues(this.traits, list => _.size(list));
-        this.classCount = _.countBy(Game.creeps, creep => creep.memory.class);
-        this.remoteCreeps = _.filter(Game.creeps, creep => creep.memory.remote);
-        this.remoteClassCount = _.countBy(this.remoteCreeps, creep => creep.memory.class);
-        this.remoteTypeCount = _.countBy(this.remoteCreeps, creep => creep.memory.type);
-        // _.forEach(this.remoteTypeCount, (count, type)=>console.log(type, count));
+        this.structures = {};
+        this.hostile = {
+            structures: {},
+            creeps: {}
+        };
+
+        this.roomData = {};
+        // roomData: {
+        //     energy,
+        //     minerals,
+        //     mineralAmount,
+        //     mineralType,
+        //     sources,
+        //     sourceEnergy
+        // }
+
+
+        this.droppedResources = {};
+
+        this.creeps = {
+            class: _.groupBy(Game.creeps, creep => creep.memory.class),
+            type: _.groupBy(Game.creeps, creep => creep.memory.type),
+            room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
+        };
+
+        this.rooms = _.filter(Game.rooms, 'controller.my');
+
+        this.jobs = new JobManager(this);
+
+        // this.deficitCounts = {};
+        // this.deficits = {};
+
     }
 
-    calculateEnergy(creep){
-        var energy = 0;
-        _.forEach(this.getEnergyContainers(creep), structure => energy += RoomUtil.getEnergy(structure));
-        _.forEach(creep.room.find(FIND_DROPPED_ENERGY), resource => energy += RoomUtil.getEnergy(resource));
-        return energy;
-    }
-
-    addTrait(creep, trait, value){
-        if(!this.traits[trait]){
-            this.traits[trait] = {};
+    getRoomData(room){
+        if(!room.name){
+            return false;
         }
-        if(value !== false){
-            this.traits[trait][creep.id] = value;
+        if(!this.roomData[room.name]){
+            var minerals = room.find(FIND_MINERALS);
+            var sources = room.find(FIND_SOURCES);
+            this.roomData[room.name] = {
+                energy: _.reduce(this.getResourceContainers(room, this.types.energyContainers, RESOURCE_ENERGY), (result, structure) => result += this.getResource(structure, RESOURCE_ENERGY), 0),
+                minerals,
+                mineralAmount: _.reduce(minerals, (result, mineral) => result += mineral.mineralAmount, 0),
+                mineralType: _.get(minerals, '[0].mineralType', false),
+                sources,
+                sourceEnergy: _.reduce(sources, (result, source) => result += source.energy, 0)
+            };
         }
+        return this.roomData[room.name];
     }
 
-    removeTrait(creep, trait){
-        if(this.traits[trait] && this.traits[trait][creep.id]){
-            delete this.traits[trait][creep.id];
+    // getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
+    //     var types = [
+    //         STRUCTURE_CONTAINER,
+    //         STRUCTURE_EXTENSION,
+    //         STRUCTURE_TOWER,
+    //         STRUCTURE_LINK,
+    //         STRUCTURE_STORAGE,
+    //         STRUCTURE_SPAWN
+    //     ];
+    //     var containers = _.filter(this.buildings[creep.pos.roomName],
+    //                               structure => _.includes(containerTypes || types, structure.structureType)
+    //                                             && RoomUtil.getEnergyPercent(structure) < 1
+    //                                             && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
+    //                              );
+
+    //     var filterClass = _.isArray(ignoreClass);
+    //     if(filterClass || !ignoreCreeps){
+    //         var targetCreeps = creep.room.find(FIND_MY_CREEPS, {
+    //             filter: (target)=>!RoomUtil.energyFull(target) && (!filterClass || !_.includes(ignoreClass, target.memory.class))
+    //         });
+
+    //         if(excludeRemote){
+    //             targetCreeps = _.filter(targetCreeps, creep => !creep.memory.remote);
+    //         }
+
+    //         if(targetCreeps.length > 0){
+    //             containers = containers.concat(targetCreeps);
+    //         }
+    //     }
+    //     if(maxRange > 0){
+    //         containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
+    //     }
+
+    //     return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
+    // }
+
+    getStructures(room){
+        if(!room.name){ return []; }
+        if(!this.structures[room.name]){
+            this.structures[room.name] = creep.room.find(FIND_STRUCTURES);
         }
-        this.traitCount = _.mapValues(this.traits, list => _.size(list));
+        return this.structures[room.name];
     }
 
-    getAvailableEnergy(creep){
-        return this.energy[creep.pos.roomName];
-    }
-
-    getEnergyContainers(creep, containerTypes){
-        var creepEnergyNeed = RoomUtil.getEnergyDeficit(creep);
-        var types = [
-            STRUCTURE_CONTAINER,
-            STRUCTURE_LINK,
-            STRUCTURE_STORAGE
-        ];
-        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getEnergy(structure) > 0);
-        containers = containers.concat(_.filter(creep.room.find(FIND_DROPPED_ENERGY), container => RoomUtil.getEnergy(container) > 0));
-        return _.sortBy(containers, container => ((1 - Math.min(1, RoomUtil.getEnergy(container)/creepEnergyNeed)) + creep.pos.getRangeTo(container)/50) + Catalog.getEnergyPickupOffset(container));
-    }
-
-    getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
-        var types = [
-            STRUCTURE_CONTAINER,
-            STRUCTURE_EXTENSION,
-            STRUCTURE_TOWER,
-            STRUCTURE_LINK,
-            STRUCTURE_STORAGE,
-            STRUCTURE_SPAWN
-        ];
-        var containers = _.filter(this.buildings[creep.pos.roomName],
-                                  structure => _.includes(containerTypes || types, structure.structureType)
-                                                && RoomUtil.getEnergyPercent(structure) < 1
-                                                && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
-                                 );
-
-        var filterClass = _.isArray(ignoreClass);
-        if(filterClass || !ignoreCreeps){
-            var targetCreeps = creep.room.find(FIND_MY_CREEPS, {
-                filter: (target)=>!RoomUtil.energyFull(target) && (!filterClass || !_.includes(ignoreClass, target.memory.class))
-            });
-
-            if(excludeRemote){
-                targetCreeps = _.filter(targetCreeps, creep => !creep.memory.remote);
-            }
-
-            if(targetCreeps.length > 0){
-                containers = containers.concat(targetCreeps);
-            }
-        }
-        if(maxRange > 0){
-            containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
-        }
-
-        return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
-    }
-
-    getMyBuildings(room){
-        return this.buildings[room.name];
-    }
-
-    getBuildings(creep, type){
+    getStructuresByType(room, type){
         if(_.isArray(type)){
-            return _.filter(this.buildings[creep.pos.roomName], structure => _.includes(type, structure.structureType));
+            return _.filter(this.getStructures(room), structure => _.includes(type, structure.structureType));
         }
-        if(_.isString(type)){
-            return _.filter(this.buildings[creep.pos.roomName], structure => structure.structureType == type);
-        }
-        return this.buildings[creep.pos.roomName];
-    }
-
-    getBuildingsByType(room, type){
-        return _.filter(this.buildings[room.name], structure => structure.structureType == type);
+        return _.filter(this.getStructures(room), structure => structure.structureType == type);
     }
 
     getFirstBuilding(room, type){
-        return _.first(_.filter(this.buildings[room.name], structure => structure.structureType == type));
+        return _.first(_.filter(this.structures[room.name], structure => structure.structureType == type));
     }
 
     getHostiles(room){
@@ -142,121 +128,106 @@ class Catalog {
     }
 
     getHostileCreeps(room){
-        if(!this.hostiles[room.name]){
-            this.hostiles[room.name] = room.find(FIND_HOSTILE_CREEPS);
+        if(!this.hostile.creeps[room.name]){
+            this.hostile.creeps[room.name] = room.find(FIND_HOSTILE_CREEPS);
         }
-        return this.hostiles[room.name];
+        return this.hostile.creeps[room.name];
     }
 
     getHostileStructures(room){
-        if(!this.hostileStructures[room.name]){
-            this.hostileStructures[room.name] = room.find(FIND_HOSTILE_STRUCTURES);
+        if(!this.hostile.structures[room.name]){
+            this.hostile.structures[room.name] = room.find(FIND_HOSTILE_STRUCTURES);
         }
-        return this.hostileStructures[room.name];
+        return this.hostile.structures[room.name];
     }
 
     getCreeps(room){
-        if(!this.creeps[room.name]){
-            this.creeps[room.name] = room.find(FIND_MY_CREEPS);
-        }
-        return this.creeps[room.name];
+        if(!room.name){ return []; }
+        return this.creeps.room[room.name];
     }
 
-    getLocalCreeps(room){
-        return _.filter(this.getCreeps(room), creep => !creep.memory.remote);
+    getResourceContainers(room, containerTypes, resourceType){
+        if(!room.name){ return []; }
+        if(!resourceType){
+            resourceType = RESOURCE_ENERGY;
+        }
+        var containers = _.filter(this.getStructuresByType(room, containerTypes || this.types.storage), structure => this.getResource(structure, resourceType) > 0);
+        return containers.concat(_.filter(this.getDroppedResources(room), { resourceType }));
     }
 
-    getClassCount(room){
-        if(!this.classCounts[room.name]){
-            this.classCounts[room.name] = _.countBy(this.getLocalCreeps(room), creep => creep.memory.class);
+    getDroppedResources(room){
+        if(!room.name){ return []; }
+        if(!this.droppedResources[room.name]){
+            this.droppedResources[room.name] = creep.room.find(FIND_DROPPED_RESOURCES);
         }
-        return this.classCounts[room.name];
+        return this.droppedResources[room.name];
     }
 
-    getTypeCount(room){
-        if(!this.creepTypes[room.name]){
-            this.creepTypes[room.name] = _.countBy(this.getLocalCreeps(room), creep => creep.memory.type);
-        }
-        return this.creepTypes[room.name];
-    }
-
-    getResourceContainers(creep, resourceType, containerTypes){
-        var creepCapacity = RoomUtil.getStorageDeficit(creep);
-        var types = [
-            STRUCTURE_CONTAINER,
-            STRUCTURE_STORAGE
-        ];
-        var containers = _.filter(this.buildings[creep.pos.roomName], structure => _.includes(containerTypes || types, structure.structureType) && RoomUtil.getResource(structure, resourceType) > 0);
-        containers = containers.concat(creep.room.find(FIND_DROPPED_RESOURCES, { resourceType }));
-        return _.sortBy(containers, container => (1 - Math.min(1, RoomUtil.getStorage(container)/creepCapacity)) + creep.pos.getRangeTo(container)/50 + Catalog.getResourceDeliveryOffset(container));
-    }
-
-    
-    
-    static getEnergyPickupPriority(target){
-        if(!target.structureType){
-            return 1;
-        }
-        var priorities = {
-            'container': 1,
-            'storage': 2,
-            'link': 1
-        };
-        return _.get(priorities, target.structureType, 1);
-    }
-    
-    static getEnergyDeliveryPriority(target){
-        if(!target.structureType){
-            return 1;
-        }
-        var priorities = {
-            'spawn': 0.25,
-            'extension': 0.25,
-            'tower': 0.5,
-            'container': 1,
-            'storage': 2,
-            'link': 20
-        };
-        return _.get(priorities, target.structureType, 1);
-    }
-    
-    static getEnergyDeliveryOffset(target){
-        if(!target.structureType){
+    getResource(entity, type){
+        if(!entity){
             return 0;
         }
-        var priorities = {
-            'spawn': -0.125,
-            'extension': -0.125,
-            'tower': 0,
-            'container': 0.125,
-            'storage': 0.5,
-            'link': 0.125
-        };
-        return _.get(priorities, target.structureType, 0);
-    }
-    
-    static getEnergyPickupOffset(target){
-        if(!target.structureType){
-            return 0;
+        if(!type){
+            type = RESOURCE_ENERGY;
         }
-        var priorities = {
-            'container': 0.125,
-            'storage': 0.125,
-            'link': 0
-        };
-        return _.get(priorities, target.structureType, 0);
+        if(entity.carryCapacity > 0){
+            return entity.carry[type];
+        }else if(entity.storeCapacity > 0){
+            return entity.store[type];
+        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
+            return entity.energy;
+        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
     }
 
-    static getResourceDeliveryOffset(target){
-        if(!target.structureType){
+    getCapacity(entity){
+        if(!entity){
             return 0;
         }
-        var priorities = {
-            'container': 0.125,
-            'storage': 0,
-            'terminal': -0.5
-        };
-        return _.get(priorities, target.structureType, 0);
+        if(entity.carryCapacity > 0){
+            return entity.carryCapacity;
+        }else if(entity.storeCapacity > 0){
+            return entity.storeCapacity;
+        }else if(entity.energyCapacity > 0){
+            return entity.energyCapacity;
+        }else if(entity.resourceType && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
+    }
+    
+    static getStorage(entity){
+        if(!entity){
+            return 0;
+        }
+        if(entity.carryCapacity > 0){
+            return _.sum(entity.carry);
+        }else if(entity.storeCapacity > 0){
+            return _.sum(entity.store);
+        }else if(entity.energyCapacity > 0){
+            return entity.energy;
+        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
+            return entity.amount;
+        }
+        return 0;
+    }
+
+    isFull(entity){
+        return this.getAvailableCapacity(entity) < 1;
+    }
+
+    getAvailableCapacity(entity){
+        return this.getCapacity(entity) - this.getStorage(entity);
+    }
+
+    getStoragePercent(entity){
+        return this.getStorage(entity) / this.getCapacity(entity);
+    }
+
+    getResourcePercent(entity, type){
+        return this.getResource(entity, type) / this.getCapacity(entity);
     }
 }
 
