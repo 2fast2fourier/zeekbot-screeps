@@ -33,16 +33,25 @@ class Spawner {
     }
 
     static getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType){
+        var currentCount = Spawner.getCount(catalog, fullType);
         var additional = Spawner.calculateAdditional(category, version, catalog, roomStats);
         var ideal = _.get(version, 'ideal', 0);
         var bootstrap = _.get(version, 'bootstrap', 0);
+        var quota = version.quota || category.quota;
+
+        if(quota && quota.jobType){
+            var needCapacity = _.get(catalog.jobs.capacity, quota.jobType, 0);
+            var targetCapacity = needCapacity * _.get(quota, 'ratio', 1);
+            var creepsNeeded = Math.ceil(targetCapacity/_.get(quota, 'allocation', 1));
+            additional += Math.min(creepsNeeded, _.get(quota, 'max', Infinity));
+        }
 
         if(ideal > 0){
-            return Math.max(0, ideal + additional - Spawner.getCount(catalog, fullType));
+            return Math.max(0, ideal + additional - currentCount);
         }else if(bootstrap > 0){
             return Math.max(0, bootstrap + additional - Spawner.getClassCount(catalog, className));
         }else if(additional > 0){
-            return Math.max(0, additional - Spawner.getCount(catalog, fullType));
+            return Math.max(0, additional - currentCount);
         }
         return 0;
     }
@@ -50,13 +59,16 @@ class Spawner {
     static calculateAdditional(config, version, catalog, roomStats){
         var count = 0;
         var additional = version.additional || config.additional;
+
+        //TODO nuke this
         var additionalPer = version.additionalPer || config.additionalPer;
         if(additionalPer){
             if(additionalPer.flagPrefix){
                 count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
             }
-
         }
+        //END TODO
+
         if(additional){
             var pass = _.reduce(additional, (result, requirement, name)=>{
                 if(name == 'count' || name == 'unless'){

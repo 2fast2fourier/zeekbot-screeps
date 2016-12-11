@@ -1,10 +1,12 @@
 "use strict";
 
 class BaseJob {
-    constructor(catalog, type, flagPrefix){
+    constructor(catalog, type, opts){
         this.catalog = catalog;
         this.type = type;
-        this.flagPrefix = flagPrefix;
+        if(opts){
+            _.assign(this, opts);
+        }
     }
 
     getType(){
@@ -16,20 +18,23 @@ class BaseJob {
     }
 
     getRooms(){
-        if(this.flagPrefix){
-            return this.catalog.rooms.concat(_.map(_.filter(Game.flags, flag => flag.name.startsWith(this.flagPrefix) && flag.room), 'room'));
-        }else{
-            return this.catalog.rooms;
-        }
+        return this.catalog.rooms;
     }
 
     generate(){
         var jobs = {};
         _.forEach(this.getRooms(), room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
+        if(this.flagPrefix){
+            _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
+        }
         return jobs;
     }
 
     generateJobs(room){
+        return [];
+    }
+
+    generateJobsForFlag(flag){
         return [];
     }
 

@@ -6,12 +6,19 @@ class JobManager {
     constructor(catalog){
         this.catalog = catalog;
         this.jobs = {};
-        this.working = {};
+        this.capacity = {};
+        this.allocation = {};
         this.categories = Jobs(catalog);
     }
 
     generate(){
-        _.forEach(this.categories, category => this.jobs[category.getType()] = category.generate());
+        _.forEach(this.categories, category =>{
+            var cap = 0;
+            this.jobs[category.getType()] = category.generate();
+            _.forEach(this.jobs[category.getType()], job => cap += job.capacity);
+            this.capacity[category.getType()] = cap;
+            this.allocation[category.getType()] = 0;
+        });
     }
 
     allocate(){
@@ -29,6 +36,7 @@ class JobManager {
     addAllocation(type, jobId, allocation){
         if(jobId && type && _.has(this.jobs, [type, jobId])){
             _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) + allocation);
+            this.allocation[type] += allocation;
         }
     }
 }

@@ -31,7 +31,6 @@ class Catalog {
         //     sourceEnergy
         // }
 
-
         this.droppedResources = {};
         this.flagsPrefix = {};
 
