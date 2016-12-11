@@ -24,7 +24,6 @@ class SimpleWorker {
 
     stillValid(creep, opts){
         if(this.idleTimer > 0 && creep.memory.idleCheck > 0 && creep.memory.idleCheck < Game.time){
-            console.log('idle', this.type);
             return false;
         }
         if(this.requiresEnergy){
@@ -50,7 +49,6 @@ class SimpleWorker {
         }
         if(this.idleTimer > 0){
             creep.memory.idleCheck = Game.time + this.idleTimer;
-            console.log('setidle', creep.memory.idleCheck);
         }
     }
     

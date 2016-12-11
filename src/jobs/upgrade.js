@@ -8,7 +8,7 @@ class UpgradeJob extends BaseJob {
     generateJobs(room){
         return [{
             allocated: 0,
-            capacity: Memory.settings.upgradeCapacity || 200,
+            capacity: Memory.settings.upgradeCapacity || 10,
             id: this.generateId(room.controller),
             target: room.controller
         }];

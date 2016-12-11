@@ -2,11 +2,17 @@
 
 var BaseJob = require('./base');
 
+var types = [
+    STRUCTURE_STORAGE,
+    STRUCTURE_CONTAINER,
+    STRUCTURE_LINK
+];
+
 class PickupJob extends BaseJob {
     constructor(catalog){ super(catalog, 'pickup'); }
 
     generateJobs(room){
-        var energy = this.catalog.getResourceContainers(room, this.catalog.types.storage, RESOURCE_ENERGY);
+        var energy = this.catalog.getResourceContainers(room, types, RESOURCE_ENERGY);
         return _.map(energy, structure => {
             return {
                 allocated: 0,

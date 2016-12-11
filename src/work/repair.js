@@ -22,10 +22,6 @@ class RepairWorker extends BaseWorker {
         }
     }
 
-    start(creep){
-        creep.say('repair');
-    }
-
 }
 
 module.exports = RepairWorker;

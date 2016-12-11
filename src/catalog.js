@@ -33,6 +33,7 @@ class Catalog {
 
 
         this.droppedResources = {};
+        this.flagsPrefix = {};
 
         this.creeps = {
             class: _.groupBy(Game.creeps, creep => creep.memory.class),
@@ -103,6 +104,13 @@ class Catalog {
 
     //     return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
     // }
+
+    getFlagsByPrefix(prefix){
+        if(!this.flagsPrefix[prefix]){
+            this.flagsPrefix[prefix] = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+        }
+        return this.flagsPrefix[prefix];
+    }
 
     getStructures(room){
         if(!room.name){ return []; }

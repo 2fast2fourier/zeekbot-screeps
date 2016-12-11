@@ -2,6 +2,12 @@
 
 var BaseWorker = require('./base');
 
+var defaultTypes = [
+    STRUCTURE_SPAWN,
+    STRUCTURE_EXTENSION,
+    STRUCTURE_TOWER
+];
+
 class DeliverWorker extends BaseWorker {
     constructor(catalog){ super(catalog, 'deliver', { requiresEnergy: true }); }
 
@@ -17,7 +23,7 @@ class DeliverWorker extends BaseWorker {
         if(opts.ignoreCreeps && job.creep){
             return false;
         }
-        if(job.target.structureType && opts.types && !_.includes(opts.types, job.target.structureType)){
+        if(job.target.structureType && !_.includes(opts.types || defaultTypes, job.target.structureType)){
             return false;
         }
         return this.getEnergyOffset(creep) + distance / this.distanceWeight + this.catalog.getResourcePercent(job.target, RESOURCE_ENERGY)/10 + job.offset;

@@ -121,7 +121,7 @@ module.exports =
 	    }
 
 	    static towerRepair(tower, catalog) {
-	        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
+	        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
 	        if(damagedBuildings.length > 0) {
 	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.repairTarget));
 	            tower.repair(damaged[0]);
@@ -399,7 +399,7 @@ module.exports =
 	    }
 
 	    static getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType){
-	        var additional = Spawner.calculateAdditional(version, catalog, roomStats);
+	        var additional = Spawner.calculateAdditional(category, version, catalog, roomStats);
 	        var ideal = _.get(version, 'ideal', 0);
 	        var bootstrap = _.get(version, 'bootstrap', 0);
 
@@ -407,24 +407,36 @@ module.exports =
 	            return Math.max(0, ideal + additional - Spawner.getCount(catalog, fullType));
 	        }else if(bootstrap > 0){
 	            return Math.max(0, bootstrap + additional - Spawner.getClassCount(catalog, className));
+	        }else if(additional > 0){
+	            return Math.max(0, additional - Spawner.getCount(catalog, fullType));
 	        }
 	        return 0;
 	    }
 
-	    static calculateAdditional(version, catalog, roomStats){
-	        if(version.additional){
-	            var pass = _.reduce(version.additional, (result, requirement, name)=>{
+	    static calculateAdditional(config, version, catalog, roomStats){
+	        var count = 0;
+	        var additional = version.additional || config.additional;
+	        var additionalPer = version.additionalPer || config.additionalPer;
+	        if(additionalPer){
+	            if(additionalPer.flagPrefix){
+	                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
+	            }
+
+	        }
+	        if(additional){
+	            var pass = _.reduce(additional, (result, requirement, name)=>{
 	                if(name == 'count' || name == 'unless'){
 	                    return result;
 	                }
 	                return result && roomStats[name] > requirement;
 	            }, true);
 	            if(pass){
-	                return _.get(version.additional, 'count', 0);
+	                count += _.get(additional, 'count', 0);
+	            }else{
+	                count += _.get(additional, 'unless', 0);
 	            }
-	            return _.get(version.additional, 'unless', 0);
 	        }
-	        return 0;
+	        return count;
 	    }
 
 	    static checkRequirements(spawn, catalog, category, version, roomStats){
@@ -605,10 +617,6 @@ module.exports =
 	                disable: {
 	                    spawnCapacity: 900
 	                },
-	                additional: {
-	                    unless: 1,
-	                    spawn: 900
-	                },
 	                parts: {work: 6, carry: 2, move: 1}
 	            },
 	            nano: {
@@ -634,7 +642,7 @@ module.exports =
 	        },
 	        rules: {
 	            mine: {},
-	            deliver: { maxRange: 2, ignoreCreeps: true },
+	            deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
 	            drop: { priority: 1 }
 	        }
 	    },
@@ -661,10 +669,18 @@ module.exports =
 	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
 	                }
 	            },
+	            micro: {
+	                ideal: 2,
+	                parts: {carry: 6, move: 6}
+	            },
 	            nano: {
 	                ideal: 2,
+	                disable: {
+	                    spawnCapacity: 1400
+	                },
 	                additional: {
 	                    count: 2,
+	                    energy: 1000,
 	                    upgradeDistance: 20
 	                },
 	                parts: {carry: 5, move: 5}
@@ -684,11 +700,18 @@ module.exports =
 	    },
 	    worker: {
 	        versions: {
+	            milli: {
+	                ideal: 3,
+	                parts: {work: 6, carry: 2, move: 8}
+	            },
 	            micro: {
-	                ideal: 1,
+	                ideal: 3,
 	                additional: {
 	                    count: 1,
-	                    buildHits: 1000
+	                    energy: 10000
+	                },
+	                disable: {
+	                    spawnCapacity: 1400
 	                },
 	                parts: {work: 4, carry: 2, move: 6}
 	            },
@@ -721,6 +744,30 @@ module.exports =
 	            repair: {},
 	            upgrade: {}
 	        }
+	    },
+	    observer: {
+	        versions: {
+	            pico: {
+	                ideal: 0,
+	                additionalPer: {
+	                    flagPrefix: 'Observe'
+	                },
+	                parts: {tough: 1, move: 1}
+	            },
+	        },
+	        rules: { observe: {} }
+	    },
+	    claimer: {
+	        versions: {
+	            pico: {
+	                ideal: 0,
+	                additionalPer: {
+	                    flagPrefix: 'Reserve'
+	                },
+	                parts: {claim: 2, move: 2}
+	            },
+	        },
+	        rules: { reserve: {} }
 	    }
 	};
 
@@ -735,9 +782,10 @@ module.exports =
 	class WorkManager {
 	    static process(catalog){
 	        var workers = Work(catalog);
-	        _.forEach(Game.creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
-	        _.forEach(Game.creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
-	        _.forEach(Game.creeps, creep => WorkManager.processCreep(creep, workers, catalog));
+	        var creeps = _.filter(Game.creeps, creep => !creep.spawning);
+	        _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+	        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
+	        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog));
 	    }
 
 	    static validateCreep(creep, workers, catalog){
@@ -800,8 +848,10 @@ module.exports =
 	var Drop = __webpack_require__(10);
 	// var Heal = require('./heal');
 	var Mine = __webpack_require__(11);
+	var Observe = __webpack_require__(28);
 	var Pickup = __webpack_require__(12);
 	var Repair = __webpack_require__(13);
+	var Reserve = __webpack_require__(29);
 	var Upgrade = __webpack_require__(25);
 
 	module.exports = function(catalog){
@@ -810,8 +860,10 @@ module.exports =
 	        deliver: new Deliver(catalog),
 	        drop: new Drop(catalog),
 	        mine: new Mine(catalog),
+	        observe: new Observe(catalog),
 	        pickup: new Pickup(catalog),
 	        repair: new Repair(catalog),
+	        reserve: new Reserve(catalog),
 	        upgrade: new Upgrade(catalog)
 	    };
 	};
@@ -956,6 +1008,12 @@ module.exports =
 
 	var BaseWorker = __webpack_require__(8);
 
+	var defaultTypes = [
+	    STRUCTURE_SPAWN,
+	    STRUCTURE_EXTENSION,
+	    STRUCTURE_TOWER
+	];
+
 	class DeliverWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'deliver', { requiresEnergy: true }); }
 
@@ -971,7 +1029,7 @@ module.exports =
 	        if(opts.ignoreCreeps && job.creep){
 	            return false;
 	        }
-	        if(job.target.structureType && opts.types && !_.includes(opts.types, job.target.structureType)){
+	        if(job.target.structureType && !_.includes(opts.types || defaultTypes, job.target.structureType)){
 	            return false;
 	        }
 	        return this.getEnergyOffset(creep) + distance / this.distanceWeight + this.catalog.getResourcePercent(job.target, RESOURCE_ENERGY)/10 + job.offset;
@@ -1003,6 +1061,9 @@ module.exports =
 	    }
 
 	    bid(creep, opts){
+	        if(this.catalog.getResource(creep, RESOURCE_ENERGY) == 0){
+	            return false;
+	        }
 	        var bid = this.getResourceOffset(creep, opts.type || RESOURCE_ENERGY) + _.get(opts, 'priority', 0);
 	        return { bid, type: this.type };
 	    }
@@ -1027,7 +1088,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'mine'); }
 
 	    isValid(creep, opts, job, target){
-	        return this.catalog.getAvailableCapacity(creep) > 0;
+	        return this.catalog.getAvailableCapacity(creep) > 8;
 	    }
 
 	    canBid(creep, opts){
@@ -1044,6 +1105,13 @@ module.exports =
 	    }
 
 	    processStep(creep, job, target, opts){
+	        if(this.catalog.getAvailableCapacity(creep) < 20){
+	            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1 && this.catalog.getAvailableCapacity(job.target) > 0);
+	            var nearby = _.sortBy(deliverables, job => this.catalog.getAvailableCapacity(job.target));
+	            if(nearby.length > 0){
+	                creep.transfer(nearby[0].target, RESOURCE_ENERGY);
+	            }
+	        }
 	        if(creep.harvest(target) == ERR_NOT_IN_RANGE){
 	            creep.moveTo(target);
 	        }
@@ -1125,10 +1193,6 @@ module.exports =
 	        }
 	    }
 
-	    start(creep){
-	        creep.say('repair');
-	    }
-
 	}
 
 	module.exports = RepairWorker;
@@ -1172,6 +1236,7 @@ module.exports =
 
 
 	        this.droppedResources = {};
+	        this.flagsPrefix = {};
 
 	        this.creeps = {
 	            class: _.groupBy(Game.creeps, creep => creep.memory.class),
@@ -1242,6 +1307,13 @@ module.exports =
 
 	    //     return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
 	    // }
+
+	    getFlagsByPrefix(prefix){
+	        if(!this.flagsPrefix[prefix]){
+	            this.flagsPrefix[prefix] = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+	        }
+	        return this.flagsPrefix[prefix];
+	    }
 
 	    getStructures(room){
 	        if(!room.name){ return []; }
@@ -1426,8 +1498,10 @@ module.exports =
 	var Build = __webpack_require__(19);
 	var Deliver = __webpack_require__(23);
 	var Mine = __webpack_require__(17);
+	var Observe = __webpack_require__(27);
 	var Pickup = __webpack_require__(21);
 	var Repair = __webpack_require__(20);
+	var Reserve = __webpack_require__(30);
 	var Upgrade = __webpack_require__(24);
 	// var Heal = require('./heal');
 
@@ -1436,8 +1510,10 @@ module.exports =
 	        build: new Build(catalog),
 	        deliver: new Deliver(catalog),
 	        mine: new Mine(catalog),
+	        observe: new Observe(catalog),
 	        pickup: new Pickup(catalog),
 	        repair: new Repair(catalog),
+	        reserve: new Reserve(catalog),
 	        upgrade: new Upgrade(catalog)
 	    };
 	};
@@ -1570,11 +1646,17 @@ module.exports =
 
 	var BaseJob = __webpack_require__(18);
 
+	var types = [
+	    STRUCTURE_STORAGE,
+	    STRUCTURE_CONTAINER,
+	    STRUCTURE_LINK
+	];
+
 	class PickupJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'pickup'); }
 
 	    generateJobs(room){
-	        var energy = this.catalog.getResourceContainers(room, this.catalog.types.storage, RESOURCE_ENERGY);
+	        var energy = this.catalog.getResourceContainers(room, types, RESOURCE_ENERGY);
 	        return _.map(energy, structure => {
 	            return {
 	                allocated: 0,
@@ -1643,7 +1725,7 @@ module.exports =
 	            updateDelta: 100,
 	            towerRepairPercent: 0.8,
 	            repairTarget: 25000,
-	            upgradeCapacity: 200
+	            upgradeCapacity: 10
 	        };
 	    }
 
@@ -1671,14 +1753,26 @@ module.exports =
 	    extension: -0.25,
 	    container: 0.5,
 	    storage: 0.25,
-	    link: 0.125
+	    link: 0.125,
+	    tower: 0
 	};
+
+	var types = [
+	    STRUCTURE_SPAWN,
+	    STRUCTURE_EXTENSION,
+	    STRUCTURE_STORAGE,
+	    STRUCTURE_CONTAINER,
+	    STRUCTURE_TERMINAL,
+	    STRUCTURE_LAB,
+	    STRUCTURE_LINK,
+	    STRUCTURE_TOWER
+	];
 
 	class DeliverJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'deliver'); }
 
 	    generateJobs(room){
-	        var energyNeeds = _.filter(this.catalog.getStructuresByType(room, this.catalog.types.energyNeeds), structure => this.catalog.getAvailableCapacity(structure) > 0);
+	        var energyNeeds = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getAvailableCapacity(structure) > 0);
 	        var creeps = this.catalog.creeps.class['worker'];
 	        if(creeps && creeps.length > 0){
 	            energyNeeds = energyNeeds.concat(creeps);
@@ -1719,7 +1813,7 @@ module.exports =
 	    generateJobs(room){
 	        return [{
 	            allocated: 0,
-	            capacity: Memory.settings.upgradeCapacity || 200,
+	            capacity: Memory.settings.upgradeCapacity || 10,
 	            id: this.generateId(room.controller),
 	            target: room.controller
 	        }];
@@ -1740,10 +1834,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true, idleTimer: 50 }); }
 
 	    calculateAllocation(creep, opts){
-	        if(creep.getActiveBodyparts(WORK) > 0){
-	            return this.catalog.getResource(creep, RESOURCE_ENERGY);
-	        }
-	        return 0;
+	        return creep.getActiveBodyparts(WORK);
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
@@ -1754,10 +1845,6 @@ module.exports =
 	        if(creep.upgradeController(target) == ERR_NOT_IN_RANGE){
 	            creep.moveTo(target);
 	        }
-	    }
-
-	    start(creep){
-	        creep.say('upgrade');
 	    }
 
 	}
@@ -1794,7 +1881,6 @@ module.exports =
 
 	    stillValid(creep, opts){
 	        if(this.idleTimer > 0 && creep.memory.idleCheck > 0 && creep.memory.idleCheck < Game.time){
-	            console.log('idle', this.type);
 	            return false;
 	        }
 	        if(this.requiresEnergy){
@@ -1820,7 +1906,6 @@ module.exports =
 	        }
 	        if(this.idleTimer > 0){
 	            creep.memory.idleCheck = Game.time + this.idleTimer;
-	            console.log('setidle', creep.memory.idleCheck);
 	        }
 	    }
 	    
@@ -1838,6 +1923,118 @@ module.exports =
 	}
 
 	module.exports = SimpleWorker;
+
+/***/ },
+/* 27 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseJob = __webpack_require__(18);
+
+	class ObserveJob extends BaseJob {
+	    constructor(catalog){ super(catalog, 'observe'); }
+
+	    generateJobs(room){
+	        var flags = this.catalog.getFlagsByPrefix("Observe");
+	        return _.map(flags, flag => {
+	            return {
+	                allocated: 0,
+	                capacity: 1,
+	                id: this.type+"-"+flag.name,
+	                target: flag
+	            }
+	        });
+	    }
+	}
+
+	module.exports = ObserveJob;
+
+/***/ },
+/* 28 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseWorker = __webpack_require__(8);
+
+	class ObserveWorker extends BaseWorker {
+	    constructor(catalog){ super(catalog, 'observe', { idleTimer: 50 }); }
+
+	    calculateAllocation(creep, opts){
+	        return 1;
+	    }
+
+	    calculateBid(creep, opts, job, allocation, distance){
+	        return distance/this.distanceWeight;
+	    }
+
+	    processStep(creep, job, target, opts){
+	        if(this.getJobDistance(creep, job) > 1){
+	            creep.moveTo(target);
+	        }
+	    }
+
+	}
+
+	module.exports = ObserveWorker;
+
+/***/ },
+/* 29 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseWorker = __webpack_require__(8);
+
+	class ReserveWorker extends BaseWorker {
+	    constructor(catalog){ super(catalog, 'reserve'); }
+
+	    calculateAllocation(creep, opts){
+	        return creep.getActiveBodyparts(CLAIM);
+	    }
+
+	    calculateBid(creep, opts, job, allocation, distance){
+	        return distance/this.distanceWeight;
+	    }
+
+	    processStep(creep, job, target, opts){
+	        if(target.name){
+	            creep.moveTo(target);
+	        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
+	            creep.moveTo(target);
+	        }
+	    }
+
+	}
+
+	module.exports = ReserveWorker;
+
+/***/ },
+/* 30 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseJob = __webpack_require__(18);
+
+	class ReserveJob extends BaseJob {
+	    constructor(catalog){ super(catalog, 'reserve'); }
+
+	    generateJobs(room){
+	        var flags = this.catalog.getFlagsByPrefix("Reserve");
+	        return _.map(flags, flag => {
+	            return {
+	                allocated: 0,
+	                capacity: 2,
+	                id: this.type+"-"+flag.name,
+	                target: _.get(flag.room, 'controller', flag)
+	            }
+	        });
+	    }
+	}
+
+	module.exports = ReserveJob;
 
 /***/ }
 /******/ ]);

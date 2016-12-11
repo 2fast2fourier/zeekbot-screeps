@@ -40,7 +40,7 @@ class Controller {
     }
 
     static towerRepair(tower, catalog) {
-        var damagedBuildings = _.filter(catalog.buildings[tower.room.name], structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
+        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
         if(damagedBuildings.length > 0) {
             var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.repairTarget));
             tower.repair(damaged[0]);

@@ -10,6 +10,9 @@ class DropWorker extends SimpleWorker {
     }
 
     bid(creep, opts){
+        if(this.catalog.getResource(creep, RESOURCE_ENERGY) == 0){
+            return false;
+        }
         var bid = this.getResourceOffset(creep, opts.type || RESOURCE_ENERGY) + _.get(opts, 'priority', 0);
         return { bid, type: this.type };
     }

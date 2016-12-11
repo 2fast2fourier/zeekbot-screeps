@@ -33,7 +33,7 @@ class Spawner {
     }
 
     static getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType){
-        var additional = Spawner.calculateAdditional(version, catalog, roomStats);
+        var additional = Spawner.calculateAdditional(category, version, catalog, roomStats);
         var ideal = _.get(version, 'ideal', 0);
         var bootstrap = _.get(version, 'bootstrap', 0);
 
@@ -41,24 +41,36 @@ class Spawner {
             return Math.max(0, ideal + additional - Spawner.getCount(catalog, fullType));
         }else if(bootstrap > 0){
             return Math.max(0, bootstrap + additional - Spawner.getClassCount(catalog, className));
+        }else if(additional > 0){
+            return Math.max(0, additional - Spawner.getCount(catalog, fullType));
         }
         return 0;
     }
 
-    static calculateAdditional(version, catalog, roomStats){
-        if(version.additional){
-            var pass = _.reduce(version.additional, (result, requirement, name)=>{
+    static calculateAdditional(config, version, catalog, roomStats){
+        var count = 0;
+        var additional = version.additional || config.additional;
+        var additionalPer = version.additionalPer || config.additionalPer;
+        if(additionalPer){
+            if(additionalPer.flagPrefix){
+                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
+            }
+
+        }
+        if(additional){
+            var pass = _.reduce(additional, (result, requirement, name)=>{
                 if(name == 'count' || name == 'unless'){
                     return result;
                 }
                 return result && roomStats[name] > requirement;
             }, true);
             if(pass){
-                return _.get(version.additional, 'count', 0);
+                count += _.get(additional, 'count', 0);
+            }else{
+                count += _.get(additional, 'unless', 0);
             }
-            return _.get(version.additional, 'unless', 0);
         }
-        return 0;
+        return count;
     }
 
     static checkRequirements(spawn, catalog, category, version, roomStats){

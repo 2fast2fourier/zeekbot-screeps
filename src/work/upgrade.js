@@ -6,10 +6,7 @@ class UpgradeWorker extends BaseWorker {
     constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true, idleTimer: 50 }); }
 
     calculateAllocation(creep, opts){
-        if(creep.getActiveBodyparts(WORK) > 0){
-            return this.catalog.getResource(creep, RESOURCE_ENERGY);
-        }
-        return 0;
+        return creep.getActiveBodyparts(WORK);
     }
 
     calculateBid(creep, opts, job, allocation, distance){
@@ -20,10 +17,6 @@ class UpgradeWorker extends BaseWorker {
         if(creep.upgradeController(target) == ERR_NOT_IN_RANGE){
             creep.moveTo(target);
         }
-    }
-
-    start(creep){
-        creep.say('upgrade');
     }
 
 }

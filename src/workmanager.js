@@ -5,9 +5,10 @@ var Work = require('./work');
 class WorkManager {
     static process(catalog){
         var workers = Work(catalog);
-        _.forEach(Game.creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
-        _.forEach(Game.creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
-        _.forEach(Game.creeps, creep => WorkManager.processCreep(creep, workers, catalog));
+        var creeps = _.filter(Game.creeps, creep => !creep.spawning);
+        _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
+        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog));
     }
 
     static validateCreep(creep, workers, catalog){

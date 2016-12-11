@@ -49,7 +49,7 @@ class Misc {
             updateDelta: 100,
             towerRepairPercent: 0.8,
             repairTarget: 25000,
-            upgradeCapacity: 200
+            upgradeCapacity: 10
         };
     }
 

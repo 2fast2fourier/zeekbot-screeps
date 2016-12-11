@@ -14,10 +14,6 @@ module.exports = {
                 disable: {
                     spawnCapacity: 900
                 },
-                additional: {
-                    unless: 1,
-                    spawn: 900
-                },
                 parts: {work: 6, carry: 2, move: 1}
             },
             nano: {
@@ -43,7 +39,7 @@ module.exports = {
         },
         rules: {
             mine: {},
-            deliver: { maxRange: 2, ignoreCreeps: true },
+            deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
             drop: { priority: 1 }
         }
     },
@@ -70,10 +66,18 @@ module.exports = {
                     deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
                 }
             },
+            micro: {
+                ideal: 2,
+                parts: {carry: 6, move: 6}
+            },
             nano: {
                 ideal: 2,
+                disable: {
+                    spawnCapacity: 1400
+                },
                 additional: {
                     count: 2,
+                    energy: 1000,
                     upgradeDistance: 20
                 },
                 parts: {carry: 5, move: 5}
@@ -93,11 +97,18 @@ module.exports = {
     },
     worker: {
         versions: {
+            milli: {
+                ideal: 3,
+                parts: {work: 6, carry: 2, move: 8}
+            },
             micro: {
-                ideal: 1,
+                ideal: 3,
                 additional: {
                     count: 1,
-                    buildHits: 1000
+                    energy: 10000
+                },
+                disable: {
+                    spawnCapacity: 1400
                 },
                 parts: {work: 4, carry: 2, move: 6}
             },
@@ -130,5 +141,29 @@ module.exports = {
             repair: {},
             upgrade: {}
         }
+    },
+    observer: {
+        versions: {
+            pico: {
+                ideal: 0,
+                additionalPer: {
+                    flagPrefix: 'Observe'
+                },
+                parts: {tough: 1, move: 1}
+            },
+        },
+        rules: { observe: {} }
+    },
+    claimer: {
+        versions: {
+            pico: {
+                ideal: 0,
+                additionalPer: {
+                    flagPrefix: 'Reserve'
+                },
+                parts: {claim: 2, move: 2}
+            },
+        },
+        rules: { reserve: {} }
     }
 };
