@@ -1,17 +1,9 @@
 "use strict";
 
 var classConfig = require('./creeps');
-var behaviors = require('./behaviors');
+// var behaviors = require('./behaviors');
 
 class Spawner {
-
-    static mourn(){
-        for(var name in Memory.creeps) {
-            if(!Game.creeps[name]) {
-                delete Memory.creeps[name];
-            }
-        }
-    }
 
     static partList(args){
         var parts = [];
@@ -37,26 +29,18 @@ class Spawner {
             Spawner.checkDisable(spawn, catalog, category, version, roomStats)){
             return false;
         }
-        if(version.remote || category.remote){
-            //TODO fix additional support for remote types
-            // console.log(fullType);
-            return _.get(catalog.remoteTypeCount, fullType, 0) < version.ideal;
-        }
         return Spawner.getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType) > 0;
     }
 
     static getSpawnCount(spawn, catalog, category, version, roomStats, className, fullType){
-        var counts = catalog.getTypeCount(spawn.room);
-        var classCount = catalog.getClassCount(spawn.room);
-
         var additional = Spawner.calculateAdditional(version, catalog, roomStats);
         var ideal = _.get(version, 'ideal', 0);
         var bootstrap = _.get(version, 'bootstrap', 0);
 
         if(ideal > 0){
-            return Math.max(0, ideal + additional - _.get(counts, fullType, 0));
+            return Math.max(0, ideal + additional - Spawner.getCount(catalog, fullType));
         }else if(bootstrap > 0){
-            return Math.max(0, bootstrap + additional - _.get(classCount, className, 0));
+            return Math.max(0, bootstrap + additional - Spawner.getClassCount(catalog, className));
         }
         return 0;
     }
@@ -70,7 +54,7 @@ class Spawner {
                 return result && roomStats[name] > requirement;
             }, true);
             if(pass){
-                return _.get(version.additional, 'count', 1);
+                return _.get(version.additional, 'count', 0);
             }
             return _.get(version.additional, 'unless', 0);
         }
@@ -133,10 +117,8 @@ class Spawner {
 
     static findCriticalDeficit(spawn, catalog){
         var roomStats = Memory.stats.rooms[spawn.room.name];
-        var typeCount = catalog.getTypeCount(spawn.room);
         var deficits = {};
         var deficitCount = {};
-        var deficit = 0;
         _.forEach(classConfig, (config, className) => {
             _.forEach(config.versions, (version, typeName) =>{
                 if(version.critical > 0
@@ -147,13 +129,11 @@ class Spawner {
                     if(count > 0 && !spawn.spawning){
                         deficits[className] = config;
                         deficitCount[className] = count;
-                        deficit += count;
                     }
                 }
             });
         });
-        catalog.deficitCounts[spawn.room.name] = deficitCount;
-        catalog.deficits[spawn.room.name] = deficit;
+        catalog.spawnDeficit = deficitCount;
         return deficits;
     }
 
@@ -162,25 +142,21 @@ class Spawner {
             class: className,
             type: fullType,
             version: versionName,
-            behaviors: version.behaviors || category.behaviors,
-            traits: {},
-            action: false,
-            remote: version.remote || category.remote,
-            flag: version.flag || category.flag
+            jobId: false,
+            jobType: false,
+            jobAllocation: 0,
+            rules: version.rules || category.rules
         };
-        
-        _.forEach(version.behaviors || category.behaviors, (data, name) => {
-            behaviors[name].setup(memory, data, catalog, spawn.room);
-        });
 
         return memory;
     }
 
-    static getCount(spawn, catalog, category, version, fullType){
-        if(version.remote || category.remote){
-            return _.get(catalog.remoteTypeCount, fullType, 0);
-        }
-        return _.get(catalog.getTypeCount(spawn.room), fullType, 0);
+    static getCount(catalog, fullType){
+        return _.get(catalog.creeps.type, [fullType, 'length'], 0);
+    }
+
+    static getClassCount(catalog, classType){
+        return _.get(catalog.creeps.class, [classType, 'length'], 0);
     }
 
     static processSpawn(spawn, catalog, startedSpawn){
@@ -199,10 +175,9 @@ class Spawner {
                         var spawned = spawn.createCreep(loadout, fullType+'-'+Memory.uid, Spawner.prepareSpawnMemory(category, version, fullType, className, prefix, catalog, spawn));
                         startedSpawn = !!spawned;
                         Memory.uid++;
-                        console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(spawn, catalog, category, version, fullType)+1, 'cost:', Spawner.calculateCost(version.parts));
+                        console.log(spawn.name, 'spawning', fullType, 'new count:', Spawner.getCount(catalog, fullType)+1, 'cost:', Spawner.calculateCost(version.parts));
                         //HACK reset deficit count until next tick, so we don't accidentally interrupt any jobs
-                        catalog.deficits[spawn.room.name] = 0;
-                        catalog.deficitCounts[spawn.room.name] = {};
+                        catalog.deficits[className] = 0;
                     }
                 }
             });
@@ -226,16 +201,15 @@ class Spawner {
     static resetBehavior(catalog){
         _.forEach(Game.creeps, creep=>{
             var config = _.get(classConfig, creep.memory.class, false);
-            var version = _.get(config, ['versions', creep.memory.version || creep.memory.type.replace(creep.memory.class, '')], false);
+            var version = _.get(config, ['versions', creep.memory.version], false);
             if(!config || !version){
+                console.log('could not find config', creep);
                 return;
             }
-            creep.memory.behaviors = version.behaviors || config.behaviors;
-            creep.memory.traits = {};
-            creep.memory.action = false;
-            _.forEach(version.behaviors || config.behaviors, (data, name) => {
-                behaviors[name].setup(creep.memory, data, catalog, creep.room);
-            });
+            creep.memory.rules = version.rules || config.rules;
+            creep.memory.jobId = false;
+            creep.memory.jobType = false;
+            creep.memory.jobAllocation = 0;
         });
         Memory.resetBehavior = false;
         console.log("Reset behavior!");

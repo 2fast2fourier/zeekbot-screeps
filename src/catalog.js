@@ -44,8 +44,8 @@ class Catalog {
 
         this.jobs = new JobManager(this);
 
-        // this.deficitCounts = {};
-        // this.deficits = {};
+        //class
+        this.deficits = {};
 
     }
 
@@ -107,7 +107,7 @@ class Catalog {
     getStructures(room){
         if(!room.name){ return []; }
         if(!this.structures[room.name]){
-            this.structures[room.name] = creep.room.find(FIND_STRUCTURES);
+            this.structures[room.name] = room.find(FIND_STRUCTURES);
         }
         return this.structures[room.name];
     }
@@ -158,7 +158,7 @@ class Catalog {
     getDroppedResources(room){
         if(!room.name){ return []; }
         if(!this.droppedResources[room.name]){
-            this.droppedResources[room.name] = creep.room.find(FIND_DROPPED_RESOURCES);
+            this.droppedResources[room.name] = room.find(FIND_DROPPED_RESOURCES);
         }
         return this.droppedResources[room.name];
     }
@@ -198,7 +198,7 @@ class Catalog {
         return 0;
     }
     
-    static getStorage(entity){
+    getStorage(entity){
         if(!entity){
             return 0;
         }
@@ -228,6 +228,10 @@ class Catalog {
 
     getResourcePercent(entity, type){
         return this.getResource(entity, type) / this.getCapacity(entity);
+    }
+
+    isCreep(entity){
+        return entity.carryCapacity > 0;
     }
 }
 

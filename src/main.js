@@ -1,8 +1,8 @@
 "use strict";
 
 var Controller = require('./controller');
-// var Spawner = require('./spawner');
-// var Behavior = require('./behavior');
+var Spawner = require('./spawner');
+var WorkManager = require('./workmanager');
 var Catalog = require('./catalog');
 var Misc = require('./misc');
 
@@ -22,7 +22,8 @@ module.exports.loop = function () {
 
     catalog.jobs.generate();
     catalog.jobs.allocate();
-    // Spawner.spawn(catalog);
-    // Behavior.process(catalog);
+    // _.forEach(catalog.jobs.jobs['upgrade'], (upgrade, id)=>console.log(id, upgrade, upgrade.allocated));
+    WorkManager.process(catalog);
+    Spawner.spawn(catalog);
     Controller.control(catalog);
 }

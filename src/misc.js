@@ -32,12 +32,12 @@ class Misc {
                 buildHits,
                 repairJobs,
                 buildJobs: buildSites.length,
-                extractor: catalog.getBuildingsByType(room, STRUCTURE_EXTRACTOR).length > 0,
+                extractor: catalog.getStructuresByType(room, STRUCTURE_EXTRACTOR).length > 0,
                 mineralId: _.get(mineral, 'id', false),
                 mineralType: _.get(mineral, 'mineralType', false),
                 mineralAmount: _.get(mineral, 'mineralAmount', 0),
                 energy: RoomUtil.getEnergy(room.storage),
-                terminalEnergy: RoomUtil.getEnergy(catalog.getFirstBuilding(room, STRUCTURE_TERMINAL)),
+                terminalEnergy: RoomUtil.getEnergy(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL))),
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
         });
@@ -46,9 +46,10 @@ class Misc {
 
     static setSettings(){
         Memory.settings = {
-            updateDelta: 200,
+            updateDelta: 100,
             towerRepairPercent: 0.8,
-            repairTarget: 25000
+            repairTarget: 25000,
+            upgradeCapacity: 200
         };
     }
 
