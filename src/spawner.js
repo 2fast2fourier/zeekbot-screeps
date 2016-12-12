@@ -39,10 +39,10 @@ class Spawner {
         var bootstrap = _.get(version, 'bootstrap', 0);
         var quota = version.quota || category.quota;
 
-        if(quota && quota.jobType){
+        if(quota && quota.jobType && version.quota !== false){
             var needCapacity = _.get(catalog.jobs.capacity, quota.jobType, 0);
             var targetCapacity = needCapacity * _.get(quota, 'ratio', 1);
-            var creepsNeeded = Math.ceil(targetCapacity/_.get(quota, 'allocation', 1));
+            var creepsNeeded = Math.ceil(targetCapacity/_.get(version, 'allocation', _.get(quota, 'allocation', 1)));
             additional += Math.min(creepsNeeded, _.get(quota, 'max', Infinity));
         }
 
@@ -65,6 +65,9 @@ class Spawner {
         if(additionalPer){
             if(additionalPer.flagPrefix){
                 count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
+            }
+            if(additionalPer.room > 0){
+                count += catalog.rooms.length * additionalPer.room;
             }
         }
         //END TODO
@@ -120,7 +123,7 @@ class Spawner {
     static checkDisable(spawn, catalog, category, version, roomStats){
         var disable = version.disable;
         if(disable){
-            if(disable.spawnCapacity > 0 && roomStats.spawn >= disable.spawnCapacity){
+            if(disable.maxSpawn > 0 && Memory.stats.global.maxSpawn >= disable.maxSpawn){
                 return true;
             }
             if(disable.extractor && roomStats.extractor){
@@ -187,6 +190,10 @@ class Spawner {
         var config = classConfig;
         var deficits = Spawner.findCriticalDeficit(spawn, catalog);
         var roomStats = Memory.stats.rooms[spawn.room.name];
+        if(!roomStats){
+            Memory.updateTime = 0;
+            return;
+        }
         if(_.size(deficits) > 0){
             config = deficits;
         }

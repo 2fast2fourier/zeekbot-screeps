@@ -41,6 +41,10 @@ class Misc {
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
         });
+        stats.global = {
+            maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
+            totalEnergy: _.sum(_.map(stats.rooms, 'energy'))
+        }
         Memory.stats = stats;
     }
 

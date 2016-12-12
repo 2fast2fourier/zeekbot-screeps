@@ -4,43 +4,43 @@ module.exports = {
     miner: {
         versions: {
             milli: {
-                ideal: 0,
-                quota: {
-                    jobType: 'mine',
-                    allocation: 6,
-                    ratio: 1
-                },
+                allocation: 6,
                 critical: 900,
                 parts: {work: 6, carry: 2, move: 4}
             },
             micro: {
-                ideal: 2,
+                allocation: 6,
                 critical: 750,
                 disable: {
-                    spawnCapacity: 900
+                    maxSpawn: 900
                 },
                 parts: {work: 6, carry: 2, move: 1}
             },
             nano: {
-                ideal: 4,
+                allocation: 4,
                 critical: 550,
                 disable: {
-                    spawnCapacity: 750
+                    maxSpawn: 750
                 },
                 parts: {work: 4, carry: 2, move: 1}
             },
-            pico: {
-                bootstrap: 1,
-                critical: 300,
-                parts: {work: 2, carry: 1, move: 1},
-                disable: {
-                    energy: 2000
-                },
-                additional: {
-                    unless: 5,
-                    spawn: 500
-                }
-            }
+            // pico: {
+            //     bootstrap: 1,
+            //     quota: false,
+            //     critical: 300,
+            //     parts: {work: 2, carry: 1, move: 1},
+            //     disable: {
+            //         energy: 2000
+            //     },
+            //     additional: {
+            //         unless: 5,
+            //         spawn: 500
+            //     }
+            // }
+        },
+        quota: {
+            jobType: 'mine',
+            ratio: 1
         },
         rules: {
             mine: {},
@@ -54,17 +54,20 @@ module.exports = {
                 ideal: 2,
                 critical: 600,
                 parts: {carry: 6, move: 6},
+                additionalPer: {
+                    room: 1
+                },
                 rules: {
                     pickup: {},
                     deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
                 }
             },
             picospawn: {
-                ideal: 2,
+                bootstrap: 1,
                 critical: 300,
-                disable: {
-                    spawnCapacity: 600
-                },
+                // disable: {
+                //     maxSpawn: 600
+                // },
                 parts: {carry: 3, move: 3},
                 rules: {
                     pickup: {},
@@ -72,26 +75,21 @@ module.exports = {
                 }
             },
             micro: {
-                ideal: 2,
+                ideal: 1,
+                additionalPer: {
+                    room: 1
+                },
                 parts: {carry: 6, move: 6}
             },
             nano: {
                 ideal: 2,
                 disable: {
-                    spawnCapacity: 1400
-                },
-                additional: {
-                    count: 2,
-                    energy: 1000,
-                    upgradeDistance: 20
+                    maxSpawn: 1400
                 },
                 parts: {carry: 5, move: 5}
             },
             pico: {
-                bootstrap: 2,
-                disable: {
-                    spawnCapacity: 500
-                },
+                bootstrap: 1,
                 parts: {carry: 2, move: 2}
             }
         },
@@ -103,48 +101,39 @@ module.exports = {
     worker: {
         versions: {
             milli: {
-                ideal: 2,
-                additional: {
-                    count: 1,
-                    buildHits: 1000
+                ideal: 1,
+                additionalPer: {
+                    room: 1
                 },
                 parts: {work: 6, carry: 2, move: 8}
             },
             micro: {
                 ideal: 2,
-                additional: {
-                    count: 1,
-                    buildHits: 1000
-                },
                 disable: {
-                    spawnCapacity: 1400
+                    maxSpawn: 1400
                 },
                 parts: {work: 4, carry: 2, move: 6}
             },
             nano: {
                 ideal: 2,
                 disable: {
-                    spawnCapacity: 800
-                },
-                additional: {
-                    count: 2,
-                    buildHits: 1000
+                    maxSpawn: 800
                 },
                 parts: {work: 2, carry: 2, move: 4}
             },
             pico: {
                 bootstrap: 1,
-                disable: {
-                    spawnCapacity: 500
-                },
-                additional: {
-                    unless: 1,
-                    spawn: 500
-                },
+                // disable: {
+                //     maxSpawn: 500
+                // },
                 parts: {work: 1, carry: 2, move: 2}
             },
             upgrade: {
-                ideal: 2,
+                quota: {
+                    jobType: 'upgrade',
+                    allocation: 5,
+                    ratio: 1
+                },
                 parts: {work: 5, carry: 2, move: 7},
                 rules: { pickup: {}, upgrade: {} }
             }
@@ -173,13 +162,13 @@ module.exports = {
     claimer: {
         versions: {
             pico: {
-                quota: {
-                    jobType: 'reserve',
-                    allocation: 2,
-                    ratio: 1
-                },
                 parts: {claim: 2, move: 2}
             },
+        },
+        quota: {
+            jobType: 'reserve',
+            allocation: 2,
+            ratio: 1
         },
         rules: { reserve: {} }
     }

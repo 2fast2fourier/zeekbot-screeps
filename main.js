@@ -405,10 +405,10 @@ module.exports =
 	        var bootstrap = _.get(version, 'bootstrap', 0);
 	        var quota = version.quota || category.quota;
 
-	        if(quota && quota.jobType){
+	        if(quota && quota.jobType && version.quota !== false){
 	            var needCapacity = _.get(catalog.jobs.capacity, quota.jobType, 0);
 	            var targetCapacity = needCapacity * _.get(quota, 'ratio', 1);
-	            var creepsNeeded = Math.ceil(targetCapacity/_.get(quota, 'allocation', 1));
+	            var creepsNeeded = Math.ceil(targetCapacity/_.get(version, 'allocation', _.get(quota, 'allocation', 1)));
 	            additional += Math.min(creepsNeeded, _.get(quota, 'max', Infinity));
 	        }
 
@@ -431,6 +431,9 @@ module.exports =
 	        if(additionalPer){
 	            if(additionalPer.flagPrefix){
 	                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
+	            }
+	            if(additionalPer.room > 0){
+	                count += catalog.rooms.length * additionalPer.room;
 	            }
 	        }
 	        //END TODO
@@ -486,7 +489,7 @@ module.exports =
 	    static checkDisable(spawn, catalog, category, version, roomStats){
 	        var disable = version.disable;
 	        if(disable){
-	            if(disable.spawnCapacity > 0 && roomStats.spawn >= disable.spawnCapacity){
+	            if(disable.maxSpawn > 0 && Memory.stats.global.maxSpawn >= disable.maxSpawn){
 	                return true;
 	            }
 	            if(disable.extractor && roomStats.extractor){
@@ -553,6 +556,10 @@ module.exports =
 	        var config = classConfig;
 	        var deficits = Spawner.findCriticalDeficit(spawn, catalog);
 	        var roomStats = Memory.stats.rooms[spawn.room.name];
+	        if(!roomStats){
+	            Memory.updateTime = 0;
+	            return;
+	        }
 	        if(_.size(deficits) > 0){
 	            config = deficits;
 	        }
@@ -619,43 +626,43 @@ module.exports =
 	    miner: {
 	        versions: {
 	            milli: {
-	                ideal: 0,
-	                quota: {
-	                    jobType: 'mine',
-	                    allocation: 6,
-	                    ratio: 1
-	                },
+	                allocation: 6,
 	                critical: 900,
 	                parts: {work: 6, carry: 2, move: 4}
 	            },
 	            micro: {
-	                ideal: 2,
+	                allocation: 6,
 	                critical: 750,
 	                disable: {
-	                    spawnCapacity: 900
+	                    maxSpawn: 900
 	                },
 	                parts: {work: 6, carry: 2, move: 1}
 	            },
 	            nano: {
-	                ideal: 4,
+	                allocation: 4,
 	                critical: 550,
 	                disable: {
-	                    spawnCapacity: 750
+	                    maxSpawn: 750
 	                },
 	                parts: {work: 4, carry: 2, move: 1}
 	            },
-	            pico: {
-	                bootstrap: 1,
-	                critical: 300,
-	                parts: {work: 2, carry: 1, move: 1},
-	                disable: {
-	                    energy: 2000
-	                },
-	                additional: {
-	                    unless: 5,
-	                    spawn: 500
-	                }
-	            }
+	            // pico: {
+	            //     bootstrap: 1,
+	            //     quota: false,
+	            //     critical: 300,
+	            //     parts: {work: 2, carry: 1, move: 1},
+	            //     disable: {
+	            //         energy: 2000
+	            //     },
+	            //     additional: {
+	            //         unless: 5,
+	            //         spawn: 500
+	            //     }
+	            // }
+	        },
+	        quota: {
+	            jobType: 'mine',
+	            ratio: 1
 	        },
 	        rules: {
 	            mine: {},
@@ -669,17 +676,20 @@ module.exports =
 	                ideal: 2,
 	                critical: 600,
 	                parts: {carry: 6, move: 6},
+	                additionalPer: {
+	                    room: 1
+	                },
 	                rules: {
 	                    pickup: {},
 	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
 	                }
 	            },
 	            picospawn: {
-	                ideal: 2,
+	                bootstrap: 1,
 	                critical: 300,
-	                disable: {
-	                    spawnCapacity: 600
-	                },
+	                // disable: {
+	                //     maxSpawn: 600
+	                // },
 	                parts: {carry: 3, move: 3},
 	                rules: {
 	                    pickup: {},
@@ -687,26 +697,21 @@ module.exports =
 	                }
 	            },
 	            micro: {
-	                ideal: 2,
+	                ideal: 1,
+	                additionalPer: {
+	                    room: 1
+	                },
 	                parts: {carry: 6, move: 6}
 	            },
 	            nano: {
 	                ideal: 2,
 	                disable: {
-	                    spawnCapacity: 1400
-	                },
-	                additional: {
-	                    count: 2,
-	                    energy: 1000,
-	                    upgradeDistance: 20
+	                    maxSpawn: 1400
 	                },
 	                parts: {carry: 5, move: 5}
 	            },
 	            pico: {
-	                bootstrap: 2,
-	                disable: {
-	                    spawnCapacity: 500
-	                },
+	                bootstrap: 1,
 	                parts: {carry: 2, move: 2}
 	            }
 	        },
@@ -718,48 +723,39 @@ module.exports =
 	    worker: {
 	        versions: {
 	            milli: {
-	                ideal: 2,
-	                additional: {
-	                    count: 1,
-	                    buildHits: 1000
+	                ideal: 1,
+	                additionalPer: {
+	                    room: 1
 	                },
 	                parts: {work: 6, carry: 2, move: 8}
 	            },
 	            micro: {
 	                ideal: 2,
-	                additional: {
-	                    count: 1,
-	                    buildHits: 1000
-	                },
 	                disable: {
-	                    spawnCapacity: 1400
+	                    maxSpawn: 1400
 	                },
 	                parts: {work: 4, carry: 2, move: 6}
 	            },
 	            nano: {
 	                ideal: 2,
 	                disable: {
-	                    spawnCapacity: 800
-	                },
-	                additional: {
-	                    count: 2,
-	                    buildHits: 1000
+	                    maxSpawn: 800
 	                },
 	                parts: {work: 2, carry: 2, move: 4}
 	            },
 	            pico: {
 	                bootstrap: 1,
-	                disable: {
-	                    spawnCapacity: 500
-	                },
-	                additional: {
-	                    unless: 1,
-	                    spawn: 500
-	                },
+	                // disable: {
+	                //     maxSpawn: 500
+	                // },
 	                parts: {work: 1, carry: 2, move: 2}
 	            },
 	            upgrade: {
-	                ideal: 2,
+	                quota: {
+	                    jobType: 'upgrade',
+	                    allocation: 5,
+	                    ratio: 1
+	                },
 	                parts: {work: 5, carry: 2, move: 7},
 	                rules: { pickup: {}, upgrade: {} }
 	            }
@@ -788,13 +784,13 @@ module.exports =
 	    claimer: {
 	        versions: {
 	            pico: {
-	                quota: {
-	                    jobType: 'reserve',
-	                    allocation: 2,
-	                    ratio: 1
-	                },
 	                parts: {claim: 2, move: 2}
 	            },
+	        },
+	        quota: {
+	            jobType: 'reserve',
+	            allocation: 2,
+	            ratio: 1
 	        },
 	        rules: { reserve: {} }
 	    }
@@ -1350,6 +1346,8 @@ module.exports =
 	    processStep(creep, job, target, opts){
 	        if(target.name){
 	            creep.moveTo(target);
+	        }else if(creep.memory.claim && creep.claimController(target) == OK){
+	            creep.memory.claim = false;
 	        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
 	            creep.moveTo(target);
 	        }
@@ -1725,7 +1723,7 @@ module.exports =
 	var BaseJob = __webpack_require__(22);
 
 	class BuildJob extends BaseJob {
-	    constructor(catalog){ super(catalog, 'build'); }
+	    constructor(catalog){ super(catalog, 'build', { flagPrefix: 'Build' }); }
 
 	    generateJobs(room){
 	        return _.map(room.find(FIND_MY_CONSTRUCTION_SITES), site => {
@@ -1736,6 +1734,13 @@ module.exports =
 	                target: site
 	            }
 	        });
+	    }
+
+	    generateJobsForFlag(flag){
+	        if(!flag.room){
+	            return [];
+	        }
+	        return this.generateJobs(flag.room);
 	    }
 	}
 
@@ -2057,6 +2062,10 @@ module.exports =
 	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
 	            };
 	        });
+	        stats.global = {
+	            maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
+	            totalEnergy: _.sum(_.map(stats.rooms, 'energy'))
+	        }
 	        Memory.stats = stats;
 	    }
 
