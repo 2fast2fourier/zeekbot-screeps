@@ -14,7 +14,7 @@ class BaseJob {
     }
 
     generateId(entity){
-        return this.type+'-'+entity.id;
+        return this.type+'-'+(entity.id || entity.name);
     }
 
     getRooms(){
@@ -35,7 +35,10 @@ class BaseJob {
     }
 
     generateJobsForFlag(flag){
-        return [];
+        if(!flag.room){
+            return [];
+        }
+        return this.generateJobs(flag.room);
     }
 
 }

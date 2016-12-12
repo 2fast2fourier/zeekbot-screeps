@@ -15,6 +15,7 @@ class WorkManager {
         if(creep.memory.jobType){
             if(!workers[creep.memory.jobType].stillValid(creep, creep.memory.rules[creep.memory.jobType])){
                 workers[creep.memory.jobType].stop(creep, creep.memory.rules[creep.memory.jobType]);
+                catalog.jobs.removeAllocation(creep.memory.jobType, creep.memory.jobId, creep.memory.jobAllocation);
                 creep.memory.jobId = false;
                 creep.memory.jobType = false;
                 creep.memory.jobAllocation = 0;

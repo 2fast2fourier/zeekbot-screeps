@@ -7,6 +7,10 @@ var Catalog = require('./catalog');
 var Misc = require('./misc');
 
 module.exports.loop = function () {
+    if(!Memory.upgradedLogic){
+        delete Memory.settings;
+        Memory.updateTime = 0;
+    }
     if(!Memory.settings){
         Misc.setSettings();
     }
@@ -22,7 +26,6 @@ module.exports.loop = function () {
 
     catalog.jobs.generate();
     catalog.jobs.allocate();
-    // _.forEach(catalog.jobs.jobs['upgrade'], (upgrade, id)=>console.log(id, upgrade, upgrade.allocated));
     WorkManager.process(catalog);
     Spawner.spawn(catalog);
     Controller.control(catalog);

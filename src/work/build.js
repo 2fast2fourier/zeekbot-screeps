@@ -7,7 +7,7 @@ class BuildWorker extends BaseWorker {
 
     calculateAllocation(creep, opts){
         if(creep.getActiveBodyparts(WORK) > 0){
-            return this.catalog.getResource(creep, RESOURCE_ENERGY)/5;
+            return Math.ceil(this.catalog.getResource(creep, RESOURCE_ENERGY)/5);
         }
         return 0;
     }

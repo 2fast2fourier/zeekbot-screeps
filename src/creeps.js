@@ -51,15 +51,15 @@ module.exports = {
     hauler: {
         versions: {
             spawn: {
-                ideal: 2,
                 critical: 600,
                 parts: {carry: 6, move: 6},
                 additionalPer: {
-                    room: 1
+                    room: 2
                 },
                 rules: {
                     pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
+                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+                    idle: { type: 'spawn' }
                 }
             },
             picospawn: {
@@ -71,7 +71,8 @@ module.exports = {
                 parts: {carry: 3, move: 3},
                 rules: {
                     pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true }
+                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+                    idle: { type: 'spawn' }
                 }
             },
             micro: {
@@ -84,7 +85,7 @@ module.exports = {
             nano: {
                 ideal: 2,
                 disable: {
-                    maxSpawn: 1400
+                    maxSpawn: 600
                 },
                 parts: {carry: 5, move: 5}
             },
@@ -142,7 +143,8 @@ module.exports = {
             pickup: {},
             build: {},
             repair: {},
-            upgrade: { priority: 1 }
+            upgrade: { priority: 1 },
+            idle: { type: 'worker' }
         }
     },
     observer: {
@@ -171,5 +173,31 @@ module.exports = {
             ratio: 1
         },
         rules: { reserve: {} }
+    },
+    // fighter: {
+    //     versions: {
+    //         pico: {
+    //             parts: {tough: 17, move: 16, attack: 15}
+    //         },
+    //     },
+    //     quota: {
+    //         jobType: 'defend',
+    //         allocation: 15
+    //     },
+    //     rules: { attack: {}, defend: {} }
+    // },
+    healer: {
+        versions: {
+            pico: {
+                ideal: 1,
+                parts: {tough: 4, move: 8, heal: 4}
+            },
+        },
+        // quota: {
+        //     jobType: 'heal',
+        //     allocation: 1,
+        //     ratio: 1
+        // },
+        rules: { heal: {}, idle: { type: 'heal' } }
     }
 };

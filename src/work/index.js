@@ -3,7 +3,8 @@
 var Build = require('./build');
 var Deliver = require('./deliver');
 var Drop = require('./drop');
-// var Heal = require('./heal');
+var Heal = require('./heal');
+var Idle = require('./idle');
 var Mine = require('./mine');
 var Observe = require('./observe');
 var Pickup = require('./pickup');
@@ -16,6 +17,8 @@ module.exports = function(catalog){
         build: new Build(catalog),
         deliver: new Deliver(catalog),
         drop: new Drop(catalog),
+        heal: new Heal(catalog),
+        idle: new Idle(catalog),
         mine: new Mine(catalog),
         observe: new Observe(catalog),
         pickup: new Pickup(catalog),

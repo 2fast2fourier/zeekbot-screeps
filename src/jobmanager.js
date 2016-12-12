@@ -19,6 +19,9 @@ class JobManager {
             this.capacity[category.getType()] = cap;
             this.allocation[category.getType()] = 0;
         });
+        if(Memory.debugJob){
+            _.forEach(this.jobs[Memory.debugJob], (job, type) => console.log(type, job.target, job.capacity));
+        }
     }
 
     allocate(){
@@ -37,6 +40,13 @@ class JobManager {
         if(jobId && type && _.has(this.jobs, [type, jobId])){
             _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) + allocation);
             this.allocation[type] += allocation;
+        }
+    }
+
+    removeAllocation(type, jobId, allocation){
+        if(jobId && type && _.has(this.jobs, [type, jobId])){
+            _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) - allocation);
+            this.allocation[type] -= allocation;
         }
     }
 }
