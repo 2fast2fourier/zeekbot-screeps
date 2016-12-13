@@ -1,10 +1,12 @@
 "use strict";
 
+var Attack = require('./attack');
 var Build = require('./build');
 var Deliver = require('./deliver');
 var Drop = require('./drop');
 var Heal = require('./heal');
 var Idle = require('./idle');
+var Keep = require('./keep');
 var Mine = require('./mine');
 var Observe = require('./observe');
 var Pickup = require('./pickup');
@@ -14,11 +16,13 @@ var Upgrade = require('./upgrade');
 
 module.exports = function(catalog){
     return {
+        attack: new Attack(catalog),
         build: new Build(catalog),
         deliver: new Deliver(catalog),
         drop: new Drop(catalog),
         heal: new Heal(catalog),
         idle: new Idle(catalog),
+        keep: new Keep(catalog),
         mine: new Mine(catalog),
         observe: new Observe(catalog),
         pickup: new Pickup(catalog),

@@ -14,7 +14,11 @@ class HealWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        if(creep.heal(target) == ERR_NOT_IN_RANGE){
+        var range = creep.pos.getRangeTo(target);
+        if(range > 1 && range <= 3){
+            creep.rangedHeal(target);
+            creep.moveTo(target);
+        }else if(creep.heal(target) == ERR_NOT_IN_RANGE){
             creep.moveTo(target);
         }
     }

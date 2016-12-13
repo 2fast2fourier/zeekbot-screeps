@@ -76,9 +76,8 @@ module.exports = {
                 }
             },
             micro: {
-                ideal: 1,
                 additionalPer: {
-                    room: 1
+                    room: 2
                 },
                 parts: {carry: 6, move: 6}
             },
@@ -95,7 +94,7 @@ module.exports = {
             }
         },
         rules: {
-            pickup: {},
+            pickup: { minerals: true },
             deliver: {}
         }
     },
@@ -106,7 +105,7 @@ module.exports = {
                 additionalPer: {
                     room: 1
                 },
-                parts: {work: 6, carry: 2, move: 8}
+                parts: {work: 4, carry: 4, move: 8}
             },
             micro: {
                 ideal: 2,
@@ -174,22 +173,23 @@ module.exports = {
         },
         rules: { reserve: {} }
     },
-    // fighter: {
-    //     versions: {
-    //         pico: {
-    //             parts: {tough: 17, move: 16, attack: 15}
-    //         },
-    //     },
-    //     quota: {
-    //         jobType: 'defend',
-    //         allocation: 15
-    //     },
-    //     rules: { attack: {}, defend: {} }
-    // },
+    fighter: {
+        versions: {
+            melee: {
+                ideal: 1,
+                quota: {
+                    jobType: 'keep',
+                    allocation: 15
+                },
+                parts: {tough: 17, move: 16, attack: 15}
+            },
+        },
+        rules: { attack: {}, keep: {} }
+    },
     healer: {
         versions: {
             pico: {
-                ideal: 1,
+                ideal: 2,
                 parts: {tough: 4, move: 8, heal: 4}
             },
         },

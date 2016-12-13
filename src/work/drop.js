@@ -6,11 +6,11 @@ class DropWorker extends SimpleWorker {
     constructor(catalog){ super(catalog, 'drop', { requiresEnergy: true }); }
 
     stillValid(creep, opts){
-        return this.catalog.getResource(creep, opts.type || RESOURCE_ENERGY) > 0;
+        return this.catalog.getStorage(creep) > 0;
     }
 
     bid(creep, opts){
-        if(this.catalog.getResource(creep, RESOURCE_ENERGY) == 0){
+        if(this.catalog.getStorage(creep) == 0){
             return false;
         }
         var bid = this.getResourceOffset(creep, opts.type || RESOURCE_ENERGY) + _.get(opts, 'priority', 0);
@@ -18,7 +18,11 @@ class DropWorker extends SimpleWorker {
     }
 
     process(creep, opts){
-        creep.drop(opts.type || RESOURCE_ENERGY, this.catalog.getResource(creep, opts.type || RESOURCE_ENERGY));
+        _.forEach(creep.carry, (amount, type)=>{
+            if(amount > 0){
+                creep.drop(type, amount);
+            }
+        });
     }
 
 }

@@ -22,6 +22,13 @@ var types = [
     STRUCTURE_TOWER
 ];
 
+var mineralContainers = [
+    STRUCTURE_STORAGE,
+    STRUCTURE_CONTAINER,
+    STRUCTURE_TERMINAL,
+    STRUCTURE_LAB
+];
+
 class DeliverJob extends BaseJob {
     constructor(catalog){ super(catalog, 'deliver'); }
 
@@ -38,7 +45,8 @@ class DeliverJob extends BaseJob {
                 id: this.generateId(entity),
                 target: entity,
                 creep: this.catalog.isCreep(entity),
-                offset: this.getOffset(entity.structureType)
+                offset: this.getOffset(entity.structureType),
+                minerals: _.includes(mineralContainers, entity.structureType)
             }
         });
     }

@@ -4,14 +4,13 @@ var BaseJob = require('./base');
 
 class UpgradeJob extends BaseJob {
     constructor(catalog){ super(catalog, 'upgrade'); }
+    
+    calculateCapacity(room, target){
+        return Memory.settings.upgradeCapacity || 10;
+    }
 
-    generateJobs(room){
-        return [{
-            allocated: 0,
-            capacity: Memory.settings.upgradeCapacity || 10,
-            id: this.generateId(room.controller),
-            target: room.controller
-        }];
+    generateTargets(room){
+        return [room.controller];
     }
 }
 

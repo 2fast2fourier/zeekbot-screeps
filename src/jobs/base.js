@@ -31,7 +31,20 @@ class BaseJob {
     }
 
     generateJobs(room){
-        return [];
+        return _.map(this.generateTargets(room), target => this.finalizeJob(room, target, this.generateJobForTarget(room, target)));
+    }
+
+    generateJobForTarget(room, target){
+        return {
+            allocated: 0,
+            capacity: this.calculateCapacity(room, target),
+            id: this.generateId(target),
+            target
+        };
+    }
+
+    finalizeJob(room, target, job){
+        return job;
     }
 
     generateJobsForFlag(flag){
@@ -39,6 +52,10 @@ class BaseJob {
             return [];
         }
         return this.generateJobs(flag.room);
+    }
+
+    generateTargets(room, flag){
+        return [];
     }
 
 }

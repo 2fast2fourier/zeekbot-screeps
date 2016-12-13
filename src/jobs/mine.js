@@ -5,24 +5,23 @@ var BaseJob = require('./base');
 class MineJob extends BaseJob {
     constructor(catalog){ super(catalog, 'mine', { flagPrefix: 'Mine' }); }
 
-    generateJobs(room){
-        return _.map(room.find(FIND_SOURCES), source => this.generateSource(source));
+    calculateCapacity(room, target){
+        if(target.mineralAmount > 0){
+            return 5;
+        }
+        return Math.floor(target.energyCapacity/600)+1;
     }
 
-    generateJobsForFlag(flag){
-        if(!flag.room){
-            return [];
+    generateTargets(room){
+        var targets = room.find(FIND_SOURCES);
+        var roomStats = Memory.stats.rooms[room.name];
+        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){
+            var mineral = Game.getObjectById(roomStats.mineralId);
+            if(mineral && mineral.mineralAmount > 0){
+                targets.push(mineral);
+            }
         }
-        return _.map(flag.room.find(FIND_SOURCES), source => this.generateSource(source));
-    }
-
-    generateSource(source){
-        return {
-            allocated: 0,
-            capacity: Math.floor(source.energyCapacity/600)+1,
-            id: this.generateId(source),
-            target: source
-        }
+        return targets;
     }
 }
 

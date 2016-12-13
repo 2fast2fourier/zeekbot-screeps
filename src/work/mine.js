@@ -18,7 +18,6 @@ class MineWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
-        // var availableRatio = this.calcAvailRatio(job, allocation);
         return this.catalog.getResourcePercent(creep, RESOURCE_ENERGY) + distance / this.distanceWeight;
     }
 
@@ -27,7 +26,11 @@ class MineWorker extends BaseWorker {
             var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1 && this.catalog.getAvailableCapacity(job.target) > 0);
             var nearby = _.sortBy(deliverables, job => this.catalog.getAvailableCapacity(job.target));
             if(nearby.length > 0){
-                creep.transfer(nearby[0].target, RESOURCE_ENERGY);
+                _.forEach(creep.carry, (amount, type)=>{
+                    if(amount > 0){
+                        creep.transfer(nearby[0].target, type);
+                    }
+                });
             }
         }
         if(creep.harvest(target) == ERR_NOT_IN_RANGE){

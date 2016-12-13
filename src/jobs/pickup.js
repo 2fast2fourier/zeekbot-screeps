@@ -9,18 +9,32 @@ var types = [
 ];
 
 class PickupJob extends BaseJob {
-    constructor(catalog){ super(catalog, 'pickup'); }
+    constructor(catalog){ super(catalog, 'pickup', { flagPrefix: 'Pickup' }); }
+
+    calculateCapacity(room, target){
+        return this.catalog.getStorage(target);
+    }
 
     generateJobs(room){
-        var energy = this.catalog.getResourceContainers(room, types, RESOURCE_ENERGY);
-        return _.map(energy, structure => {
-            return {
-                allocated: 0,
-                capacity: Math.ceil(this.catalog.getResource(structure, RESOURCE_ENERGY)/50),
-                id: this.generateId(structure),
-                target: structure
-            }
-        });
+        var dropped = this.catalog.getDroppedResources(room);
+        var storage = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getStorage(structure) > 0);
+        storage = storage.concat(dropped);
+        var result = [];
+        _.forEach(storage, (entity) => {
+            _.forEach(this.catalog.getResourceList(entity), (amount, type)=>{
+                if(entity.structureType == STRUCTURE_STORAGE && type != RESOURCE_ENERGY){
+                    return;
+                }
+                result.push({
+                    allocated: 0,
+                    capacity: amount,
+                    id: this.generateId(entity),
+                    target: entity,
+                    resource: type
+                });
+            });
+        }, []);
+        return result;
     }
 }
 

@@ -22,6 +22,10 @@ class SimpleWorker {
         return 1 - this.catalog.getResourcePercent(creep, type);
     }
 
+    getStorageOffset(creep){
+        return 1 - this.catalog.getStoragePercent(creep);
+    }
+
     stillValid(creep, opts){
         if(this.idleTimer > 0 && creep.memory.idleCheck > 0 && creep.memory.idleCheck < Game.time){
             return false;

@@ -189,6 +189,23 @@ class Catalog {
         return 0;
     }
 
+    getResourceList(entity){
+        var result = {};
+        if(!entity){
+            return result;
+        }
+        if(entity.carryCapacity > 0){
+            return _.pick(entity.carry, amount => amount > 0);
+        }else if(entity.storeCapacity > 0){
+            return _.pick(entity.store, amount => amount > 0);
+        }else if(entity.energyCapacity > 0 && entity.energy > 0){
+            result[RESOURCE_ENERGY] = entity.energy;
+        }else if(entity.resourceType && entity.amount > 0){
+            result[entity.resourceType] = entity.amount;
+        }
+        return result;
+    }
+
     getCapacity(entity){
         if(!entity){
             return 0;
@@ -225,6 +242,10 @@ class Catalog {
         return this.getAvailableCapacity(entity) < 1;
     }
 
+    notFull(entity){
+        return this.getAvailableCapacity(entity) > 0;
+    }
+
     getAvailableCapacity(entity){
         return this.getCapacity(entity) - this.getStorage(entity);
     }
@@ -239,6 +260,10 @@ class Catalog {
 
     isCreep(entity){
         return entity.carryCapacity > 0;
+    }
+
+    hasMinerals(entity){
+        return this.getStorage(entity) > this.getResource(entity, RESOURCE_ENERGY);
     }
 }
 

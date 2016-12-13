@@ -7,8 +7,8 @@ class Misc {
         var stats = {
             rooms: {}
         };
-        _.forEach(Game.spawns, spawn => {
-            var room = spawn.room;
+        _.forEach(Game.rooms, room => {
+            var spawns = room.find(FIND_MY_SPAWNS);
             var spawnCapacity = 0;
             var repairJobs = 0;
             var repairHits = 0;
@@ -25,7 +25,7 @@ class Misc {
             var buildSites = room.find(FIND_MY_CONSTRUCTION_SITES);
             var mineral = _.first(room.find(FIND_MINERALS));
             _.forEach(buildSites, site => buildHits += site.progressTotal - site.progress);
-            spawnCapacity += spawn.energyCapacity;
+            _.forEach(spawns, spawn => spawnCapacity += spawn.energyCapacity);
             stats.rooms[room.name] = {
                 spawn: spawnCapacity,
                 repairHits,
@@ -53,7 +53,9 @@ class Misc {
             updateDelta: 100,
             towerRepairPercent: 0.8,
             repairTarget: 25000,
-            upgradeCapacity: 10
+            upgradeCapacity: 10,
+            attackFlagRange: 25,
+            keepFlagRange: 10
         };
     }
 
