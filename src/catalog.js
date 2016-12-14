@@ -2,6 +2,8 @@
 
 var JobManager = require('./jobmanager');
 
+var roomRegex = /([WE])(\d+)([NS])(\d+)/;
+
 class Catalog {
     constructor(){
         this.types = {
@@ -264,6 +266,39 @@ class Catalog {
 
     hasMinerals(entity){
         return this.getStorage(entity) > this.getResource(entity, RESOURCE_ENERGY);
+    }
+
+    calculateRealPosition(pos){
+        var roomParts = roomRegex.exec(pos.roomName);
+        if(!roomParts){
+            console.log('could not parse room', pos.roomName);
+            return false;
+        }
+        var north = roomParts[3] == 'N';
+        var east = roomParts[1] == 'E';
+        //     1    2    3     4
+        // /([WE])(\d+)([NS])(\d+)/
+        var xSign = east ? 1 : -1;
+        var ySign = north ? 1 : -1;
+        var xOffset = east ? 0 : 50;
+        var yOffset = north ? 50 : 0;
+        return {
+            x: _.parseInt(roomParts[2]) * 50 * xSign + pos.x + xSign * xOffset,
+            y: _.parseInt(roomParts[4]) * 50 * ySign + pos.y * -ySign + yOffset
+        };
+    }
+
+    getRealDistance(entityA, entityB){
+        if(!entityA.pos || !entityB.pos){
+            console.log('invalid positions', entityA, entityB);
+            return Infinity;
+        }
+        var posA = this.calculateRealPosition(entityA.pos);
+        var posB = this.calculateRealPosition(entityB.pos);
+        // console.log(entityA, entityA.pos.roomName, posA.x, posA.y, entityB, entityB.pos.roomName, posB.x, posB.y);
+        var distance = Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+        // console.log(posA.x - posB.x, posA.y-posB.y, distance);
+        return distance;
     }
 }
 

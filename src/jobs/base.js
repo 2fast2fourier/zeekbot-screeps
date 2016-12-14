@@ -30,8 +30,8 @@ class BaseJob {
         return jobs;
     }
 
-    generateJobs(room){
-        return _.map(this.generateTargets(room), target => this.finalizeJob(room, target, this.generateJobForTarget(room, target)));
+    generateJobs(room, flag){
+        return _.map(this.generateTargets(room, flag), target => this.finalizeJob(room, target, this.generateJobForTarget(room, target)));
     }
 
     generateJobForTarget(room, target){
@@ -51,7 +51,7 @@ class BaseJob {
         if(!flag.room){
             return [];
         }
-        return this.generateJobs(flag.room);
+        return this.generateJobs(flag.room, flag);
     }
 
     generateTargets(room, flag){

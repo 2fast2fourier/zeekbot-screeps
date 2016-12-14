@@ -3,19 +3,17 @@
 var BaseJob = require('./base');
 
 class BuildJob extends BaseJob {
-    constructor(catalog){ super(catalog, 'build', { flagPrefix: 'Build' }); }
+    constructor(catalog){ super(catalog, 'build'); }
 
     calculateCapacity(room, target){
         return Math.min(Math.ceil((target.progressTotal - target.progress)/5), 40);
     }
 
-    generateTargets(room){
-        return room.find(FIND_MY_CONSTRUCTION_SITES);
+    generate(){
+        var jobs = {};
+        _.forEach(_.map(Game.constructionSites, target => this.generateJobForTarget(null, target)), job => jobs[job.id] = job);
+        return jobs;
     }
-
-    // finalizeJob(room, target, job){
-    //     return job;
-    // }
 }
 
 module.exports = BuildJob;

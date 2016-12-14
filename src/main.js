@@ -24,6 +24,8 @@ module.exports.loop = function () {
         Memory.updateTime = Game.time + Memory.settings.updateDelta;
     }
 
+    // console.log(catalog.getRealDistance(Game.getObjectById('50b5c10d0c10262'), Game.getObjectById('b5360d33f1206d9')));
+
     catalog.jobs.generate();
     catalog.jobs.allocate();
     WorkManager.process(catalog);

@@ -50,12 +50,18 @@ class Misc {
 
     static setSettings(){
         Memory.settings = {
+            flagRange: {
+                mine: 10,
+                keep: 10,
+                attack: 10
+            },
             updateDelta: 100,
             towerRepairPercent: 0.8,
-            repairTarget: 25000,
+            repairTarget: 250000,
             upgradeCapacity: 10,
-            attackFlagRange: 25,
-            keepFlagRange: 10
+            attackFlagRange: 10,
+            keepFlagRange: 10,
+            mineFlagRange: 10
         };
     }
 

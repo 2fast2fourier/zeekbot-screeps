@@ -26,7 +26,7 @@ class KeepWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        if(creep.pos.getRangeTo(target) > 3){
+        if(creep.pos.getRangeTo(target) > 1){
             creep.moveTo(target);
         }
     }

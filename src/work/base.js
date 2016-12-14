@@ -23,7 +23,8 @@ class BaseWorker extends SimpleWorker {
     }
 
     getJobDistance(creep, job){
-        return Math.min(creep.pos.getRangeTo(job.target), 99);
+        return this.catalog.getRealDistance(creep, job.target);
+        // return Math.min(creep.pos.getRangeTo(job.target), 99);
     }
 
     calcAvailRatio(job, allocation){

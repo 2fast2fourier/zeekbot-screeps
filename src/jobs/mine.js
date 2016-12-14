@@ -12,7 +12,7 @@ class MineJob extends BaseJob {
         return Math.floor(target.energyCapacity/600)+1;
     }
 
-    generateTargets(room){
+    generateTargets(room, flag){
         var targets = room.find(FIND_SOURCES);
         var roomStats = Memory.stats.rooms[room.name];
         if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){
@@ -20,6 +20,9 @@ class MineJob extends BaseJob {
             if(mineral && mineral.mineralAmount > 0){
                 targets.push(mineral);
             }
+        }
+        if(flag && Memory.settings.flagRange[this.type] > 0){
+            return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
         }
         return targets;
     }

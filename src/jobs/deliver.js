@@ -30,7 +30,7 @@ var mineralContainers = [
 ];
 
 class DeliverJob extends BaseJob {
-    constructor(catalog){ super(catalog, 'deliver'); }
+    constructor(catalog){ super(catalog, 'deliver', { flagPrefix: 'Mine' }); }
 
     generateJobs(room){
         var energyNeeds = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getAvailableCapacity(structure) > 0);

@@ -17,6 +17,9 @@ class AttackWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
+        if(distance > 10){
+            return false;
+        }
         return distance / this.distanceWeight;
     }
 
@@ -27,8 +30,13 @@ class AttackWorker extends BaseWorker {
             }else{
                 creep.rangedAttack(target);
             }
-        }else if(creep.attack(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
+        }else{
+            if(creep.attack(target) == ERR_NOT_IN_RANGE){
+                creep.moveTo(target);
+            }
+            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
+                creep.rangedAttack(target);
+            }
         }
     }
 

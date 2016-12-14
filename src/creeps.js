@@ -4,9 +4,9 @@ module.exports = {
     miner: {
         versions: {
             milli: {
-                allocation: 6,
-                critical: 900,
-                parts: {work: 6, carry: 2, move: 4}
+                allocation: 7,
+                critical: 1050,
+                parts: {work: 7, carry: 2, move: 5}
             },
             micro: {
                 allocation: 6,
@@ -75,6 +75,17 @@ module.exports = {
                     idle: { type: 'spawn' }
                 }
             },
+            long: {
+                additionalPer: {
+                    count: 4,
+                    flagPrefix: 'Pickup'
+                },
+                rules: {
+                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+                },
+                parts: {carry: 10, move: 10}
+            },
             micro: {
                 additionalPer: {
                     room: 2
@@ -94,16 +105,15 @@ module.exports = {
             }
         },
         rules: {
-            pickup: { minerals: true },
+            pickup: { minerals: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
             deliver: {}
         }
     },
     worker: {
         versions: {
             milli: {
-                ideal: 1,
                 additionalPer: {
-                    room: 1
+                    room: 2
                 },
                 parts: {work: 4, carry: 4, move: 8}
             },
@@ -189,15 +199,15 @@ module.exports = {
     healer: {
         versions: {
             pico: {
-                ideal: 2,
+                ideal: 1,
                 parts: {tough: 4, move: 8, heal: 4}
             },
         },
-        // quota: {
-        //     jobType: 'heal',
-        //     allocation: 1,
-        //     ratio: 1
-        // },
+        quota: {
+            jobType: 'heal',
+            allocation: 1,
+            max: 1
+        },
         rules: { heal: {}, idle: { type: 'heal' } }
     }
 };

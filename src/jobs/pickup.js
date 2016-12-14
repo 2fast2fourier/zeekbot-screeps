@@ -11,11 +11,7 @@ var types = [
 class PickupJob extends BaseJob {
     constructor(catalog){ super(catalog, 'pickup', { flagPrefix: 'Pickup' }); }
 
-    calculateCapacity(room, target){
-        return this.catalog.getStorage(target);
-    }
-
-    generateJobs(room){
+    generateJobs(room, flag){
         var dropped = this.catalog.getDroppedResources(room);
         var storage = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getStorage(structure) > 0);
         storage = storage.concat(dropped);
@@ -30,6 +26,7 @@ class PickupJob extends BaseJob {
                     capacity: amount,
                     id: this.generateId(entity),
                     target: entity,
+                    dropped: !!entity.resourceType,
                     resource: type
                 });
             });

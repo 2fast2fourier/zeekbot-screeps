@@ -64,7 +64,7 @@ class Spawner {
         var additionalPer = version.additionalPer || config.additionalPer;
         if(additionalPer){
             if(additionalPer.flagPrefix){
-                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length;
+                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length * _.get(additionalPer, 'count', 1);
             }
             if(additionalPer.room > 0){
                 count += catalog.rooms.length * additionalPer.room;

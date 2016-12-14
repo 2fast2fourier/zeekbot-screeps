@@ -24,8 +24,10 @@ class PickupWorker extends BaseWorker {
         if(!opts.minerals && job.resource != RESOURCE_ENERGY){
             return false;
         }
-        var availableRatio = this.calcAvailRatio(job, allocation);
-        return 1 + this.getStorageOffset(creep) + availableRatio;
+        if(opts.types && !job.dropped && !_.includes(opts.types, job.target.structureType)){
+            return false;
+        }
+        return 1 + this.getStorageOffset(creep) + distance / this.distanceWeight + this.calcAvailRatio(job, allocation);
     }
 
     processStep(creep, job, target, opts){
