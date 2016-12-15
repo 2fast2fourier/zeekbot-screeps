@@ -5,14 +5,14 @@ module.exports = {
         versions: {
             milli: {
                 allocation: 7,
-                critical: 1050,
-                parts: {work: 7, carry: 2, move: 5}
+                critical: 1400,
+                parts: {tough: 10, move: 10, carry: 2, work: 7}
             },
             micro: {
                 allocation: 6,
                 critical: 750,
                 disable: {
-                    maxSpawn: 900
+                    maxSpawn: 1400
                 },
                 parts: {work: 6, carry: 2, move: 1}
             },
@@ -24,19 +24,15 @@ module.exports = {
                 },
                 parts: {work: 4, carry: 2, move: 1}
             },
-            // pico: {
-            //     bootstrap: 1,
-            //     quota: false,
-            //     critical: 300,
-            //     parts: {work: 2, carry: 1, move: 1},
-            //     disable: {
-            //         energy: 2000
-            //     },
-            //     additional: {
-            //         unless: 5,
-            //         spawn: 500
-            //     }
-            // }
+            pico: {
+                bootstrap: 1,
+                quota: false,
+                critical: 300,
+                parts: {work: 2, carry: 1, move: 1},
+                disable: {
+                    energy: 2000
+                }
+            }
         },
         quota: {
             jobType: 'mine',
@@ -193,6 +189,11 @@ module.exports = {
                 },
                 parts: {tough: 17, move: 16, attack: 15}
             },
+            // ranged: {
+            //     ideal: 2,
+            //     parts: {tough: 10, move: 10, ranged_attack: 10},
+            //     rules: { attack: { ranged: true }, keep: {} }
+            // }
         },
         rules: { attack: {}, keep: {} }
     },
@@ -206,7 +207,7 @@ module.exports = {
         quota: {
             jobType: 'heal',
             allocation: 1,
-            max: 1
+            max: 2
         },
         rules: { heal: {}, idle: { type: 'heal' } }
     }

@@ -6,7 +6,10 @@ class KeepJob extends BaseJob {
     constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
     calculateCapacity(room, target){
-        return 15;
+        if(target.ticksToSpawn > 75 && target.ticksToSpawn < 290){
+            return 15;
+        }
+        return 30;
     }
 
     generateTargets(room){
@@ -19,10 +22,19 @@ class KeepJob extends BaseJob {
             if(Memory.settings.keepFlagRange > 0){
                 keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.keepFlagRange);
             }
-            return _.map(keeps, target => this.generateJobForTarget(flag.room, target));
+            return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
         }else{
             return [ this.generateJobForTarget(flag.room, flag) ];
         }
+    }
+
+    finalizeJob(room, target, job){
+        if(target.ticksToSpawn > 0){
+            job.priority = target.ticksToSpawn/300;
+        }else{
+            job.priority = 0;
+        }
+        return job;
     }
 }
 

@@ -632,14 +632,14 @@ module.exports =
 	        versions: {
 	            milli: {
 	                allocation: 7,
-	                critical: 1050,
-	                parts: {work: 7, carry: 2, move: 5}
+	                critical: 1400,
+	                parts: {tough: 10, move: 10, carry: 2, work: 7}
 	            },
 	            micro: {
 	                allocation: 6,
 	                critical: 750,
 	                disable: {
-	                    maxSpawn: 900
+	                    maxSpawn: 1400
 	                },
 	                parts: {work: 6, carry: 2, move: 1}
 	            },
@@ -651,19 +651,15 @@ module.exports =
 	                },
 	                parts: {work: 4, carry: 2, move: 1}
 	            },
-	            // pico: {
-	            //     bootstrap: 1,
-	            //     quota: false,
-	            //     critical: 300,
-	            //     parts: {work: 2, carry: 1, move: 1},
-	            //     disable: {
-	            //         energy: 2000
-	            //     },
-	            //     additional: {
-	            //         unless: 5,
-	            //         spawn: 500
-	            //     }
-	            // }
+	            pico: {
+	                bootstrap: 1,
+	                quota: false,
+	                critical: 300,
+	                parts: {work: 2, carry: 1, move: 1},
+	                disable: {
+	                    energy: 2000
+	                }
+	            }
 	        },
 	        quota: {
 	            jobType: 'mine',
@@ -820,6 +816,11 @@ module.exports =
 	                },
 	                parts: {tough: 17, move: 16, attack: 15}
 	            },
+	            // ranged: {
+	            //     ideal: 2,
+	            //     parts: {tough: 10, move: 10, ranged_attack: 10},
+	            //     rules: { attack: { ranged: true }, keep: {} }
+	            // }
 	        },
 	        rules: { attack: {}, keep: {} }
 	    },
@@ -833,7 +834,7 @@ module.exports =
 	        quota: {
 	            jobType: 'heal',
 	            allocation: 1,
-	            max: 1
+	            max: 2
 	        },
 	        rules: { heal: {}, idle: { type: 'heal' } }
 	    }
@@ -1386,9 +1387,8 @@ module.exports =
 	class KeepWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'keep'); }
 
-
 	    isValid(creep, opts, job, target){
-	        return creep.pos.getRangeTo(target) > 3;
+	        return job.capacity >= job.allocated;
 	    }
 
 	    calculateAllocation(creep, opts){
@@ -1396,19 +1396,33 @@ module.exports =
 	    }
 
 	    canBid(creep, opts){
-	        if(creep.hits < creep.hitsMax / 2){
+	        if(creep.hits < creep.hitsMax / 1.5){
 	            return false;
 	        }
 	        return true;
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
-	        return 99 + distance / this.distanceWeight;
+	        return 99 + distance / this.distanceWeight + job.priority;
 	    }
 
 	    processStep(creep, job, target, opts){
-	        if(creep.pos.getRangeTo(target) > 1){
+	        if(creep.ticksToLive < 100){
+	            creep.memory.jobAllocation = 10;
+	        }
+	        var pos = creep.pos;
+	        var range = 10;
+	        var targetRange = target.ticksToSpawn > 50 ? 2 : 1;
+	        var hostiles = _.map(_.filter(creep.room.lookForAtArea(LOOK_CREEPS, pos.y - range, pos.x - range, pos.y + range, pos.x + range, true), target => !target.creep.my), 'creep');
+	        if(hostiles.length > 0){
+	            var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
+	            if(creep.attack(enemy) == ERR_NOT_IN_RANGE){
+	                creep.moveTo(enemy);
+	            }
+	        }else if(creep.pos.getRangeTo(target) > targetRange){
 	            creep.moveTo(target);
+	        }else if(creep.pos.getRangeTo(target) < targetRange){
+	            creep.move((creep.pos.getDirectionTo(target)+4)%8);
 	        }
 	    }
 
@@ -2060,7 +2074,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
 
 	    calculateCapacity(room, target){
-	        return 15;
+	        return 30;
 	    }
 
 	    generateTargets(room){
@@ -2351,7 +2365,10 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
 	    calculateCapacity(room, target){
-	        return 15;
+	        if(target.ticksToSpawn > 75 && target.ticksToSpawn < 290){
+	            return 15;
+	        }
+	        return 30;
 	    }
 
 	    generateTargets(room){
@@ -2364,10 +2381,19 @@ module.exports =
 	            if(Memory.settings.keepFlagRange > 0){
 	                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.keepFlagRange);
 	            }
-	            return _.map(keeps, target => this.generateJobForTarget(flag.room, target));
+	            return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
 	        }else{
 	            return [ this.generateJobForTarget(flag.room, flag) ];
 	        }
+	    }
+
+	    finalizeJob(room, target, job){
+	        if(target.ticksToSpawn > 0){
+	            job.priority = target.ticksToSpawn/300;
+	        }else{
+	            job.priority = 0;
+	        }
+	        return job;
 	    }
 	}
 
@@ -2450,18 +2476,22 @@ module.exports =
 	var BaseJob = __webpack_require__(26);
 
 	class RepairJob extends BaseJob {
-	    constructor(catalog){ super(catalog, 'repair'); }
+	    constructor(catalog){ super(catalog, 'repair', { flagPrefix: 'Repair' }); }
 
 	    calculateCapacity(room, target){
 	        return Math.min(Math.ceil(Math.max(0, Math.min(target.hitsMax, Memory.settings.repairTarget) - target.hits)/100), 10);
 	    }
 
-	    generate(){
-	        var jobs = {};
-	        var targets = _.filter(Game.structures, structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget));
-	        _.forEach(_.map(targets, target => this.generateJobForTarget(null, target)), job => jobs[job.id] = job);
-	        return jobs;
+	    // generate(){
+	    //     var jobs = {};
+	    //     var targets = _.filter(Game.structures, structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget));
+	    //     _.forEach(_.map(targets, target => this.generateJobForTarget(null, target)), job => jobs[job.id] = job);
+	    //     return jobs;
+	    // }
+	    generateTargets(room){
+	        return _.filter(this.catalog.getStructures(room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget));
 	    }
+
 	}
 
 	module.exports = RepairJob;

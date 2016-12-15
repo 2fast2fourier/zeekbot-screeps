@@ -6,7 +6,7 @@ class AttackJob extends BaseJob {
     constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
 
     calculateCapacity(room, target){
-        return 15;
+        return 30;
     }
 
     generateTargets(room){
