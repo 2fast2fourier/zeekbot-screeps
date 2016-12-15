@@ -61,9 +61,6 @@ module.exports = {
             picospawn: {
                 bootstrap: 1,
                 critical: 300,
-                // disable: {
-                //     maxSpawn: 600
-                // },
                 parts: {carry: 3, move: 3},
                 rules: {
                     pickup: {},
@@ -129,9 +126,6 @@ module.exports = {
             },
             pico: {
                 bootstrap: 1,
-                // disable: {
-                //     maxSpawn: 500
-                // },
                 parts: {work: 1, carry: 2, move: 2}
             },
             upgrade: {
@@ -179,24 +173,6 @@ module.exports = {
         },
         rules: { reserve: {} }
     },
-    fighter: {
-        versions: {
-            melee: {
-                ideal: 1,
-                quota: {
-                    jobType: 'keep',
-                    allocation: 15
-                },
-                parts: {tough: 17, move: 16, attack: 15}
-            },
-            // ranged: {
-            //     ideal: 2,
-            //     parts: {tough: 10, move: 10, ranged_attack: 10},
-            //     rules: { attack: { ranged: true }, keep: {} }
-            // }
-        },
-        rules: { attack: {}, keep: {} }
-    },
     healer: {
         versions: {
             pico: {
@@ -210,5 +186,26 @@ module.exports = {
             max: 2
         },
         rules: { heal: {}, idle: { type: 'heal' } }
+    },
+    fighter: {
+        versions: {
+            melee: {
+                ideal: 1,
+                quota: {
+                    jobType: 'keep',
+                    allocation: 15
+                },
+                parts: {tough: 17, move: 16, attack: 15}
+            },
+            ranged: {
+                quota: {
+                    jobType: 'defend',
+                    allocation: 10
+                },
+                parts: {tough: 10, move: 10, ranged_attack: 10},
+                rules: { defend: { ranged: true } }
+            }
+        },
+        rules: { attack: {}, keep: {} }
     }
 };

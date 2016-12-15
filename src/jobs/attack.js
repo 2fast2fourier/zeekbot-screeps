@@ -15,7 +15,7 @@ class AttackJob extends BaseJob {
 
     generateJobsForFlag(flag){
         if(flag.room){
-            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.attackFlagRange);
+            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
             return _.map(targets, target => this.generateJobForTarget(flag.room, target));
         }
         return [];

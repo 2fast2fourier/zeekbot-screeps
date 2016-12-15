@@ -19,8 +19,8 @@ class KeepJob extends BaseJob {
     generateJobsForFlag(flag){
         if(flag.room){
             var keeps = flag.room.find(FIND_HOSTILE_STRUCTURES);
-            if(Memory.settings.keepFlagRange > 0){
-                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.keepFlagRange);
+            if(Memory.settings.flagRange.keep > 0){
+                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.flagRange.keep);
             }
             return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
         }else{

@@ -688,9 +688,6 @@ module.exports =
 	            picospawn: {
 	                bootstrap: 1,
 	                critical: 300,
-	                // disable: {
-	                //     maxSpawn: 600
-	                // },
 	                parts: {carry: 3, move: 3},
 	                rules: {
 	                    pickup: {},
@@ -756,9 +753,6 @@ module.exports =
 	            },
 	            pico: {
 	                bootstrap: 1,
-	                // disable: {
-	                //     maxSpawn: 500
-	                // },
 	                parts: {work: 1, carry: 2, move: 2}
 	            },
 	            upgrade: {
@@ -806,24 +800,6 @@ module.exports =
 	        },
 	        rules: { reserve: {} }
 	    },
-	    fighter: {
-	        versions: {
-	            melee: {
-	                ideal: 1,
-	                quota: {
-	                    jobType: 'keep',
-	                    allocation: 15
-	                },
-	                parts: {tough: 17, move: 16, attack: 15}
-	            },
-	            // ranged: {
-	            //     ideal: 2,
-	            //     parts: {tough: 10, move: 10, ranged_attack: 10},
-	            //     rules: { attack: { ranged: true }, keep: {} }
-	            // }
-	        },
-	        rules: { attack: {}, keep: {} }
-	    },
 	    healer: {
 	        versions: {
 	            pico: {
@@ -837,6 +813,27 @@ module.exports =
 	            max: 2
 	        },
 	        rules: { heal: {}, idle: { type: 'heal' } }
+	    },
+	    fighter: {
+	        versions: {
+	            melee: {
+	                ideal: 1,
+	                quota: {
+	                    jobType: 'keep',
+	                    allocation: 15
+	                },
+	                parts: {tough: 17, move: 16, attack: 15}
+	            },
+	            ranged: {
+	                quota: {
+	                    jobType: 'defend',
+	                    allocation: 10
+	                },
+	                parts: {tough: 10, move: 10, ranged_attack: 10},
+	                rules: { defend: { ranged: true } }
+	            }
+	        },
+	        rules: { attack: {}, keep: {} }
 	    }
 	};
 
@@ -2083,7 +2080,7 @@ module.exports =
 
 	    generateJobsForFlag(flag){
 	        if(flag.room){
-	            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.attackFlagRange);
+	            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
 	            return _.map(targets, target => this.generateJobForTarget(flag.room, target));
 	        }
 	        return [];
@@ -2280,6 +2277,8 @@ module.exports =
 	                targets.push(mineral);
 	            }
 	        }
+	        var hostiles = this.catalog.getHostileCreeps(room);
+	        targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
 	        if(flag && Memory.settings.flagRange[this.type] > 0){
 	            return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
 	        }
@@ -2378,8 +2377,8 @@ module.exports =
 	    generateJobsForFlag(flag){
 	        if(flag.room){
 	            var keeps = flag.room.find(FIND_HOSTILE_STRUCTURES);
-	            if(Memory.settings.keepFlagRange > 0){
-	                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.keepFlagRange);
+	            if(Memory.settings.flagRange.keep > 0){
+	                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.flagRange.keep);
 	            }
 	            return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
 	        }else{
@@ -2445,6 +2444,8 @@ module.exports =
 	        var dropped = this.catalog.getDroppedResources(room);
 	        var storage = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getStorage(structure) > 0);
 	        storage = storage.concat(dropped);
+	        var hostiles = this.catalog.getHostileCreeps(room);
+	        storage = _.filter(storage, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
 	        var result = [];
 	        _.forEach(storage, (entity) => {
 	            _.forEach(this.catalog.getResourceList(entity), (amount, type)=>{
@@ -2626,17 +2627,14 @@ module.exports =
 	    static setSettings(){
 	        Memory.settings = {
 	            flagRange: {
-	                mine: 10,
-	                keep: 10,
-	                attack: 10
+	                mine: 25,
+	                keep: 25,
+	                attack: 25
 	            },
 	            updateDelta: 100,
 	            towerRepairPercent: 0.8,
 	            repairTarget: 250000,
-	            upgradeCapacity: 10,
-	            attackFlagRange: 10,
-	            keepFlagRange: 10,
-	            mineFlagRange: 10
+	            upgradeCapacity: 10
 	        };
 	    }
 
