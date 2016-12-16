@@ -55,8 +55,10 @@ module.exports =
 
 	module.exports.loop = function () {
 	    if(!Memory.upgradedLogic){
-	        delete Memory.settings;
+	        Misc.setSettings();
 	        Memory.updateTime = 0;
+	        Spawner.resetBehavior(catalog);
+	        Memory.upgradedLogic = true;
 	    }
 	    if(!Memory.settings){
 	        Misc.setSettings();
@@ -601,13 +603,39 @@ module.exports =
 	    }
 
 	    static resetBehavior(catalog){
+	        var classConvert = {
+	            keepminer: 'miner',
+	            keepfighter: 'fighter',
+	            tender: 'hauler'
+	        }
+	        var classFallback = {
+	            miner: 'milli',
+	            hauler: 'micro',
+	            worker: 'milli',
+	            healer: 'pico',
+	            fighter: 'melee'
+	        }
 	        _.forEach(Game.creeps, creep=>{
-	            var config = _.get(classConfig, creep.memory.class, false);
-	            var version = _.get(config, ['versions', creep.memory.version], false);
-	            if(!config || !version){
-	                console.log('could not find config', creep);
+	            var newClass = _.get(classConvert, creep.memory.class, creep.memory.class);
+	            var newVer = creep.memory.version;
+	            var config = _.get(classConfig, newClass, false);
+	            if(!config){
+	                console.log('failed to find class', creep.memory.class, creep);
 	                return;
 	            }
+	            var version = _.get(config, ['versions', creep.memory.version], false);
+	            if(!version){
+	                newVer = classFallback[newClass];
+	                version = _.get(config, ['versions', newVer], false);
+	                if(!version){
+	                    console.log('failed to find version', creep.memory.version);
+	                    return;
+	                }
+	                console.log('converting from', creep.memory.version, 'to', newVer, creep);
+	            }
+	            creep.memory.version = newVer;
+	            creep.memory.type = newVer + newClass;
+	            creep.memory.class = newClass;
 	            creep.memory.rules = version.rules || config.rules;
 	            creep.memory.jobId = false;
 	            creep.memory.jobType = false;
@@ -2454,7 +2482,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
 	    calculateCapacity(room, target){
-	        if(target.ticksToSpawn > 50 && target.ticksToSpawn < 100){
+	        if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
 	            return 15;
 	        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
 	            return 0;

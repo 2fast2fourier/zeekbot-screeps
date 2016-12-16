@@ -8,8 +8,10 @@ var Misc = require('./misc');
 
 module.exports.loop = function () {
     if(!Memory.upgradedLogic){
-        delete Memory.settings;
+        Misc.setSettings();
         Memory.updateTime = 0;
+        Spawner.resetBehavior(catalog);
+        Memory.upgradedLogic = true;
     }
     if(!Memory.settings){
         Misc.setSettings();

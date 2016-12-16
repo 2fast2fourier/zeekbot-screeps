@@ -10,15 +10,15 @@ module.exports = [
             libraryTarget: "commonjs2"
         }
     },
-    // {
-    //     context: path.join(__dirname, 'src'),
-    //     entry: "./main",
-    //     output: {
-    //         path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default",
-    //         filename: "main.js",
-    //         libraryTarget: "commonjs2"
-    //     }
-    // },
+    {
+        context: path.join(__dirname, 'src'),
+        entry: "./main",
+        output: {
+            path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default",
+            filename: "main.js",
+            libraryTarget: "commonjs2"
+        }
+    },
     {
         context: path.join(__dirname, 'src'),
         entry: "./main",

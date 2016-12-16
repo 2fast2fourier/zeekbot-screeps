@@ -6,7 +6,7 @@ class KeepJob extends BaseJob {
     constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
     calculateCapacity(room, target){
-        if(target.ticksToSpawn > 50 && target.ticksToSpawn < 100){
+        if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
             return 15;
         }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
             return 0;
