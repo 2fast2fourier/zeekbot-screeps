@@ -2,6 +2,7 @@
 
 var Attack = require('./attack');
 var Build = require('./build');
+var Defend = require('./defend');
 var Deliver = require('./deliver');
 var Drop = require('./drop');
 var Heal = require('./heal');
@@ -18,6 +19,7 @@ module.exports = function(catalog){
     return {
         attack: new Attack(catalog),
         build: new Build(catalog),
+        defend: new Defend(catalog),
         deliver: new Deliver(catalog),
         drop: new Drop(catalog),
         heal: new Heal(catalog),

@@ -189,6 +189,14 @@ module.exports = {
     },
     fighter: {
         versions: {
+            ranged: {
+                additionalPer: {
+                    count: 2,
+                    flagPrefix: 'Defend'
+                },
+                parts: {tough: 10, move: 10, ranged_attack: 10},
+                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
+            },
             melee: {
                 ideal: 1,
                 quota: {
@@ -196,16 +204,8 @@ module.exports = {
                     allocation: 15
                 },
                 parts: {tough: 17, move: 16, attack: 15}
-            },
-            ranged: {
-                quota: {
-                    jobType: 'defend',
-                    allocation: 10
-                },
-                parts: {tough: 10, move: 10, ranged_attack: 10},
-                rules: { defend: { ranged: true } }
             }
         },
-        rules: { attack: {}, keep: {} }
+        rules: { defend: {}, keep: {} }
     }
 };

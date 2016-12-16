@@ -10,7 +10,7 @@ class HealWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
-        return distance / this.distanceWeight;
+        return distance / this.distanceWeight + job.allocated;
     }
 
     processStep(creep, job, target, opts){

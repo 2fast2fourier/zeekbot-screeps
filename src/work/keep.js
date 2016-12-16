@@ -6,7 +6,7 @@ class KeepWorker extends BaseWorker {
     constructor(catalog){ super(catalog, 'keep'); }
 
     isValid(creep, opts, job, target){
-        return job.capacity >= job.allocated;
+        return job.capacity >= job.allocated && _.get(Memory.stats.rooms, [target.pos.roomName, 'hostileCount'], 0) == 0;
     }
 
     calculateAllocation(creep, opts){
