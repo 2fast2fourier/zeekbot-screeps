@@ -21,8 +21,8 @@ class MineJob extends BaseJob {
                 targets.push(mineral);
             }
         }
-        var hostiles = this.catalog.getHostileCreeps(room);
-        targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
+        // var hostiles = this.catalog.getHostileCreeps(room);
+        // targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
         if(flag && Memory.settings.flagRange[this.type] > 0){
             return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
         }

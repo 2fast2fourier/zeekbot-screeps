@@ -14,7 +14,7 @@ class KeepWorker extends BaseWorker {
     }
 
     canBid(creep, opts){
-        if(creep.hits < creep.hitsMax / 1.5){
+        if(creep.hits < creep.hitsMax / 1.1){
             return false;
         }
         return true;

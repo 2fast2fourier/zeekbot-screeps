@@ -54,7 +54,7 @@ module.exports = {
                 },
                 rules: {
                     pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
                     idle: { type: 'spawn' }
                 }
             },
@@ -64,11 +64,12 @@ module.exports = {
                 parts: {carry: 3, move: 3},
                 rules: {
                     pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
                     idle: { type: 'spawn' }
                 }
             },
             long: {
+                ideal: 2,
                 additionalPer: {
                     count: 4,
                     flagPrefix: 'Pickup'
@@ -106,7 +107,8 @@ module.exports = {
         versions: {
             milli: {
                 additionalPer: {
-                    room: 2
+                    room: 2,
+                    flagPrefix: 'Repair'
                 },
                 parts: {work: 4, carry: 4, move: 8}
             },
@@ -124,10 +126,10 @@ module.exports = {
                 },
                 parts: {work: 2, carry: 2, move: 4}
             },
-            pico: {
-                bootstrap: 1,
-                parts: {work: 1, carry: 2, move: 2}
-            },
+            // pico: {
+            //     bootstrap: 1,
+            //     parts: {work: 1, carry: 2, move: 2}
+            // },
             upgrade: {
                 quota: {
                     jobType: 'upgrade',
@@ -141,8 +143,8 @@ module.exports = {
         rules: {
             pickup: {},
             build: {},
-            repair: {},
-            upgrade: { priority: 1 },
+            repair: { priority: 0.25 },
+            upgrade: { priority: 10 },
             idle: { type: 'worker' }
         }
     },
@@ -198,7 +200,10 @@ module.exports = {
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             melee: {
-                ideal: 1,
+                additionalPer: {
+                    count: 1,
+                    flagPrefix: 'Keep'
+                },
                 quota: {
                     jobType: 'keep',
                     allocation: 15
@@ -206,6 +211,6 @@ module.exports = {
                 parts: {tough: 17, move: 16, attack: 15}
             }
         },
-        rules: { defend: {}, keep: {} }
+        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
     }
 };

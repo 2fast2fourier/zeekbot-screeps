@@ -709,7 +709,7 @@ module.exports =
 	                },
 	                rules: {
 	                    pickup: {},
-	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
 	                    idle: { type: 'spawn' }
 	                }
 	            },
@@ -719,11 +719,12 @@ module.exports =
 	                parts: {carry: 3, move: 3},
 	                rules: {
 	                    pickup: {},
-	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
 	                    idle: { type: 'spawn' }
 	                }
 	            },
 	            long: {
+	                ideal: 2,
 	                additionalPer: {
 	                    count: 4,
 	                    flagPrefix: 'Pickup'
@@ -761,7 +762,8 @@ module.exports =
 	        versions: {
 	            milli: {
 	                additionalPer: {
-	                    room: 2
+	                    room: 2,
+	                    flagPrefix: 'Repair'
 	                },
 	                parts: {work: 4, carry: 4, move: 8}
 	            },
@@ -779,10 +781,10 @@ module.exports =
 	                },
 	                parts: {work: 2, carry: 2, move: 4}
 	            },
-	            pico: {
-	                bootstrap: 1,
-	                parts: {work: 1, carry: 2, move: 2}
-	            },
+	            // pico: {
+	            //     bootstrap: 1,
+	            //     parts: {work: 1, carry: 2, move: 2}
+	            // },
 	            upgrade: {
 	                quota: {
 	                    jobType: 'upgrade',
@@ -796,8 +798,8 @@ module.exports =
 	        rules: {
 	            pickup: {},
 	            build: {},
-	            repair: {},
-	            upgrade: { priority: 1 },
+	            repair: { priority: 0.25 },
+	            upgrade: { priority: 10 },
 	            idle: { type: 'worker' }
 	        }
 	    },
@@ -853,7 +855,10 @@ module.exports =
 	                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
 	            },
 	            melee: {
-	                ideal: 1,
+	                additionalPer: {
+	                    count: 1,
+	                    flagPrefix: 'Keep'
+	                },
 	                quota: {
 	                    jobType: 'keep',
 	                    allocation: 15
@@ -861,7 +866,7 @@ module.exports =
 	                parts: {tough: 17, move: 16, attack: 15}
 	            }
 	        },
-	        rules: { defend: {}, keep: {} }
+	        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
 	    }
 	};
 
@@ -1476,7 +1481,7 @@ module.exports =
 	    }
 
 	    canBid(creep, opts){
-	        if(creep.hits < creep.hitsMax / 1.5){
+	        if(creep.hits < creep.hitsMax / 1.1){
 	            return false;
 	        }
 	        return true;
@@ -1658,11 +1663,11 @@ module.exports =
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
-	        return this.getEnergyOffset(creep) + distance / this.distanceWeight + this.calcRepairOffset(job.target);
+	        return this.getEnergyOffset(creep) + distance / 100 + this.calcRepairOffset(job.target);
 	    }
 
 	    calcRepairOffset(target){
-	        return (target.hits / Math.min(target.hitsMax, Memory.settings.repairTarget))/10;
+	        return target.hits / Math.min(target.hitsMax, Memory.settings.repairTarget);
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -2395,8 +2400,8 @@ module.exports =
 	                targets.push(mineral);
 	            }
 	        }
-	        var hostiles = this.catalog.getHostileCreeps(room);
-	        targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
+	        // var hostiles = this.catalog.getHostileCreeps(room);
+	        // targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
 	        if(flag && Memory.settings.flagRange[this.type] > 0){
 	            return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
 	        }
