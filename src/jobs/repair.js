@@ -19,6 +19,13 @@ class RepairJob extends BaseJob {
         return _.filter(this.catalog.getStructures(room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget));
     }
 
+    postGenerate(jobs){
+        _.forEach(Memory.repairBlacklist, target=>{
+            delete jobs[this.type+'-'+target];
+        });
+        return jobs;
+    }
+
 }
 
 module.exports = RepairJob;

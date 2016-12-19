@@ -51,13 +51,14 @@ class BaseWorker extends SimpleWorker {
         if(!this.canBid(creep, opts)){
             return false;
         }
+        // var start = Game.cpu.getUsed();
         var lowestBid = 99999999;
         var allocation = this.calculateAllocation(creep, opts);
         if(!allocation){
             return false;
         }
         var jobs = this.getOpenJobs();
-        return _.reduce(jobs, (result, job) =>{
+        var result = _.reduce(jobs, (result, job) =>{
             var distance = this.getJobDistance(creep, job);
             if(opts.maxRange > 0 && distance > opts.maxRange){
                 return result;
@@ -75,6 +76,8 @@ class BaseWorker extends SimpleWorker {
             }
             return result;
         }, false);
+        // console.log(this.type, Game.cpu.getUsed() - start);
+        return result;
     }
 
     calculateAllocation(creep, opts){ console.log('calculateAllocation not implemented', this.type); }

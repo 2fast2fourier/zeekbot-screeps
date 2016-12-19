@@ -9,7 +9,9 @@ class MineJob extends BaseJob {
         if(target.mineralAmount > 0){
             return 5;
         }
-        return Math.floor(target.energyCapacity/600)+1;
+        //right now a mix of 6 and 7 capacity spawns means we underestimate the number of miners.
+        //so use 7 regardless of actual need
+        return 7;//Math.floor(target.energyCapacity/600)+1;
     }
 
     generateTargets(room, flag){

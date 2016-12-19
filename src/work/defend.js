@@ -9,11 +9,15 @@ class DefendWorker extends BaseWorker {
         return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
     }
 
-    canBid(creep, opts){
-        if(creep.hits < creep.hitsMax / 2){
-            return false;
-        }
-        return true;
+    // canBid(creep, opts){
+    //     if(creep.hits < creep.hitsMax / 2){
+    //         return false;
+    //     }
+    //     return true;
+    // }
+
+    isValid(){
+        return false;
     }
 
     calculateBid(creep, opts, job, allocation, distance){

@@ -41,7 +41,7 @@ class Spawner {
 
         if(quota && quota.jobType && version.quota !== false){
             var needCapacity = _.get(catalog.jobs.capacity, quota.jobType, 0);
-            var targetCapacity = needCapacity * _.get(quota, 'ratio', 1);
+            var targetCapacity = Math.ceil(needCapacity * _.get(quota, 'ratio', 1));
             var creepsNeeded = Math.ceil(targetCapacity/_.get(version, 'allocation', _.get(quota, 'allocation', 1)));
             additional += Math.min(creepsNeeded, _.get(quota, 'max', Infinity));
         }

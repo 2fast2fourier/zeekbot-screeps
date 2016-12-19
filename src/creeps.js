@@ -6,7 +6,7 @@ module.exports = {
             milli: {
                 allocation: 7,
                 critical: 1400,
-                parts: {tough: 10, move: 10, carry: 2, work: 7}
+                parts: {move: 5, carry: 2, work: 7}
             },
             micro: {
                 allocation: 6,
@@ -80,6 +80,16 @@ module.exports = {
                 },
                 parts: {carry: 10, move: 10}
             },
+            leveler: {
+                additionalPer: {
+                    room: 1
+                },
+                rules: {
+                    pickup: { types: [ STRUCTURE_STORAGE ], min: 100000 },
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+                },
+                parts: {carry: 10, move: 10}
+            },
             micro: {
                 additionalPer: {
                     room: 2
@@ -102,6 +112,19 @@ module.exports = {
             pickup: { minerals: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
             deliver: {}
         }
+    },
+    observer: {
+        versions: {
+            pico: {
+                quota: {
+                    jobType: 'observe',
+                    allocation: 1,
+                    ratio: 1
+                },
+                parts: {tough: 1, move: 1}
+            },
+        },
+        rules: { observe: {} }
     },
     worker: {
         versions: {
@@ -138,29 +161,28 @@ module.exports = {
                 },
                 parts: {work: 5, carry: 2, move: 7},
                 rules: { pickup: {}, upgrade: {} }
+            },
+            repair: {
+                quota: {
+                    jobType: 'repair',
+                    allocation: 100,
+                    ratio: 0.5,
+                    max: 10
+                },
+                rules: {
+                    pickup: {},
+                    repair: {},
+                },
+                parts: {work: 2, carry: 2, move: 4}
             }
         },
         rules: {
             pickup: {},
             build: {},
-            repair: { priority: 0.25 },
+            repair: { priority: 2 },
             upgrade: { priority: 10 },
             idle: { type: 'worker' }
         }
-    },
-    observer: {
-        versions: {
-            pico: {
-                ideal: 0,
-                quota: {
-                    jobType: 'observe',
-                    allocation: 1,
-                    ratio: 1
-                },
-                parts: {tough: 1, move: 1}
-            },
-        },
-        rules: { observe: {} }
     },
     claimer: {
         versions: {

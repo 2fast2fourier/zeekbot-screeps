@@ -17,7 +17,6 @@ var types = [
     STRUCTURE_STORAGE,
     STRUCTURE_CONTAINER,
     STRUCTURE_TERMINAL,
-    STRUCTURE_LAB,
     STRUCTURE_LINK,
     STRUCTURE_TOWER
 ];
@@ -25,8 +24,7 @@ var types = [
 var mineralContainers = [
     STRUCTURE_STORAGE,
     STRUCTURE_CONTAINER,
-    STRUCTURE_TERMINAL,
-    STRUCTURE_LAB
+    STRUCTURE_TERMINAL
 ];
 
 class DeliverJob extends BaseJob {

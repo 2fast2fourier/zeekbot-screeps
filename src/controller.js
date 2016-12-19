@@ -6,10 +6,10 @@ class Controller {
 
     static control(catalog){
         var towers = _.filter(Game.structures, {structureType: STRUCTURE_TOWER});
-        towers.forEach(tower => {
+        towers.forEach((tower, ix) => {
             if(!Memory.standDown && !Controller.towerDefend(tower, catalog)){
                 if(!Controller.towerHeal(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
-                    Controller.towerRepair(tower, catalog)
+                    Controller.towerRepair(tower, catalog, ix);
                 }
             }
         });
@@ -39,11 +39,11 @@ class Controller {
         return false;
     }
 
-    static towerRepair(tower, catalog) {
+    static towerRepair(tower, catalog, ix) {
         var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
-        if(damagedBuildings.length > 0) {
+        if(damagedBuildings.length > ix) {
             var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.repairTarget));
-            tower.repair(damaged[0]);
+            tower.repair(damaged[ix]);
         }
     }
 

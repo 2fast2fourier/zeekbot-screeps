@@ -6,6 +6,7 @@ class JobManager {
     constructor(catalog){
         this.catalog = catalog;
         this.jobs = {};
+        this.openJobs = {};
         this.capacity = {};
         this.allocation = {};
         this.categories = Jobs(catalog);
@@ -17,6 +18,7 @@ class JobManager {
             this.jobs[category.getType()] = category.generate();
             _.forEach(this.jobs[category.getType()], job => cap += job.capacity);
             this.capacity[category.getType()] = cap;
+            // console.log(category.getType(), cap);
             this.allocation[category.getType()] = 0;
         });
         if(Memory.debugJob){
@@ -29,7 +31,10 @@ class JobManager {
     }
 
     getOpenJobs(type){
-        return _.pick(this.jobs[type], job => job.allocated < job.capacity);
+        if(!this.openJobs[type]){
+            this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
+        }
+        return this.openJobs[type];
     }
 
     getJob(type, id){
@@ -40,6 +45,10 @@ class JobManager {
         if(jobId && type && _.has(this.jobs, [type, jobId])){
             _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) + allocation);
             this.allocation[type] += allocation;
+            var job = _.get(this.jobs[type], jobId, false);
+            if(job && job.allocated >= job.capacity && _.has(this.openJobs, [type, jobId])){
+                delete this.openJobs[type][jobId];
+            }
         }
     }
 
@@ -47,6 +56,10 @@ class JobManager {
         if(jobId && type && _.has(this.jobs, [type, jobId])){
             _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) - allocation);
             this.allocation[type] -= allocation;
+            var job = _.get(this.jobs[type], jobId, false);
+            if(job && job.allocated < job.capacity && !_.has(this.openJobs, [type, jobId])){
+                this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
+            }
         }
     }
 }

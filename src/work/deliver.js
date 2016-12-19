@@ -29,6 +29,9 @@ class DeliverWorker extends BaseWorker {
         if(opts.ignoreCreeps && job.creep){
             return false;
         }
+        if(creep.memory.lastSource == job.target.id){
+            return false;
+        }
         if(this.catalog.hasMinerals(creep)){
             if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
                 // console.log(creep, job.target, job.minerals);

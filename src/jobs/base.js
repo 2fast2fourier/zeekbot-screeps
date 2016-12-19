@@ -27,17 +27,21 @@ class BaseJob {
         if(this.flagPrefix){
             _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
         }
+        return this.postGenerate(jobs);
+    }
+
+    postGenerate(jobs){
         return jobs;
     }
 
     generateJobs(room, flag){
-        return _.map(this.generateTargets(room, flag), target => this.finalizeJob(room, target, this.generateJobForTarget(room, target)));
+        return _.map(this.generateTargets(room, flag), target => this.finalizeJob(room, target, this.generateJobForTarget(room, target, flag)));
     }
 
-    generateJobForTarget(room, target){
+    generateJobForTarget(room, target, flag){
         return {
             allocated: 0,
-            capacity: this.calculateCapacity(room, target),
+            capacity: this.calculateCapacity(room, target, flag),
             id: this.generateId(target),
             target
         };

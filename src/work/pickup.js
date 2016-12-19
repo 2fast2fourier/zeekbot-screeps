@@ -27,6 +27,9 @@ class PickupWorker extends BaseWorker {
         if(opts.types && !job.dropped && !_.includes(opts.types, job.target.structureType)){
             return false;
         }
+        if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
+            return false;
+        }
         return 1 + this.getStorageOffset(creep) + distance / this.distanceWeight + this.calcAvailRatio(job, allocation);
     }
 
@@ -39,6 +42,8 @@ class PickupWorker extends BaseWorker {
         }
         if(result == ERR_NOT_IN_RANGE){
             creep.moveTo(target);
+        }else if(result == OK){
+            creep.memory.lastSource = target.id;
         }
     }
 

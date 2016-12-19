@@ -13,11 +13,19 @@ class RepairWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
-        return this.getEnergyOffset(creep) + distance / 100 + this.calcRepairOffset(job.target);
+        var energy = this.getEnergyOffset(creep);
+        if(energy < 0.75){
+            return distance / 100 + this.calcRepairOffset(job.target);
+        }
+        return energy + distance / 100 + this.calcRepairOffset(job.target);
     }
 
     calcRepairOffset(target){
-        return target.hits / Math.min(target.hitsMax, Memory.settings.repairTarget);
+        var percent = target.hits / Math.min(target.hitsMax, Memory.settings.repairTarget);
+        if(percent < 0.5){
+            return -1 + percent;
+        }
+        return 0;
     }
 
     processStep(creep, job, target, opts){

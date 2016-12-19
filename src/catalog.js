@@ -268,7 +268,8 @@ class Catalog {
         return this.getStorage(entity) > this.getResource(entity, RESOURCE_ENERGY);
     }
 
-    calculateRealPosition(pos){
+    cacheRoomPos(pos){
+        console.log('cacheRoomPos', pos.roomName);
         var roomParts = roomRegex.exec(pos.roomName);
         if(!roomParts){
             console.log('could not parse room', pos.roomName);
@@ -282,9 +283,25 @@ class Catalog {
         var ySign = north ? 1 : -1;
         var xOffset = east ? 0 : 50;
         var yOffset = north ? 50 : 0;
+        Memory.cache.roompos[pos.roomName] = {
+            x: _.parseInt(roomParts[2]) * 50 * xSign + xSign * xOffset,
+            y: _.parseInt(roomParts[4]) * 50 * ySign + yOffset,
+            ySign
+        };
+        return Memory.cache.roompos[pos.roomName];
+    }
+
+    calculateRealPosition(pos){
+        if(!Memory.cache){
+            Memory.cache = { roompos: {} };
+        }
+        var roompos = Memory.cache.roompos[pos.roomName];
+        if(!roompos){
+            roompos = this.cacheRoomPos(pos);
+        }
         return {
-            x: _.parseInt(roomParts[2]) * 50 * xSign + pos.x + xSign * xOffset,
-            y: _.parseInt(roomParts[4]) * 50 * ySign + pos.y * -ySign + yOffset
+            x: roompos.x + pos.x,
+            y: roompos.y + pos.y * -roompos.ySign
         };
     }
 

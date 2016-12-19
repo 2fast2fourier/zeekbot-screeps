@@ -15,8 +15,8 @@ class PickupJob extends BaseJob {
         var dropped = this.catalog.getDroppedResources(room);
         var storage = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getStorage(structure) > 0);
         storage = storage.concat(dropped);
-        var hostiles = this.catalog.getHostileCreeps(room);
-        storage = _.filter(storage, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
+        // var hostiles = this.catalog.getHostileCreeps(room);
+        // storage = _.filter(storage, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
         var result = [];
         _.forEach(storage, (entity) => {
             _.forEach(this.catalog.getResourceList(entity), (amount, type)=>{
