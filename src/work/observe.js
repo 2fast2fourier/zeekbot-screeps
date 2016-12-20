@@ -15,7 +15,7 @@ class ObserveWorker extends BaseWorker {
 
     processStep(creep, job, target, opts){
         if(this.getJobDistance(creep, job) > 1){
-            creep.moveTo(target);
+            this.move(creep, target);
         }
     }
 

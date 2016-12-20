@@ -26,6 +26,20 @@ class SimpleWorker {
         return 1 - this.catalog.getStoragePercent(creep);
     }
 
+    move(creep, target){
+        if(this.moveOpts){
+            return creep.moveTo(target, this.moveOpts);
+        }
+        return creep.moveTo(target, { reusePath: 10 });
+    }
+
+    orMove(creep, target, result){
+        if(result == ERR_NOT_IN_RANGE){
+            this.move(creep, target);
+        }
+        return result;
+    }
+
     stillValid(creep, opts){
         if(this.idleTimer > 0 && creep.memory.idleCheck > 0 && creep.memory.idleCheck < Game.time){
             return false;

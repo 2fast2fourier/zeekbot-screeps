@@ -54,7 +54,7 @@ module.exports =
 	var Misc = __webpack_require__(40);
 
 	module.exports.loop = function () {
-	    // var start = Game.cpu.getUsed();
+	    var start = Game.cpu.getUsed();
 	    if(!Memory.upgradedLogic){
 	        Misc.setSettings();
 	        Memory.updateTime = 0;
@@ -69,7 +69,7 @@ module.exports =
 
 	    var catalog = new Catalog();
 
-	    if(Memory.updateTime < Game.time || !Memory.updateTime){
+	    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
 	        Misc.updateStats(catalog);
 	        Memory.updateTime = Game.time + Memory.settings.updateDelta;
 	    }
@@ -98,6 +98,18 @@ module.exports =
 	    //     console.log('spawner', spawner - worker);
 	    //     console.log('controller', controller - spawner);
 	    // }
+
+	    
+	    var usage = Game.cpu.getUsed() - start;
+	    var profile = Memory.stats.profile;
+	    profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
+	    profile.count++;
+	    if(profile.max < usage){
+	        profile.max = usage;
+	    }
+	    if(profile.min > usage){
+	        profile.min = usage;
+	    }
 	}
 
 /***/ },
@@ -1026,7 +1038,7 @@ module.exports =
 	var BaseWorker = __webpack_require__(8);
 
 	class AttackWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'attack', { chatty: true }); }
+	    constructor(catalog){ super(catalog, 'attack', { chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 2 } }); }
 
 	    calculateAllocation(creep, opts){
 	        return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
@@ -1049,14 +1061,12 @@ module.exports =
 	    processStep(creep, job, target, opts){
 	        if(opts.ranged){
 	            if(creep.pos.getRangeTo(target) > 3){
-	                creep.moveTo(target);
+	                this.move(creep, target);
 	            }else{
 	                creep.rangedAttack(target);
 	            }
 	        }else{
-	            if(creep.attack(target) == ERR_NOT_IN_RANGE){
-	                creep.moveTo(target);
-	            }
+	            this.orMove(creep, target, creep.attack(target));
 	            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
 	                creep.rangedAttack(target);
 	            }
@@ -1203,6 +1213,20 @@ module.exports =
 	        return 1 - this.catalog.getStoragePercent(creep);
 	    }
 
+	    move(creep, target){
+	        if(this.moveOpts){
+	            return creep.moveTo(target, this.moveOpts);
+	        }
+	        return creep.moveTo(target, { reusePath: 10 });
+	    }
+
+	    orMove(creep, target, result){
+	        if(result == ERR_NOT_IN_RANGE){
+	            this.move(creep, target);
+	        }
+	        return result;
+	    }
+
 	    stillValid(creep, opts){
 	        if(this.idleTimer > 0 && creep.memory.idleCheck > 0 && creep.memory.idleCheck < Game.time){
 	            return false;
@@ -1271,12 +1295,7 @@ module.exports =
 	    }
 
 	    processStep(creep, job, target, opts){
-	        var result = creep.build(target);
-	        if(result == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
-	        }else if(result == ERR_INVALID_TARGET){
-	            creep.move(Math.ceil(Math.random()*8));
-	        }
+	        this.orMove(creep, target, creep.build(target));
 	    }
 
 	}
@@ -1292,18 +1311,11 @@ module.exports =
 	var BaseWorker = __webpack_require__(8);
 
 	class DefendWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true }); }
+	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 2 } }); }
 
 	    calculateAllocation(creep, opts){
 	        return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
 	    }
-
-	    // canBid(creep, opts){
-	    //     if(creep.hits < creep.hitsMax / 2){
-	    //         return false;
-	    //     }
-	    //     return true;
-	    // }
 
 	    isValid(){
 	        return false;
@@ -1319,7 +1331,7 @@ module.exports =
 	    processStep(creep, job, target, opts){
 	        if(opts.ranged){
 	            if(creep.pos.getRangeTo(target) > 3){
-	                creep.moveTo(target);
+	                this.move(creep, target);
 	            }else{
 	                creep.rangedAttack(target);
 	            }
@@ -1328,7 +1340,7 @@ module.exports =
 	            }
 	        }else{
 	            if(creep.attack(target) == ERR_NOT_IN_RANGE){
-	                creep.moveTo(target);
+	                this.move(creep, target);
 	            }
 	            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
 	                creep.rangedAttack(target);
@@ -1399,7 +1411,7 @@ module.exports =
 	            }
 	            var result = creep.transfer(target, type);
 	            if(result == ERR_NOT_IN_RANGE){
-	                creep.moveTo(target);
+	                this.move(creep, target);
 	                done = true;
 	            }else if(result == OK){
 	                done = true;
@@ -1469,9 +1481,9 @@ module.exports =
 	        var range = creep.pos.getRangeTo(target);
 	        if(range > 1 && range <= 3){
 	            creep.rangedHeal(target);
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }else if(creep.heal(target) == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }
 	    }
 
@@ -1503,7 +1515,7 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        if(creep.pos.getRangeTo(target) > 3){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }
 	    }
 
@@ -1552,10 +1564,10 @@ module.exports =
 	        if(hostiles.length > 0){
 	            var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
 	            if(creep.attack(enemy) == ERR_NOT_IN_RANGE){
-	                creep.moveTo(enemy);
+	                this.move(creep, enemy);
 	            }
 	        }else if(creep.pos.getRangeTo(target) > targetRange){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }else if(creep.pos.getRangeTo(target) < targetRange){
 	            creep.move((creep.pos.getDirectionTo(target)+4)%8);
 	        }
@@ -1585,6 +1597,9 @@ module.exports =
 	    }
 
 	    calculateAllocation(creep, opts){
+	        if(creep.ticksToLive < 100){
+	            return Math.ceil(creep.getActiveBodyparts(WORK) / 2);
+	        }
 	        return creep.getActiveBodyparts(WORK);
 	    }
 
@@ -1604,8 +1619,9 @@ module.exports =
 	                });
 	            }
 	        }
-	        if(creep.harvest(target) == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
+	        this.orMove(creep, target, creep.harvest(target));
+	        if(creep.ticksToLive == 100){
+	            creep.memory.jobAllocation = Math.ceil(creep.memory.jobAllocation / 2);
 	        }
 	    }
 
@@ -1634,7 +1650,7 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        if(this.getJobDistance(creep, job) > 1){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }
 	    }
 
@@ -1689,7 +1705,7 @@ module.exports =
 	            result = creep.withdraw(target, job.resource);
 	        }
 	        if(result == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }else if(result == OK){
 	            creep.memory.lastSource = target.id;
 	        }
@@ -1734,9 +1750,7 @@ module.exports =
 	    }
 
 	    processStep(creep, job, target, opts){
-	        if(creep.repair(target) == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
-	        }
+	        this.orMove(creep, target, creep.repair(target));
 	    }
 
 	}
@@ -1764,11 +1778,11 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        if(target.name){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }else if(creep.memory.claim && creep.claimController(target) == OK){
 	            creep.memory.claim = false;
 	        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
+	            this.move(creep, target);
 	        }
 	    }
 
@@ -1796,9 +1810,7 @@ module.exports =
 	    }
 
 	    processStep(creep, job, target, opts){
-	        if(creep.upgradeController(target) == ERR_NOT_IN_RANGE){
-	            creep.moveTo(target);
-	        }
+	        this.orMove(creep, target, creep.upgradeController(target));
 	    }
 
 	}
@@ -2302,10 +2314,31 @@ module.exports =
 	    }
 
 	    generate(){
+	        var start = Game.cpu.getUsed();
 	        var jobs = {};
 	        _.forEach(this.getRooms(), room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
 	        if(this.flagPrefix){
 	            _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
+	        }
+	        var profile = Memory.stats.profile.job[this.getType()];
+	        var usage = Game.cpu.getUsed() - start;
+	        if(!profile){
+	            profile = {
+	                max: usage,
+	                min: usage,
+	                avg: usage,
+	                count: 1
+	            };
+	            Memory.stats.profile.job[this.getType()] = profile;
+	        }else{
+	            profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
+	            profile.count++;
+	            if(profile.max < usage){
+	                profile.max = usage;
+	            }
+	            if(profile.min > usage){
+	                profile.min = usage;
+	            }
 	        }
 	        return this.postGenerate(jobs);
 	    }
@@ -2813,8 +2846,35 @@ module.exports =
 
 	class Misc {
 	    static updateStats(catalog){
+	        if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
+	            console.log('CPU (- a +):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max);
+	            var nameAvg = "";
+	            var maxAvg = 0;
+	            var nameMax = "";
+	            var maxMax = 0;
+	            _.forEach(Memory.stats.profile.job, (job, name) =>{
+	                if(maxAvg < job.avg){
+	                    maxAvg = job.avg;
+	                    nameAvg = name;
+	                }
+	                if(maxMax < job.max){
+	                    maxMax = job.max;
+	                    nameMax = name;
+	                }
+	            });
+	            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax);
+	        }
 	        var stats = {
-	            rooms: {}
+	            rooms: {},
+	            profile: {
+	                job: {},
+	                worker: {},
+	                spawner: {},
+	                avg: 0,
+	                count: 0,
+	                max: 0,
+	                min: Infinity
+	            }
 	        };
 	        _.forEach(Game.rooms, room => {
 	            var spawns = room.find(FIND_MY_SPAWNS);

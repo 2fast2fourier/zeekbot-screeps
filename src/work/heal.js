@@ -17,9 +17,9 @@ class HealWorker extends BaseWorker {
         var range = creep.pos.getRangeTo(target);
         if(range > 1 && range <= 3){
             creep.rangedHeal(target);
-            creep.moveTo(target);
+            this.move(creep, target);
         }else if(creep.heal(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
+            this.move(creep, target);
         }
     }
 

@@ -14,6 +14,9 @@ class MineWorker extends BaseWorker {
     }
 
     calculateAllocation(creep, opts){
+        if(creep.ticksToLive < 100){
+            return Math.ceil(creep.getActiveBodyparts(WORK) / 2);
+        }
         return creep.getActiveBodyparts(WORK);
     }
 
@@ -33,8 +36,9 @@ class MineWorker extends BaseWorker {
                 });
             }
         }
-        if(creep.harvest(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
+        this.orMove(creep, target, creep.harvest(target));
+        if(creep.ticksToLive == 100){
+            creep.memory.jobAllocation = Math.ceil(creep.memory.jobAllocation / 2);
         }
     }
 

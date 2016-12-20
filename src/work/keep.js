@@ -35,10 +35,10 @@ class KeepWorker extends BaseWorker {
         if(hostiles.length > 0){
             var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
             if(creep.attack(enemy) == ERR_NOT_IN_RANGE){
-                creep.moveTo(enemy);
+                this.move(creep, enemy);
             }
         }else if(creep.pos.getRangeTo(target) > targetRange){
-            creep.moveTo(target);
+            this.move(creep, target);
         }else if(creep.pos.getRangeTo(target) < targetRange){
             creep.move((creep.pos.getDirectionTo(target)+4)%8);
         }

@@ -22,10 +22,31 @@ class BaseJob {
     }
 
     generate(){
+        var start = Game.cpu.getUsed();
         var jobs = {};
         _.forEach(this.getRooms(), room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
         if(this.flagPrefix){
             _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
+        }
+        var profile = Memory.stats.profile.job[this.getType()];
+        var usage = Game.cpu.getUsed() - start;
+        if(!profile){
+            profile = {
+                max: usage,
+                min: usage,
+                avg: usage,
+                count: 1
+            };
+            Memory.stats.profile.job[this.getType()] = profile;
+        }else{
+            profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
+            profile.count++;
+            if(profile.max < usage){
+                profile.max = usage;
+            }
+            if(profile.min > usage){
+                profile.min = usage;
+            }
         }
         return this.postGenerate(jobs);
     }

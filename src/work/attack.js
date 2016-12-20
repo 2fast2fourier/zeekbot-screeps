@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class AttackWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'attack', { chatty: true }); }
+    constructor(catalog){ super(catalog, 'attack', { chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 2 } }); }
 
     calculateAllocation(creep, opts){
         return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
@@ -26,14 +26,12 @@ class AttackWorker extends BaseWorker {
     processStep(creep, job, target, opts){
         if(opts.ranged){
             if(creep.pos.getRangeTo(target) > 3){
-                creep.moveTo(target);
+                this.move(creep, target);
             }else{
                 creep.rangedAttack(target);
             }
         }else{
-            if(creep.attack(target) == ERR_NOT_IN_RANGE){
-                creep.moveTo(target);
-            }
+            this.orMove(creep, target, creep.attack(target));
             if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
                 creep.rangedAttack(target);
             }

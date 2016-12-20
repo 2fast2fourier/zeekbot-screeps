@@ -41,7 +41,7 @@ class PickupWorker extends BaseWorker {
             result = creep.withdraw(target, job.resource);
         }
         if(result == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
+            this.move(creep, target);
         }else if(result == OK){
             creep.memory.lastSource = target.id;
         }

@@ -53,7 +53,7 @@ class DeliverWorker extends BaseWorker {
             }
             var result = creep.transfer(target, type);
             if(result == ERR_NOT_IN_RANGE){
-                creep.moveTo(target);
+                this.move(creep, target);
                 done = true;
             }else if(result == OK){
                 done = true;

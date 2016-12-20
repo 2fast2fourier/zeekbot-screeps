@@ -14,9 +14,7 @@ class UpgradeWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        if(creep.upgradeController(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
-        }
+        this.orMove(creep, target, creep.upgradeController(target));
     }
 
 }

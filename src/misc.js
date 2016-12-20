@@ -4,8 +4,35 @@ var RoomUtil = require('./roomutil');
 
 class Misc {
     static updateStats(catalog){
+        if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
+            console.log('CPU (- a +):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max);
+            var nameAvg = "";
+            var maxAvg = 0;
+            var nameMax = "";
+            var maxMax = 0;
+            _.forEach(Memory.stats.profile.job, (job, name) =>{
+                if(maxAvg < job.avg){
+                    maxAvg = job.avg;
+                    nameAvg = name;
+                }
+                if(maxMax < job.max){
+                    maxMax = job.max;
+                    nameMax = name;
+                }
+            });
+            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax);
+        }
         var stats = {
-            rooms: {}
+            rooms: {},
+            profile: {
+                job: {},
+                worker: {},
+                spawner: {},
+                avg: 0,
+                count: 0,
+                max: 0,
+                min: Infinity
+            }
         };
         _.forEach(Game.rooms, room => {
             var spawns = room.find(FIND_MY_SPAWNS);

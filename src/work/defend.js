@@ -3,18 +3,11 @@
 var BaseWorker = require('./base');
 
 class DefendWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true }); }
+    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 2 } }); }
 
     calculateAllocation(creep, opts){
         return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
     }
-
-    // canBid(creep, opts){
-    //     if(creep.hits < creep.hitsMax / 2){
-    //         return false;
-    //     }
-    //     return true;
-    // }
 
     isValid(){
         return false;
@@ -30,7 +23,7 @@ class DefendWorker extends BaseWorker {
     processStep(creep, job, target, opts){
         if(opts.ranged){
             if(creep.pos.getRangeTo(target) > 3){
-                creep.moveTo(target);
+                this.move(creep, target);
             }else{
                 creep.rangedAttack(target);
             }
@@ -39,7 +32,7 @@ class DefendWorker extends BaseWorker {
             }
         }else{
             if(creep.attack(target) == ERR_NOT_IN_RANGE){
-                creep.moveTo(target);
+                this.move(creep, target);
             }
             if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
                 creep.rangedAttack(target);

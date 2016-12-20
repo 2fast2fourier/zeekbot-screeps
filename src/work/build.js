@@ -17,12 +17,7 @@ class BuildWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        var result = creep.build(target);
-        if(result == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
-        }else if(result == ERR_INVALID_TARGET){
-            creep.move(Math.ceil(Math.random()*8));
-        }
+        this.orMove(creep, target, creep.build(target));
     }
 
 }

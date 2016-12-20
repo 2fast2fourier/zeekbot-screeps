@@ -7,7 +7,7 @@ var Catalog = require('./catalog');
 var Misc = require('./misc');
 
 module.exports.loop = function () {
-    // var start = Game.cpu.getUsed();
+    var start = Game.cpu.getUsed();
     if(!Memory.upgradedLogic){
         Misc.setSettings();
         Memory.updateTime = 0;
@@ -22,7 +22,7 @@ module.exports.loop = function () {
 
     var catalog = new Catalog();
 
-    if(Memory.updateTime < Game.time || !Memory.updateTime){
+    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
         Misc.updateStats(catalog);
         Memory.updateTime = Game.time + Memory.settings.updateDelta;
     }
@@ -51,4 +51,16 @@ module.exports.loop = function () {
     //     console.log('spawner', spawner - worker);
     //     console.log('controller', controller - spawner);
     // }
+
+    
+    var usage = Game.cpu.getUsed() - start;
+    var profile = Memory.stats.profile;
+    profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
+    profile.count++;
+    if(profile.max < usage){
+        profile.max = usage;
+    }
+    if(profile.min > usage){
+        profile.min = usage;
+    }
 }

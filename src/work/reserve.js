@@ -15,11 +15,11 @@ class ReserveWorker extends BaseWorker {
 
     processStep(creep, job, target, opts){
         if(target.name){
-            creep.moveTo(target);
+            this.move(creep, target);
         }else if(creep.memory.claim && creep.claimController(target) == OK){
             creep.memory.claim = false;
         }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
+            this.move(creep, target);
         }
     }
 

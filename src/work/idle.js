@@ -18,7 +18,7 @@ class IdleWorker extends BaseWorker {
 
     processStep(creep, job, target, opts){
         if(creep.pos.getRangeTo(target) > 3){
-            creep.moveTo(target);
+            this.move(creep, target);
         }
     }
 

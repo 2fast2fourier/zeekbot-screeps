@@ -29,9 +29,7 @@ class RepairWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        if(creep.repair(target) == ERR_NOT_IN_RANGE){
-            creep.moveTo(target);
-        }
+        this.orMove(creep, target, creep.repair(target));
     }
 
 }
