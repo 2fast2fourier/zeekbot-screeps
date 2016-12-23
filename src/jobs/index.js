@@ -11,6 +11,7 @@ var Observe = require('./observe');
 var Pickup = require('./pickup');
 var Repair = require('./repair');
 var Reserve = require('./reserve');
+var Transfer = require('./transfer');
 var Upgrade = require('./upgrade');
 var Heal = require('./heal');
 
@@ -28,6 +29,7 @@ module.exports = function(catalog){
         pickup: new Pickup(catalog),
         repair: new Repair(catalog),
         reserve: new Reserve(catalog),
+        transfer: new Transfer(catalog),
         upgrade: new Upgrade(catalog)
     };
 };

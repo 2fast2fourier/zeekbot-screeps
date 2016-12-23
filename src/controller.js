@@ -14,7 +14,7 @@ class Controller {
             }
         });
 
-        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(Game.getObjectById(source), Game.getObjectById(target)));
+        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
     }
 
     static towerDefend(tower, catalog) {
@@ -47,10 +47,24 @@ class Controller {
         }
     }
 
-    static linkTransfer(source, target){
-        var need = RoomUtil.getEnergyDeficit(target);
-        if(source && need >= 50 && source.cooldown == 0 && need > 0 && RoomUtil.getEnergy(source) > 0){
-            source.transferEnergy(target, Math.min(RoomUtil.getEnergy(source), need));
+    static linkTransfer(sourceId, targetId, catalog){
+        var minimumNeed = 50;
+        var source = Game.getObjectById(sourceId);
+        var target;
+        if(_.isObject(targetId)){
+            target = Game.getObjectById(targetId.target);
+            minimumNeed = targetId.minimumNeed || 50;
+        }else{
+            target = Game.getObjectById(targetId);
+        }
+        if(!source || !target){
+            console.log('invalid linkTransfer', source, target);
+            return false;
+        }
+        var need = catalog.getAvailableCapacity(target);
+        var sourceEnergy = catalog.getResource(source, RESOURCE_ENERGY);
+        if(source && need >= minimumNeed && source.cooldown == 0 && need > 0 && sourceEnergy > 0){
+            source.transferEnergy(target, Math.min(sourceEnergy, need));
         }
     }
 }

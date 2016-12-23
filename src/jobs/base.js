@@ -28,6 +28,11 @@ class BaseJob {
         if(this.flagPrefix){
             _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
         }
+        this.profile(start);
+        return this.postGenerate(jobs);
+    }
+
+    profile(start){
         var profile = Memory.stats.profile.job[this.getType()];
         var usage = Game.cpu.getUsed() - start;
         if(!profile){
@@ -48,7 +53,6 @@ class BaseJob {
                 profile.min = usage;
             }
         }
-        return this.postGenerate(jobs);
     }
 
     postGenerate(jobs){

@@ -50,8 +50,8 @@ module.exports =
 	var Controller = __webpack_require__(1);
 	var Spawner = __webpack_require__(3);
 	var WorkManager = __webpack_require__(5);
-	var Catalog = __webpack_require__(23);
-	var Misc = __webpack_require__(40);
+	var Catalog = __webpack_require__(24);
+	var Misc = __webpack_require__(42);
 
 	module.exports.loop = function () {
 	    var start = Game.cpu.getUsed();
@@ -69,6 +69,20 @@ module.exports =
 
 	    var catalog = new Catalog();
 
+	    if(!Memory.transfer){
+	        Memory.transfer = {
+	            lab: {},
+	            energy: {}
+	        };
+	        _.forEach(catalog.buildings.lab, lab => {
+	            Memory.transfer.lab[lab.id] = false;
+	            Memory.transfer.energy[lab.id] = lab.energyCapacity;
+	        });
+	        _.forEach(catalog.buildings.terminal, terminal => {
+	            Memory.transfer.energy[terminal.id] = 50000;
+	        });
+	    }
+
 	    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
 	        Misc.updateStats(catalog);
 	        Memory.updateTime = Game.time + Memory.settings.updateDelta;
@@ -78,7 +92,8 @@ module.exports =
 	    catalog.jobs.generate();
 	    catalog.jobs.allocate();
 
-	    // console.log(_.size(catalog.jobs.jobs.repair), catalog.jobs.capacity.repair);
+	    // console.log(_.size(catalog.jobs.jobs.transfer), catalog.jobs.capacity.transfer);
+	    // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
 	    // var jobs = Game.cpu.getUsed();
 	    WorkManager.process(catalog);
@@ -132,7 +147,7 @@ module.exports =
 	            }
 	        });
 
-	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(Game.getObjectById(source), Game.getObjectById(target)));
+	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
 	    }
 
 	    static towerDefend(tower, catalog) {
@@ -165,10 +180,24 @@ module.exports =
 	        }
 	    }
 
-	    static linkTransfer(source, target){
-	        var need = RoomUtil.getEnergyDeficit(target);
-	        if(source && need >= 50 && source.cooldown == 0 && need > 0 && RoomUtil.getEnergy(source) > 0){
-	            source.transferEnergy(target, Math.min(RoomUtil.getEnergy(source), need));
+	    static linkTransfer(sourceId, targetId, catalog){
+	        var minimumNeed = 50;
+	        var source = Game.getObjectById(sourceId);
+	        var target;
+	        if(_.isObject(targetId)){
+	            target = Game.getObjectById(targetId.target);
+	            minimumNeed = targetId.minimumNeed || 50;
+	        }else{
+	            target = Game.getObjectById(targetId);
+	        }
+	        if(!source || !target){
+	            console.log('invalid linkTransfer', source, target);
+	            return false;
+	        }
+	        var need = catalog.getAvailableCapacity(target);
+	        var sourceEnergy = catalog.getResource(source, RESOURCE_ENERGY);
+	        if(source && need >= minimumNeed && source.cooldown == 0 && need > 0 && sourceEnergy > 0){
+	            source.transferEnergy(target, Math.min(sourceEnergy, need));
 	        }
 	    }
 	}
@@ -739,7 +768,7 @@ module.exports =
 	                },
 	                rules: {
 	                    pickup: {},
-	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
+	                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
 	                    idle: { type: 'spawn' }
 	                }
 	            },
@@ -753,10 +782,19 @@ module.exports =
 	                    idle: { type: 'spawn' }
 	                }
 	            },
+	            transfer: {
+	                quota: {
+	                    jobType: 'transfer',
+	                    allocation: 500,
+	                    max: 1
+	                },
+	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
+	                parts: {carry: 10, move: 10}
+	            },
 	            long: {
-	                ideal: 2,
+	                ideal: 3,
 	                additionalPer: {
-	                    count: 4,
+	                    count: 5,
 	                    flagPrefix: 'Pickup'
 	                },
 	                rules: {
@@ -767,10 +805,10 @@ module.exports =
 	            },
 	            leveler: {
 	                additionalPer: {
-	                    room: 1
+	                    room: 2
 	                },
 	                rules: {
-	                    pickup: { types: [ STRUCTURE_STORAGE ], min: 100000 },
+	                    pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
 	                },
 	                parts: {carry: 10, move: 10}
@@ -851,7 +889,7 @@ module.exports =
 	                quota: {
 	                    jobType: 'repair',
 	                    allocation: 100,
-	                    ratio: 0.5,
+	                    ratio: 1,
 	                    max: 10
 	                },
 	                rules: {
@@ -864,7 +902,7 @@ module.exports =
 	        rules: {
 	            pickup: {},
 	            build: {},
-	            repair: { priority: 2 },
+	            repair: { priority: 5 },
 	            upgrade: { priority: 10 },
 	            idle: { type: 'worker' }
 	        }
@@ -1008,7 +1046,8 @@ module.exports =
 	var Pickup = __webpack_require__(19);
 	var Repair = __webpack_require__(20);
 	var Reserve = __webpack_require__(21);
-	var Upgrade = __webpack_require__(22);
+	var Transfer = __webpack_require__(22);
+	var Upgrade = __webpack_require__(23);
 
 	module.exports = function(catalog){
 	    return {
@@ -1025,6 +1064,7 @@ module.exports =
 	        pickup: new Pickup(catalog),
 	        repair: new Repair(catalog),
 	        reserve: new Reserve(catalog),
+	        transfer: new Transfer(catalog),
 	        upgrade: new Upgrade(catalog)
 	    };
 	};
@@ -1798,6 +1838,56 @@ module.exports =
 
 	var BaseWorker = __webpack_require__(8);
 
+	class TransferWorker extends BaseWorker {
+	    constructor(catalog){ super(catalog, 'transfer', { chatty: true }); }
+
+	    isValid(creep, opts, job, target){
+	        var resources = this.catalog.getResource(creep, job.resource);
+	        if(resources == 0){
+	            return this.catalog.getResource(job.pickup, job.resource) > 0;
+	        }else{
+	            if(job.resource == RESOURCE_ENERGY && target.energyCapacity > 0){
+	                return (target.energyCapacity - target.energy) > 0;
+	            }
+	            return this.catalog.getAvailableCapacity(target) > 0;
+	        }
+	    }
+
+	    calculateAllocation(creep, opts){
+	        return this.catalog.getCapacity(creep);
+	    }
+
+	    calculateBid(creep, opts, job, allocation, distance){
+	        var holding = this.catalog.getResource(creep, job.resource);
+	        if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
+	            return false;
+	        }
+	        return distance / this.distanceWeight;
+	    }
+
+	    processStep(creep, job, target, opts){
+	        var resources = this.catalog.getResource(creep, job.resource);
+	        if(resources > 0){
+	            creep.memory.jobAllocation = resources;
+	            this.orMove(creep, target, creep.transfer(target, job.resource, Math.min(resources, job.amount)));
+	        }else{
+	            var amount = Math.min(this.catalog.getAvailableCapacity(creep), Math.min(this.catalog.getResource(job.pickup, job.resource), job.amount));
+	            this.orMove(creep, job.pickup, creep.withdraw(job.pickup, job.resource, amount));
+	        }
+	    }
+
+	}
+
+	module.exports = TransferWorker;
+
+/***/ },
+/* 23 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseWorker = __webpack_require__(8);
+
 	class UpgradeWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true, idleTimer: 50 }); }
 
@@ -1818,12 +1908,12 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var JobManager = __webpack_require__(24);
+	var JobManager = __webpack_require__(25);
 
 	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
@@ -1864,6 +1954,9 @@ module.exports =
 	            type: _.groupBy(Game.creeps, creep => creep.memory.type),
 	            room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
 	        };
+
+	        this.buildings = _.groupBy(Game.structures, structure => structure.structureType);
+	        // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
 
 	        this.rooms = _.filter(Game.rooms, 'controller.my');
 
@@ -1987,6 +2080,13 @@ module.exports =
 	        return containers.concat(_.filter(this.getDroppedResources(room), { resourceType }));
 	    }
 
+	    getStorageContainers(resourceType){
+	        if(!resourceType){
+	            resourceType = RESOURCE_ENERGY;
+	        }
+	        return _.filter(this.buildings.storage.concat(this.buildings.terminal), structure => this.getResource(structure, resourceType) > 0);
+	    }
+
 	    getDroppedResources(room){
 	        if(!room.name){ return []; }
 	        if(!this.droppedResources[room.name]){
@@ -2006,6 +2106,8 @@ module.exports =
 	            return entity.carry[type];
 	        }else if(entity.storeCapacity > 0){
 	            return entity.store[type];
+	        }else if(entity.mineralCapacity > 0 && type === entity.mineralType){
+	            return entity.mineralAmount;
 	        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
 	            return entity.energy;
 	        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
@@ -2023,6 +2125,8 @@ module.exports =
 	            return _.pick(entity.carry, amount => amount > 0);
 	        }else if(entity.storeCapacity > 0){
 	            return _.pick(entity.store, amount => amount > 0);
+	        }else if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
+	            result[entity.mineralType] = entity.mineralAmount;
 	        }else if(entity.energyCapacity > 0 && entity.energy > 0){
 	            result[RESOURCE_ENERGY] = entity.energy;
 	        }else if(entity.resourceType && entity.amount > 0){
@@ -2039,6 +2143,8 @@ module.exports =
 	            return entity.carryCapacity;
 	        }else if(entity.storeCapacity > 0){
 	            return entity.storeCapacity;
+	        }else if(entity.mineralCapacity > 0){
+	            return entity.mineralCapacity;
 	        }else if(entity.energyCapacity > 0){
 	            return entity.energyCapacity;
 	        }else if(entity.resourceType && entity.amount > 0){
@@ -2055,9 +2161,11 @@ module.exports =
 	            return _.sum(entity.carry);
 	        }else if(entity.storeCapacity > 0){
 	            return _.sum(entity.store);
+	        }else if(entity.mineralCapacity > 0){
+	            return entity.mineralAmount;
 	        }else if(entity.energyCapacity > 0){
 	            return entity.energy;
-	        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
+	        }else if(entity.resourceType && entity.amount > 0){
 	            return entity.amount;
 	        }
 	        return 0;
@@ -2135,22 +2243,23 @@ module.exports =
 	        }
 	        var posA = this.calculateRealPosition(entityA.pos);
 	        var posB = this.calculateRealPosition(entityB.pos);
-	        // console.log(entityA, entityA.pos.roomName, posA.x, posA.y, entityB, entityB.pos.roomName, posB.x, posB.y);
-	        var distance = Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
-	        // console.log(posA.x - posB.x, posA.y-posB.y, distance);
-	        return distance;
+	        return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+	    }
+
+	    sortByDistance(entity, targets){
+	        return _.sortBy(targets, target => this.getRealDistance(entity, target));
 	    }
 	}
 
 	module.exports = Catalog;
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Jobs = __webpack_require__(25);
+	var Jobs = __webpack_require__(26);
 
 	class JobManager {
 	    constructor(catalog){
@@ -2217,24 +2326,25 @@ module.exports =
 	module.exports = JobManager;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Attack = __webpack_require__(26);
-	var Build = __webpack_require__(28);
-	var Defend = __webpack_require__(29);
-	var Deliver = __webpack_require__(30);
-	var Mine = __webpack_require__(31);
-	var Idle = __webpack_require__(32);
-	var Keep = __webpack_require__(33);
-	var Observe = __webpack_require__(34);
-	var Pickup = __webpack_require__(35);
-	var Repair = __webpack_require__(36);
-	var Reserve = __webpack_require__(37);
-	var Upgrade = __webpack_require__(38);
-	var Heal = __webpack_require__(39);
+	var Attack = __webpack_require__(27);
+	var Build = __webpack_require__(29);
+	var Defend = __webpack_require__(30);
+	var Deliver = __webpack_require__(31);
+	var Mine = __webpack_require__(32);
+	var Idle = __webpack_require__(33);
+	var Keep = __webpack_require__(34);
+	var Observe = __webpack_require__(35);
+	var Pickup = __webpack_require__(36);
+	var Repair = __webpack_require__(37);
+	var Reserve = __webpack_require__(38);
+	var Transfer = __webpack_require__(39);
+	var Upgrade = __webpack_require__(40);
+	var Heal = __webpack_require__(41);
 
 	module.exports = function(catalog){
 	    return {
@@ -2250,17 +2360,18 @@ module.exports =
 	        pickup: new Pickup(catalog),
 	        repair: new Repair(catalog),
 	        reserve: new Reserve(catalog),
+	        transfer: new Transfer(catalog),
 	        upgrade: new Upgrade(catalog)
 	    };
 	};
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class AttackJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
@@ -2287,7 +2398,7 @@ module.exports =
 
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2320,6 +2431,11 @@ module.exports =
 	        if(this.flagPrefix){
 	            _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
 	        }
+	        this.profile(start);
+	        return this.postGenerate(jobs);
+	    }
+
+	    profile(start){
 	        var profile = Memory.stats.profile.job[this.getType()];
 	        var usage = Game.cpu.getUsed() - start;
 	        if(!profile){
@@ -2340,7 +2456,6 @@ module.exports =
 	                profile.min = usage;
 	            }
 	        }
-	        return this.postGenerate(jobs);
 	    }
 
 	    postGenerate(jobs){
@@ -2380,12 +2495,12 @@ module.exports =
 	module.exports = BaseJob;
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class BuildJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'build'); }
@@ -2404,12 +2519,12 @@ module.exports =
 	module.exports = BuildJob;
 
 /***/ },
-/* 29 */
+/* 30 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class DefendJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend' }); }
@@ -2437,12 +2552,12 @@ module.exports =
 
 
 /***/ },
-/* 30 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	var offsets = {
 	    spawn: -0.25,
@@ -2502,12 +2617,12 @@ module.exports =
 	module.exports = DeliverJob;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class MineJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'mine', { flagPrefix: 'Mine' }); }
@@ -2544,12 +2659,12 @@ module.exports =
 
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	var types = {
 	    spawn: 2,
@@ -2606,12 +2721,12 @@ module.exports =
 	module.exports = IdleJob;
 
 /***/ },
-/* 33 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class KeepJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
@@ -2656,12 +2771,12 @@ module.exports =
 
 
 /***/ },
-/* 34 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class ObserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'observe', { flagPrefix: 'Observe' }); }
@@ -2679,12 +2794,12 @@ module.exports =
 	module.exports = ObserveJob;
 
 /***/ },
-/* 35 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	var types = [
 	    STRUCTURE_STORAGE,
@@ -2724,12 +2839,12 @@ module.exports =
 	module.exports = PickupJob;
 
 /***/ },
-/* 36 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class RepairJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'repair', { flagPrefix: 'Repair' }); }
@@ -2760,12 +2875,12 @@ module.exports =
 	module.exports = RepairJob;
 
 /***/ },
-/* 37 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class ReserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'reserve', { flagPrefix: 'Reserve' }); }
@@ -2783,12 +2898,89 @@ module.exports =
 	module.exports = ReserveJob;
 
 /***/ },
-/* 38 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
+
+	class TransferJob extends BaseJob {
+	    constructor(catalog){ super(catalog, 'transfer'); }
+
+	    generate(){
+	        var start = Game.cpu.getUsed();
+
+	        var energyStorage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getResource(storage, RESOURCE_ENERGY) > 0);
+	        var jobs = _.reduce(Memory.transfer.energy, (result, need, id)=>{
+	            var target = Game.getObjectById(id);
+	            if(!target){
+	                return result;
+	            }
+	            var amount = need - this.catalog.getResource(target, RESOURCE_ENERGY);
+	            var pickup = _.first(this.catalog.sortByDistance(target, energyStorage));
+	            if(amount > 0 && pickup){
+	                var job = this.createJob(target, pickup, amount, RESOURCE_ENERGY);
+	                result[job.id] = job;
+	            }
+	            return result;
+	        }, {});
+	        
+	        var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) > 0);
+	        jobs = _.reduce(Memory.transfer.lab, (result, resource, id)=>{
+	            var target = Game.getObjectById(id);
+	            if(!target){
+	                return result;
+	            }
+	            if(target.mineralAmount > 0 && resource != target.mineralType){
+	                var dropoff = _.first(this.catalog.sortByDistance(target, storage));
+	                var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
+	                result[job.id] = job;
+	            }else if(resource){
+	                var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
+	                if(amount > 0){
+	                    var sources = this.catalog.getStorageContainers(resource);
+	                    var pickup = _.first(this.catalog.sortByDistance(target, sources));
+	                    if(amount > 0 && pickup){
+	                        var job = this.createJob(target, pickup, amount, resource);
+	                        result[job.id] = job;
+	                    }
+	                }
+	            }
+	            return result;
+	        }, jobs);
+
+	        this.profile(start);
+	        return this.postGenerate(jobs);
+	    }
+
+	    finalizeJob(room, target, job){
+	        return job;
+	    }
+
+	    createJob(target, pickup, amount, resource){
+	        return {
+	            allocated: 0,
+	            amount,
+	            capacity: amount,
+	            id: this.generateId(target)+'-'+resource,
+	            target,
+	            pickup,
+	            resource
+	        };
+	    }
+
+	}
+
+	module.exports = TransferJob;
+
+/***/ },
+/* 40 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseJob = __webpack_require__(28);
 
 	class UpgradeJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'upgrade', { flagPrefix: 'Upgrade' }); }
@@ -2809,12 +3001,12 @@ module.exports =
 	module.exports = UpgradeJob;
 
 /***/ },
-/* 39 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(27);
+	var BaseJob = __webpack_require__(28);
 
 	class HealJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'heal'); }
@@ -2837,7 +3029,7 @@ module.exports =
 	module.exports = HealJob;
 
 /***/ },
-/* 40 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";

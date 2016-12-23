@@ -42,6 +42,9 @@ class Catalog {
             room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
         };
 
+        this.buildings = _.groupBy(Game.structures, structure => structure.structureType);
+        // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
+
         this.rooms = _.filter(Game.rooms, 'controller.my');
 
         this.jobs = new JobManager(this);
@@ -164,6 +167,13 @@ class Catalog {
         return containers.concat(_.filter(this.getDroppedResources(room), { resourceType }));
     }
 
+    getStorageContainers(resourceType){
+        if(!resourceType){
+            resourceType = RESOURCE_ENERGY;
+        }
+        return _.filter(this.buildings.storage.concat(this.buildings.terminal), structure => this.getResource(structure, resourceType) > 0);
+    }
+
     getDroppedResources(room){
         if(!room.name){ return []; }
         if(!this.droppedResources[room.name]){
@@ -183,6 +193,8 @@ class Catalog {
             return entity.carry[type];
         }else if(entity.storeCapacity > 0){
             return entity.store[type];
+        }else if(entity.mineralCapacity > 0 && type === entity.mineralType){
+            return entity.mineralAmount;
         }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
             return entity.energy;
         }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
@@ -200,6 +212,8 @@ class Catalog {
             return _.pick(entity.carry, amount => amount > 0);
         }else if(entity.storeCapacity > 0){
             return _.pick(entity.store, amount => amount > 0);
+        }else if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
+            result[entity.mineralType] = entity.mineralAmount;
         }else if(entity.energyCapacity > 0 && entity.energy > 0){
             result[RESOURCE_ENERGY] = entity.energy;
         }else if(entity.resourceType && entity.amount > 0){
@@ -216,6 +230,8 @@ class Catalog {
             return entity.carryCapacity;
         }else if(entity.storeCapacity > 0){
             return entity.storeCapacity;
+        }else if(entity.mineralCapacity > 0){
+            return entity.mineralCapacity;
         }else if(entity.energyCapacity > 0){
             return entity.energyCapacity;
         }else if(entity.resourceType && entity.amount > 0){
@@ -232,9 +248,11 @@ class Catalog {
             return _.sum(entity.carry);
         }else if(entity.storeCapacity > 0){
             return _.sum(entity.store);
+        }else if(entity.mineralCapacity > 0){
+            return entity.mineralAmount;
         }else if(entity.energyCapacity > 0){
             return entity.energy;
-        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
+        }else if(entity.resourceType && entity.amount > 0){
             return entity.amount;
         }
         return 0;
@@ -312,10 +330,11 @@ class Catalog {
         }
         var posA = this.calculateRealPosition(entityA.pos);
         var posB = this.calculateRealPosition(entityB.pos);
-        // console.log(entityA, entityA.pos.roomName, posA.x, posA.y, entityB, entityB.pos.roomName, posB.x, posB.y);
-        var distance = Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
-        // console.log(posA.x - posB.x, posA.y-posB.y, distance);
-        return distance;
+        return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+    }
+
+    sortByDistance(entity, targets){
+        return _.sortBy(targets, target => this.getRealDistance(entity, target));
     }
 }
 

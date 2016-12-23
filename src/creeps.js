@@ -54,7 +54,7 @@ module.exports = {
                 },
                 rules: {
                     pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
+                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
                     idle: { type: 'spawn' }
                 }
             },
@@ -68,10 +68,19 @@ module.exports = {
                     idle: { type: 'spawn' }
                 }
             },
+            transfer: {
+                quota: {
+                    jobType: 'transfer',
+                    allocation: 500,
+                    max: 1
+                },
+                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
+                parts: {carry: 10, move: 10}
+            },
             long: {
-                ideal: 2,
+                ideal: 3,
                 additionalPer: {
-                    count: 4,
+                    count: 5,
                     flagPrefix: 'Pickup'
                 },
                 rules: {
@@ -82,10 +91,10 @@ module.exports = {
             },
             leveler: {
                 additionalPer: {
-                    room: 1
+                    room: 2
                 },
                 rules: {
-                    pickup: { types: [ STRUCTURE_STORAGE ], min: 100000 },
+                    pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
                 },
                 parts: {carry: 10, move: 10}
@@ -166,7 +175,7 @@ module.exports = {
                 quota: {
                     jobType: 'repair',
                     allocation: 100,
-                    ratio: 0.5,
+                    ratio: 1,
                     max: 10
                 },
                 rules: {
@@ -179,7 +188,7 @@ module.exports = {
         rules: {
             pickup: {},
             build: {},
-            repair: { priority: 2 },
+            repair: { priority: 5 },
             upgrade: { priority: 10 },
             idle: { type: 'worker' }
         }

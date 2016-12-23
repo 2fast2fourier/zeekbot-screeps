@@ -22,6 +22,20 @@ module.exports.loop = function () {
 
     var catalog = new Catalog();
 
+    if(!Memory.transfer){
+        Memory.transfer = {
+            lab: {},
+            energy: {}
+        };
+        _.forEach(catalog.buildings.lab, lab => {
+            Memory.transfer.lab[lab.id] = false;
+            Memory.transfer.energy[lab.id] = lab.energyCapacity;
+        });
+        _.forEach(catalog.buildings.terminal, terminal => {
+            Memory.transfer.energy[terminal.id] = 50000;
+        });
+    }
+
     if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
         Misc.updateStats(catalog);
         Memory.updateTime = Game.time + Memory.settings.updateDelta;
@@ -31,7 +45,8 @@ module.exports.loop = function () {
     catalog.jobs.generate();
     catalog.jobs.allocate();
 
-    // console.log(_.size(catalog.jobs.jobs.repair), catalog.jobs.capacity.repair);
+    // console.log(_.size(catalog.jobs.jobs.transfer), catalog.jobs.capacity.transfer);
+    // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
     // var jobs = Game.cpu.getUsed();
     WorkManager.process(catalog);
