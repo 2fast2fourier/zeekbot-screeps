@@ -14,7 +14,7 @@ class KeepWorker extends BaseWorker {
     }
 
     canBid(creep, opts){
-        if(creep.hits < creep.hitsMax / 1.1){
+        if(creep.hits < creep.hitsMax / 1.25){
             return false;
         }
         return true;
@@ -34,9 +34,7 @@ class KeepWorker extends BaseWorker {
         var hostiles = _.map(_.filter(creep.room.lookForAtArea(LOOK_CREEPS, pos.y - range, pos.x - range, pos.y + range, pos.x + range, true), target => !target.creep.my), 'creep');
         if(hostiles.length > 0){
             var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
-            if(creep.attack(enemy) == ERR_NOT_IN_RANGE){
-                this.move(creep, enemy);
-            }
+            return this.orMove(creep, enemy, creep.attack(enemy)) == OK;
         }else if(creep.pos.getRangeTo(target) > targetRange){
             this.move(creep, target);
         }else if(creep.pos.getRangeTo(target) < targetRange){

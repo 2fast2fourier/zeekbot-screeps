@@ -70,7 +70,7 @@ class SimpleWorker {
         }
     }
     
-    process(creep, opts){ }
+    process(creep, opts){ return false; }
     
     stop(creep, bid, opts){
         if(this.debug){

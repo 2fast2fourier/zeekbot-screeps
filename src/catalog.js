@@ -190,9 +190,9 @@ class Catalog {
             type = RESOURCE_ENERGY;
         }
         if(entity.carryCapacity > 0){
-            return entity.carry[type];
+            return _.get(entity.carry, type, 0);
         }else if(entity.storeCapacity > 0){
-            return entity.store[type];
+            return _.get(entity.store, type, 0);
         }else if(entity.mineralCapacity > 0 && type === entity.mineralType){
             return entity.mineralAmount;
         }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){

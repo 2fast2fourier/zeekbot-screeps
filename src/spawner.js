@@ -172,7 +172,8 @@ class Spawner {
             jobId: false,
             jobType: false,
             jobAllocation: 0,
-            rules: version.rules || category.rules
+            rules: version.rules || category.rules,
+            actions: version.actions || category.actions
         };
 
         return memory;

@@ -29,16 +29,22 @@ class TransferJob extends BaseJob {
             if(!target){
                 return result;
             }
-            if(target.mineralAmount > 0 && resource != target.mineralType){
+            if(resource === 'store'){
+                if(target.mineralAmount > Memory.settings.transferStoreThreshold){
+                    var dropoff = _.first(this.catalog.sortByDistance(target, storage));
+                    var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
+                    result[job.id] = job;
+                }
+            }else if(target.mineralAmount > 0 && resource != target.mineralType){
                 var dropoff = _.first(this.catalog.sortByDistance(target, storage));
                 var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
                 result[job.id] = job;
             }else if(resource){
                 var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-                if(amount > 0){
+                if(amount >= 50){
                     var sources = this.catalog.getStorageContainers(resource);
                     var pickup = _.first(this.catalog.sortByDistance(target, sources));
-                    if(amount > 0 && pickup){
+                    if(pickup){
                         var job = this.createJob(target, pickup, amount, resource);
                         result[job.id] = job;
                     }

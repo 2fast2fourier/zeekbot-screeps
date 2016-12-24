@@ -15,6 +15,7 @@ class Controller {
         });
 
         _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
+        _.forEach(Memory.react, (data, labId) => Controller.runReaction(Game.getObjectById(labId), data, catalog));
     }
 
     static towerDefend(tower, catalog) {
@@ -66,6 +67,22 @@ class Controller {
         if(source && need >= minimumNeed && source.cooldown == 0 && need > 0 && sourceEnergy > 0){
             source.transferEnergy(target, Math.min(sourceEnergy, need));
         }
+    }
+
+    static runReaction(lab, data, catalog){
+        if(lab && (lab.cooldown > 0 || lab.mineralAmount == lab.mineralCapacity)){
+            return;
+        }
+        var srcA = Game.getObjectById(data[0]);
+        var srcB = Game.getObjectById(data[1]);
+        if(!lab || !srcA || !srcB){
+            console.log('invalid reaction', lab, srcA, srcB);
+            return;
+        }
+        if(srcA.mineralAmount == 0 || srcB.mineralAmount == 0){
+            return;
+        }
+        lab.runReaction(srcA, srcB);
     }
 }
 

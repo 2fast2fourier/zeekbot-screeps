@@ -87,9 +87,9 @@ class BaseWorker extends SimpleWorker {
     process(creep, opts){
         var job = this.getCurrentJob(creep);
         if(!job || !job.target){
-            return;
+            return false;
         }
-        this.processStep(creep, job, job.target, opts);
+        return this.processStep(creep, job, job.target, opts);
     }
 
     processStep(creep, job, target, opts){ console.log('processStep not implemented', this.type); }

@@ -1,14 +1,17 @@
 "use strict";
 
+var Actions = require('./actions');
 var Work = require('./work');
 
 class WorkManager {
     static process(catalog){
         var workers = Work(catalog);
+        var actions = Actions(catalog);
         var creeps = _.filter(Game.creeps, creep => !creep.spawning);
         _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+        _.forEach(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
         _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
-        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog));
+        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog, actions));
     }
 
     static validateCreep(creep, workers, catalog){
@@ -21,6 +24,13 @@ class WorkManager {
                 creep.memory.jobAllocation = 0;
             }
         }
+    }
+
+    static creepAction(creep, actions, catalog){
+        creep.memory.block = _.reduce(creep.memory.actions, (result, opts, type) => {
+            actions[type].preWork(creep, opts);
+            return actions[type].shouldBlock(creep, opts) || result;
+        }, false);
     }
 
     static bidCreep(creep, workers, catalog){
@@ -52,10 +62,12 @@ class WorkManager {
         }
     }
 
-    static processCreep(creep, workers, catalog){
-        if(creep.memory.jobType){
-            workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
+    static processCreep(creep, workers, catalog, actions){
+        var action = false;
+        if(creep.memory.jobType && !creep.memory.block){
+            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
         }
+        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
     }
 }
 

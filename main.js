@@ -148,6 +148,7 @@ module.exports =
 	        });
 
 	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
+	        _.forEach(Memory.react, (data, labId) => Controller.runReaction(Game.getObjectById(labId), data, catalog));
 	    }
 
 	    static towerDefend(tower, catalog) {
@@ -199,6 +200,22 @@ module.exports =
 	        if(source && need >= minimumNeed && source.cooldown == 0 && need > 0 && sourceEnergy > 0){
 	            source.transferEnergy(target, Math.min(sourceEnergy, need));
 	        }
+	    }
+
+	    static runReaction(lab, data, catalog){
+	        if(lab && (lab.cooldown > 0 || lab.mineralAmount == lab.mineralCapacity)){
+	            return;
+	        }
+	        var srcA = Game.getObjectById(data[0]);
+	        var srcB = Game.getObjectById(data[1]);
+	        if(!lab || !srcA || !srcB){
+	            console.log('invalid reaction', lab, srcA, srcB);
+	            return;
+	        }
+	        if(srcA.mineralAmount == 0 || srcB.mineralAmount == 0){
+	            return;
+	        }
+	        lab.runReaction(srcA, srcB);
 	    }
 	}
 
@@ -604,7 +621,8 @@ module.exports =
 	            jobId: false,
 	            jobType: false,
 	            jobAllocation: 0,
-	            rules: version.rules || category.rules
+	            rules: version.rules || category.rules,
+	            actions: version.actions || category.actions
 	        };
 
 	        return memory;
@@ -756,7 +774,8 @@ module.exports =
 	            mine: {},
 	            deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
 	            drop: { priority: 1 }
-	        }
+	        },
+	        actions: { avoid: {} }
 	    },
 	    hauler: {
 	        versions: {
@@ -794,18 +813,21 @@ module.exports =
 	            long: {
 	                ideal: 3,
 	                additionalPer: {
-	                    count: 5,
+	                    count: 3,
 	                    flagPrefix: 'Pickup'
 	                },
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
 	                },
-	                parts: {carry: 10, move: 10}
+	                parts: {carry: 20, move: 10}
 	            },
 	            leveler: {
 	                additionalPer: {
 	                    room: 2
+	                },
+	                requirements: {
+	                    energy: 250000
 	                },
 	                rules: {
 	                    pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
@@ -834,7 +856,8 @@ module.exports =
 	        rules: {
 	            pickup: { minerals: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
 	            deliver: {}
-	        }
+	        },
+	        actions: { avoid: {} }
 	    },
 	    observer: {
 	        versions: {
@@ -930,7 +953,7 @@ module.exports =
 	        quota: {
 	            jobType: 'heal',
 	            allocation: 1,
-	            max: 2
+	            max: 1
 	        },
 	        rules: { heal: {}, idle: { type: 'heal' } }
 	    },
@@ -941,7 +964,7 @@ module.exports =
 	                    count: 2,
 	                    flagPrefix: 'Defend'
 	                },
-	                parts: {tough: 10, move: 10, ranged_attack: 10},
+	                parts: { tough: 10, move: 10, ranged_attack: 10 },
 	                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
 	            },
 	            melee: {
@@ -953,7 +976,8 @@ module.exports =
 	                    jobType: 'keep',
 	                    allocation: 15
 	                },
-	                parts: {tough: 17, move: 16, attack: 15}
+	                parts: { tough: 15, move: 16, attack: 15, heal: 2 },
+	                actions: { selfheal: {} }
 	            }
 	        },
 	        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
@@ -966,15 +990,18 @@ module.exports =
 
 	"use strict";
 
+	var Actions = __webpack_require__(43);
 	var Work = __webpack_require__(6);
 
 	class WorkManager {
 	    static process(catalog){
 	        var workers = Work(catalog);
+	        var actions = Actions(catalog);
 	        var creeps = _.filter(Game.creeps, creep => !creep.spawning);
 	        _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+	        _.forEach(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
 	        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
-	        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog));
+	        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog, actions));
 	    }
 
 	    static validateCreep(creep, workers, catalog){
@@ -987,6 +1014,13 @@ module.exports =
 	                creep.memory.jobAllocation = 0;
 	            }
 	        }
+	    }
+
+	    static creepAction(creep, actions, catalog){
+	        creep.memory.block = _.reduce(creep.memory.actions, (result, opts, type) => {
+	            actions[type].preWork(creep, opts);
+	            return actions[type].shouldBlock(creep, opts) || result;
+	        }, false);
 	    }
 
 	    static bidCreep(creep, workers, catalog){
@@ -1018,10 +1052,12 @@ module.exports =
 	        }
 	    }
 
-	    static processCreep(creep, workers, catalog){
-	        if(creep.memory.jobType){
-	            workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
+	    static processCreep(creep, workers, catalog, actions){
+	        var action = false;
+	        if(creep.memory.jobType && !creep.memory.block){
+	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
 	        }
+	        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
 	    }
 	}
 
@@ -1106,10 +1142,10 @@ module.exports =
 	                creep.rangedAttack(target);
 	            }
 	        }else{
-	            this.orMove(creep, target, creep.attack(target));
 	            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
 	                creep.rangedAttack(target);
 	            }
+	            return this.orMove(creep, target, creep.attack(target)) == OK;
 	        }
 	    }
 
@@ -1210,9 +1246,9 @@ module.exports =
 	    process(creep, opts){
 	        var job = this.getCurrentJob(creep);
 	        if(!job || !job.target){
-	            return;
+	            return false;
 	        }
-	        this.processStep(creep, job, job.target, opts);
+	        return this.processStep(creep, job, job.target, opts);
 	    }
 
 	    processStep(creep, job, target, opts){ console.log('processStep not implemented', this.type); }
@@ -1297,7 +1333,7 @@ module.exports =
 	        }
 	    }
 	    
-	    process(creep, opts){ }
+	    process(creep, opts){ return false; }
 	    
 	    stop(creep, bid, opts){
 	        if(this.debug){
@@ -1379,12 +1415,10 @@ module.exports =
 	                creep.move((creep.pos.getDirectionTo(target)+4)%8);
 	            }
 	        }else{
-	            if(creep.attack(target) == ERR_NOT_IN_RANGE){
-	                this.move(creep, target);
-	            }
 	            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
 	                creep.rangedAttack(target);
 	            }
+	            return this.orMove(creep, target, creep.attack(target)) == OK;
 	        }
 	    }
 
@@ -1583,7 +1617,7 @@ module.exports =
 	    }
 
 	    canBid(creep, opts){
-	        if(creep.hits < creep.hitsMax / 1.1){
+	        if(creep.hits < creep.hitsMax / 1.25){
 	            return false;
 	        }
 	        return true;
@@ -1603,9 +1637,7 @@ module.exports =
 	        var hostiles = _.map(_.filter(creep.room.lookForAtArea(LOOK_CREEPS, pos.y - range, pos.x - range, pos.y + range, pos.x + range, true), target => !target.creep.my), 'creep');
 	        if(hostiles.length > 0){
 	            var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
-	            if(creep.attack(enemy) == ERR_NOT_IN_RANGE){
-	                this.move(creep, enemy);
-	            }
+	            return this.orMove(creep, enemy, creep.attack(enemy)) == OK;
 	        }else if(creep.pos.getRangeTo(target) > targetRange){
 	            this.move(creep, target);
 	        }else if(creep.pos.getRangeTo(target) < targetRange){
@@ -2103,9 +2135,9 @@ module.exports =
 	            type = RESOURCE_ENERGY;
 	        }
 	        if(entity.carryCapacity > 0){
-	            return entity.carry[type];
+	            return _.get(entity.carry, type, 0);
 	        }else if(entity.storeCapacity > 0){
-	            return entity.store[type];
+	            return _.get(entity.store, type, 0);
 	        }else if(entity.mineralCapacity > 0 && type === entity.mineralType){
 	            return entity.mineralAmount;
 	        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
@@ -2932,16 +2964,22 @@ module.exports =
 	            if(!target){
 	                return result;
 	            }
-	            if(target.mineralAmount > 0 && resource != target.mineralType){
+	            if(resource === 'store'){
+	                if(target.mineralAmount > Memory.settings.transferStoreThreshold){
+	                    var dropoff = _.first(this.catalog.sortByDistance(target, storage));
+	                    var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
+	                    result[job.id] = job;
+	                }
+	            }else if(target.mineralAmount > 0 && resource != target.mineralType){
 	                var dropoff = _.first(this.catalog.sortByDistance(target, storage));
 	                var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
 	                result[job.id] = job;
 	            }else if(resource){
 	                var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-	                if(amount > 0){
+	                if(amount >= 50){
 	                    var sources = this.catalog.getStorageContainers(resource);
 	                    var pickup = _.first(this.catalog.sortByDistance(target, sources));
-	                    if(amount > 0 && pickup){
+	                    if(pickup){
 	                        var job = this.createJob(target, pickup, amount, resource);
 	                        result[job.id] = job;
 	                    }
@@ -3118,6 +3156,7 @@ module.exports =
 	            },
 	            updateDelta: 100,
 	            towerRepairPercent: 0.8,
+	            transferStoreThreshold: 500,
 	            repairTarget: 250000,
 	            upgradeCapacity: 10
 	        };
@@ -3133,6 +3172,90 @@ module.exports =
 	}
 
 	module.exports = Misc;
+
+/***/ },
+/* 43 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var Avoid = __webpack_require__(44);
+	var SelfHeal = __webpack_require__(46);
+
+	module.exports = function(catalog){
+	    return {
+	        avoid: new Avoid(catalog),
+	        selfheal: new SelfHeal(catalog)
+	    };
+	};
+
+/***/ },
+/* 44 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(45);
+
+	class AvoidAction extends BaseAction {
+	    constructor(catalog){
+	        super(catalog, 'avoid');
+	    }
+	}
+
+
+	module.exports = AvoidAction;
+
+/***/ },
+/* 45 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	class BaseAction {
+	    constructor(catalog, type){
+	        this.catalog = catalog;
+	        this.type = type;
+	    }
+
+	    preWork(creep, opts){}
+
+	    shouldBlock(creep, opts){
+	        return false;
+	    }
+
+	    postWork(creep, opts, action){}
+
+	    hasJob(creep){
+	        return creep.memory.jobId && creep.memory.jobType;
+	    }
+
+	}
+
+	module.exports = BaseAction;
+
+/***/ },
+/* 46 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(45);
+
+	class SelfHealAction extends BaseAction {
+	    constructor(catalog){
+	        super(catalog, 'selfheal');
+	    }
+
+	    postWork(creep, opts, action){
+	        if(!action && creep.hits < creep.hitsMax){
+	            creep.heal(creep);
+	        }
+	    }
+	}
+
+
+	module.exports = SelfHealAction;
 
 /***/ }
 /******/ ]);

@@ -31,12 +31,10 @@ class DefendWorker extends BaseWorker {
                 creep.move((creep.pos.getDirectionTo(target)+4)%8);
             }
         }else{
-            if(creep.attack(target) == ERR_NOT_IN_RANGE){
-                this.move(creep, target);
-            }
             if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(target) <= 3){
                 creep.rangedAttack(target);
             }
+            return this.orMove(creep, target, creep.attack(target)) == OK;
         }
     }
 

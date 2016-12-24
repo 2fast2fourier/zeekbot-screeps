@@ -42,7 +42,8 @@ module.exports = {
             mine: {},
             deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
             drop: { priority: 1 }
-        }
+        },
+        actions: { avoid: {} }
     },
     hauler: {
         versions: {
@@ -80,18 +81,21 @@ module.exports = {
             long: {
                 ideal: 3,
                 additionalPer: {
-                    count: 5,
+                    count: 3,
                     flagPrefix: 'Pickup'
                 },
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
                 },
-                parts: {carry: 10, move: 10}
+                parts: {carry: 20, move: 10}
             },
             leveler: {
                 additionalPer: {
                     room: 2
+                },
+                requirements: {
+                    energy: 250000
                 },
                 rules: {
                     pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
@@ -120,7 +124,8 @@ module.exports = {
         rules: {
             pickup: { minerals: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
             deliver: {}
-        }
+        },
+        actions: { avoid: {} }
     },
     observer: {
         versions: {
@@ -216,7 +221,7 @@ module.exports = {
         quota: {
             jobType: 'heal',
             allocation: 1,
-            max: 2
+            max: 1
         },
         rules: { heal: {}, idle: { type: 'heal' } }
     },
@@ -227,7 +232,7 @@ module.exports = {
                     count: 2,
                     flagPrefix: 'Defend'
                 },
-                parts: {tough: 10, move: 10, ranged_attack: 10},
+                parts: { tough: 10, move: 10, ranged_attack: 10 },
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             melee: {
@@ -239,7 +244,8 @@ module.exports = {
                     jobType: 'keep',
                     allocation: 15
                 },
-                parts: {tough: 17, move: 16, attack: 15}
+                parts: { tough: 15, move: 16, attack: 15, heal: 2 },
+                actions: { selfheal: {} }
             }
         },
         rules: { defend: {}, keep: {}, idle: { type: 'keep' } }

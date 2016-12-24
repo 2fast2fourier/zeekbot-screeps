@@ -84,6 +84,7 @@ class Misc {
             },
             updateDelta: 100,
             towerRepairPercent: 0.8,
+            transferStoreThreshold: 500,
             repairTarget: 250000,
             upgradeCapacity: 10
         };
