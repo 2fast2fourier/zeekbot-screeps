@@ -34,6 +34,9 @@ class Catalog {
         // }
 
         this.droppedResources = {};
+        this.storedResources = {};
+        this.labResources = {};
+
         this.flagsPrefix = {};
 
         this.creeps = {
@@ -145,6 +148,26 @@ class Catalog {
             this.droppedResources[room.name] = room.find(FIND_DROPPED_RESOURCES);
         }
         return this.droppedResources[room.name];
+    }
+
+    getTotalStored(resource){
+        var total = _.get(this.storedResources, resource, false);
+        if(total === false){
+            var containers = this.getStorageContainers(resource);
+            total = _.reduce(containers, (result, container) => result + this.getResource(container, resource), 0);
+            this.storedResources[resource] = total;
+        }
+        return total;
+    }
+
+    getTotalLabResources(resource){
+        var total = _.get(this.labResources, resource, false);
+        if(total === false){
+            var containers = _.filter(this.buildings.lab, structure => this.getResource(structure, resource) > 0);
+            total = _.reduce(containers, (result, container) => result + this.getResource(container, resource), 0);
+            this.labResources[resource] = total;
+        }
+        return total;
     }
 
     getResource(entity, type){

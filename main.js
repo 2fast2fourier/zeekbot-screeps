@@ -52,6 +52,7 @@ module.exports =
 	var WorkManager = __webpack_require__(4);
 	var Catalog = __webpack_require__(29);
 	var Misc = __webpack_require__(48);
+	var Production = __webpack_require__(49);
 
 	module.exports.loop = function () {
 	    var start = Game.cpu.getUsed();
@@ -68,6 +69,7 @@ module.exports =
 	    Misc.mourn();
 
 	    var catalog = new Catalog();
+	    var production = new Production(catalog);
 
 	    if(!Memory.transfer){
 	        Memory.transfer = {
@@ -89,10 +91,12 @@ module.exports =
 	    }
 	    // var cat = Game.cpu.getUsed();
 
+	    production.process();
+
 	    catalog.jobs.generate();
 	    catalog.jobs.allocate();
 
-	    // console.log(_.size(catalog.jobs.jobs.transfer), catalog.jobs.capacity.transfer);
+	    // console.log(_.size(catalog.jobs.jobs.repair), catalog.jobs.capacity.repair);
 	    // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
 	    // var jobs = Game.cpu.getUsed();
@@ -146,12 +150,12 @@ module.exports =
 	        });
 
 	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-	        _.forEach(Memory.react, (data, labId) => Controller.runReaction(Game.getObjectById(labId), data, catalog));
+	        _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
 	    }
 
 	    static towerDefend(tower, catalog) {
 	        var hostiles = catalog.getHostileCreeps(tower.room);
-	        var healer = _.first(hostiles, creep => !!_.find(creep.body, part => part.type == HEAL));
+	        var healer = _.find(hostiles, creep => creep.getActiveBodyparts(HEAL) > 0);
 	        if(healer){
 	            return tower.attack(healer) == OK;
 	        }
@@ -200,20 +204,35 @@ module.exports =
 	        }
 	    }
 
-	    static runReaction(lab, data, catalog){
-	        if(lab && (lab.cooldown > 0 || lab.mineralAmount == lab.mineralCapacity)){
+	    static runReaction(type, data, catalog){
+	        // Memory.react[type] = {
+	        //     lab: labNum,
+	        //     deficit: reaction.deficit,
+	        //     components: reaction.components
+	        // };
+	        var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
+	        var targetLab = labs[2];
+	        if(!_.every(labs) || !targetLab){
+	            console.log('missing labs for reaction', labs, type, data.lab);
 	            return;
 	        }
-	        var srcA = Game.getObjectById(data[0]);
-	        var srcB = Game.getObjectById(data[1]);
-	        if(!lab || !srcA || !srcB){
-	            console.log('invalid reaction', lab, srcA, srcB);
+	        if(targetLab.mineralType == type){
+	            Memory.transfer.lab[targetLab.id] = 'store';
+	        }else if(targetLab.mineralType){
+	            Memory.transfer.lab[targetLab.id] = false;
 	            return;
 	        }
-	        if(srcA.mineralAmount == 0 || srcB.mineralAmount == 0){
+	        // console.log(type, data.deficit);
+	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
-	        lab.runReaction(srcA, srcB);
+	        if(labs[0].mineralType != data.components[0] || labs[1].mineralType != data.components[1]){
+	            return;
+	        }
+	        if(labs[0].mineralAmount == 0 || labs[1].mineralAmount == 0){
+	            return;
+	        }
+	        targetLab.runReaction(labs[0], labs[1]);
 	    }
 	}
 
@@ -284,7 +303,6 @@ module.exports =
 	        var count = 0;
 	        var additional = version.additional || config.additional;
 
-	        //TODO nuke this
 	        var additionalPer = version.additionalPer || config.additionalPer;
 	        if(additionalPer){
 	            if(additionalPer.flagPrefix){
@@ -293,8 +311,10 @@ module.exports =
 	            if(additionalPer.room > 0){
 	                count += catalog.rooms.length * additionalPer.room;
 	            }
+	            if(additionalPer.repair > 0){
+	                count += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+	            }
 	        }
-	        //END TODO
 
 	        if(additional){
 	            var pass = _.reduce(additional, (result, requirement, name)=>{
@@ -654,7 +674,7 @@ module.exports =
 	            builder: {
 	                quota: {
 	                    jobType: 'build',
-	                    allocation: 1,
+	                    allocation: 3,
 	                    max: 4
 	                },
 	                rules: {
@@ -674,11 +694,14 @@ module.exports =
 	                rules: { pickup: {}, upgrade: {} }
 	            },
 	            repair: {
-	                quota: {
-	                    jobType: 'repair',
-	                    allocation: 1,
-	                    ratio: 1,
-	                    max: 10
+	                // quota: {
+	                //     jobType: 'repair',
+	                //     allocation: 1,
+	                //     ratio: 0.4,
+	                //     max: 10
+	                // },
+	                additionalPer: {
+	                    repair: 10000
 	                },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { repair: {} },
@@ -1898,7 +1921,7 @@ module.exports =
 	        if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
 	            return false;
 	        }
-	        return distance / this.distanceWeight;
+	        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity);
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -1983,6 +2006,9 @@ module.exports =
 	        // }
 
 	        this.droppedResources = {};
+	        this.storedResources = {};
+	        this.labResources = {};
+
 	        this.flagsPrefix = {};
 
 	        this.creeps = {
@@ -2094,6 +2120,26 @@ module.exports =
 	            this.droppedResources[room.name] = room.find(FIND_DROPPED_RESOURCES);
 	        }
 	        return this.droppedResources[room.name];
+	    }
+
+	    getTotalStored(resource){
+	        var total = _.get(this.storedResources, resource, false);
+	        if(total === false){
+	            var containers = this.getStorageContainers(resource);
+	            total = _.reduce(containers, (result, container) => result + this.getResource(container, resource), 0);
+	            this.storedResources[resource] = total;
+	        }
+	        return total;
+	    }
+
+	    getTotalLabResources(resource){
+	        var total = _.get(this.labResources, resource, false);
+	        if(total === false){
+	            var containers = _.filter(this.buildings.lab, structure => this.getResource(structure, resource) > 0);
+	            total = _.reduce(containers, (result, container) => result + this.getResource(container, resource), 0);
+	            this.labResources[resource] = total;
+	        }
+	        return total;
 	    }
 
 	    getResource(entity, type){
@@ -2539,7 +2585,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'build'); }
 
 	    calculateCapacity(room, target){
-	        return Math.min(4, Math.ceil((target.progressTotal - target.progress) / 3000));
+	        return Math.min(4, Math.ceil((target.progressTotal - target.progress) / 1000));
 	    }
 
 	    generate(){
@@ -3201,6 +3247,8 @@ module.exports =
 	                min: Infinity
 	            }
 	        };
+	        var totalBuild = 0;
+	        var totalRepair = 0;
 	        _.forEach(Game.rooms, room => {
 	            var spawns = room.find(FIND_MY_SPAWNS);
 	            var spawnCapacity = 0;
@@ -3234,10 +3282,14 @@ module.exports =
 	                terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
 	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
 	            };
+	            totalRepair += repairHits;
+	            totalBuild += buildHits;
 	        });
 	        stats.global = {
 	            maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
-	            totalEnergy: _.sum(_.map(stats.rooms, 'energy'))
+	            totalEnergy: _.sum(_.map(stats.rooms, 'energy')),
+	            build: totalBuild,
+	            repair: totalRepair
 	        }
 	        Memory.stats = stats;
 	    }
@@ -3253,7 +3305,8 @@ module.exports =
 	            towerRepairPercent: 0.8,
 	            transferStoreThreshold: 500,
 	            repairTarget: 250000,
-	            upgradeCapacity: 10
+	            upgradeCapacity: 15,
+	            terminalMaxResources: 100000
 	        };
 	    }
 
@@ -3267,6 +3320,115 @@ module.exports =
 	}
 
 	module.exports = Misc;
+
+/***/ },
+/* 49 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	class Production {
+	    constructor(catalog){
+	        this.catalog = catalog;
+	    }
+
+	//production{
+	//     labs: [[3 labs]],
+	//     quota: {resource: count}
+	// }
+	// react{
+	//     type: {
+	//          lab: labNum,
+	//          deficit,
+	//          components,
+	//      }
+	// }
+	    process(){
+	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
+	        var reactions = {};
+	        _.forEach(needs, (amount, type) => {
+	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), reactions);
+	        });
+	        _.forEach(Memory.react, (data, type)=>{
+	            if(!reactions[type]){
+	                console.log('ending reaction', type);
+	                var labs = Memory.production.labs[Memory.react.lab];
+	                _.forEach(labs, (lab) => Memory.transfer.lab[lab] = false);
+	                delete Memory.react[type];
+	            }
+	        });
+	        _.forEach(reactions, (reaction, type) => {
+	            if(Memory.react[type]){
+	                Memory.react[type].deficit = reaction.deficit;
+	            }else if(_.size(Memory.react) < _.size(Memory.production.labs)){
+	                var labNum = this.findFreeLab();
+	                if(labNum < 0){
+	                    console.log('lab react mismatch!');
+	                    return;
+	                }
+	                Memory.react[type] = {
+	                    lab: labNum,
+	                    deficit: reaction.deficit,
+	                    components: reaction.components
+	                };
+	                var labs = Memory.production.labs[labNum];
+	                _.forEach(reaction.components, (component, ix) => Memory.transfer.lab[labs[ix]] = component);
+	                Memory.transfer.lab[labs[2]] = 'store';
+	            }
+	        });
+	    }
+
+	    findFreeLab(){
+	        return _.findIndex(Memory.production.labs, (labList, ix) => !_.any(Memory.react, (data) => data.lab == ix));
+	    }
+
+	    generateReactions(type, deficit, output){
+	        if(type.length == 1){
+	            console.log('missing base component', type, deficit);
+	            return;
+	        }
+	        var components = this.findReaction(type);
+	        var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
+	        var canReact = _.every(inventory, (amount, ix) => {
+	            if(deficit - amount > 0){
+	                // console.log(type, 'needs resource', components[ix], need);
+	                //generate child reactions
+	                this.generateReactions(components[ix], need, output);
+	            }
+	            return amount > 0;
+	        });
+
+	        if(canReact){
+	            // console.log('have everything for', type);
+	            if(output[type]){
+	                output[type].deficit += deficit;
+	            }else{
+	                output[type] = { components, deficit };
+	            }
+	        }
+	    }
+
+	    findReaction(type){
+	        var components = [];
+	        var comp1 = _.findKey(REACTIONS, (reactionData, firstComp) => {
+	            var comp2 = _.findKey(reactionData, (result, secondComp) => result === type);
+	            if(comp2){
+	                components.push(comp2);
+	                return true;
+	            }
+	            return false;
+	        });
+	        if(comp1){
+	            components.push(comp1);
+	            return components;
+	        }
+	        console.log('invalid reaction', type);
+	        return false;
+	    }
+
+	}
+
+	module.exports = Production;
 
 /***/ }
 /******/ ]);

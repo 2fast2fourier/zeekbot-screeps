@@ -59,7 +59,6 @@ class Spawner {
         var count = 0;
         var additional = version.additional || config.additional;
 
-        //TODO nuke this
         var additionalPer = version.additionalPer || config.additionalPer;
         if(additionalPer){
             if(additionalPer.flagPrefix){
@@ -68,8 +67,10 @@ class Spawner {
             if(additionalPer.room > 0){
                 count += catalog.rooms.length * additionalPer.room;
             }
+            if(additionalPer.repair > 0){
+                count += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+            }
         }
-        //END TODO
 
         if(additional){
             var pass = _.reduce(additional, (result, requirement, name)=>{

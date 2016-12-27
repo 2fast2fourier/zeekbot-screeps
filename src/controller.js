@@ -13,12 +13,12 @@ class Controller {
         });
 
         _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-        _.forEach(Memory.react, (data, labId) => Controller.runReaction(Game.getObjectById(labId), data, catalog));
+        _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
     }
 
     static towerDefend(tower, catalog) {
         var hostiles = catalog.getHostileCreeps(tower.room);
-        var healer = _.first(hostiles, creep => !!_.find(creep.body, part => part.type == HEAL));
+        var healer = _.find(hostiles, creep => creep.getActiveBodyparts(HEAL) > 0);
         if(healer){
             return tower.attack(healer) == OK;
         }
@@ -67,20 +67,35 @@ class Controller {
         }
     }
 
-    static runReaction(lab, data, catalog){
-        if(lab && (lab.cooldown > 0 || lab.mineralAmount == lab.mineralCapacity)){
+    static runReaction(type, data, catalog){
+        // Memory.react[type] = {
+        //     lab: labNum,
+        //     deficit: reaction.deficit,
+        //     components: reaction.components
+        // };
+        var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
+        var targetLab = labs[2];
+        if(!_.every(labs) || !targetLab){
+            console.log('missing labs for reaction', labs, type, data.lab);
             return;
         }
-        var srcA = Game.getObjectById(data[0]);
-        var srcB = Game.getObjectById(data[1]);
-        if(!lab || !srcA || !srcB){
-            console.log('invalid reaction', lab, srcA, srcB);
+        if(targetLab.mineralType == type){
+            Memory.transfer.lab[targetLab.id] = 'store';
+        }else if(targetLab.mineralType){
+            Memory.transfer.lab[targetLab.id] = false;
             return;
         }
-        if(srcA.mineralAmount == 0 || srcB.mineralAmount == 0){
+        // console.log(type, data.deficit);
+        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }
-        lab.runReaction(srcA, srcB);
+        if(labs[0].mineralType != data.components[0] || labs[1].mineralType != data.components[1]){
+            return;
+        }
+        if(labs[0].mineralAmount == 0 || labs[1].mineralAmount == 0){
+            return;
+        }
+        targetLab.runReaction(labs[0], labs[1]);
     }
 }
 

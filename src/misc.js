@@ -34,6 +34,8 @@ class Misc {
                 min: Infinity
             }
         };
+        var totalBuild = 0;
+        var totalRepair = 0;
         _.forEach(Game.rooms, room => {
             var spawns = room.find(FIND_MY_SPAWNS);
             var spawnCapacity = 0;
@@ -67,10 +69,14 @@ class Misc {
                 terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
+            totalRepair += repairHits;
+            totalBuild += buildHits;
         });
         stats.global = {
             maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
-            totalEnergy: _.sum(_.map(stats.rooms, 'energy'))
+            totalEnergy: _.sum(_.map(stats.rooms, 'energy')),
+            build: totalBuild,
+            repair: totalRepair
         }
         Memory.stats = stats;
     }
@@ -86,7 +92,8 @@ class Misc {
             towerRepairPercent: 0.8,
             transferStoreThreshold: 500,
             repairTarget: 250000,
-            upgradeCapacity: 10
+            upgradeCapacity: 15,
+            terminalMaxResources: 100000
         };
     }
 

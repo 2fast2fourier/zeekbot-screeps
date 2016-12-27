@@ -146,7 +146,7 @@ module.exports = {
             builder: {
                 quota: {
                     jobType: 'build',
-                    allocation: 1,
+                    allocation: 3,
                     max: 4
                 },
                 rules: {
@@ -166,11 +166,14 @@ module.exports = {
                 rules: { pickup: {}, upgrade: {} }
             },
             repair: {
-                quota: {
-                    jobType: 'repair',
-                    allocation: 1,
-                    ratio: 1,
-                    max: 10
+                // quota: {
+                //     jobType: 'repair',
+                //     allocation: 1,
+                //     ratio: 0.4,
+                //     max: 10
+                // },
+                additionalPer: {
+                    repair: 10000
                 },
                 rules: { pickup: {}, repair: {} },
                 actions: { repair: {} },

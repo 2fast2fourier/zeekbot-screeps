@@ -5,6 +5,7 @@ var Spawner = require('./spawner');
 var WorkManager = require('./workmanager');
 var Catalog = require('./catalog');
 var Misc = require('./misc');
+var Production = require('./production');
 
 module.exports.loop = function () {
     var start = Game.cpu.getUsed();
@@ -21,6 +22,7 @@ module.exports.loop = function () {
     Misc.mourn();
 
     var catalog = new Catalog();
+    var production = new Production(catalog);
 
     if(!Memory.transfer){
         Memory.transfer = {
@@ -42,10 +44,12 @@ module.exports.loop = function () {
     }
     // var cat = Game.cpu.getUsed();
 
+    production.process();
+
     catalog.jobs.generate();
     catalog.jobs.allocate();
 
-    // console.log(_.size(catalog.jobs.jobs.transfer), catalog.jobs.capacity.transfer);
+    // console.log(_.size(catalog.jobs.jobs.repair), catalog.jobs.capacity.repair);
     // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
     // var jobs = Game.cpu.getUsed();

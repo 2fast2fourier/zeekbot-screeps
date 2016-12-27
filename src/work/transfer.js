@@ -26,7 +26,7 @@ class TransferWorker extends BaseWorker {
         if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
             return false;
         }
-        return distance / this.distanceWeight;
+        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity);
     }
 
     processStep(creep, job, target, opts){
