@@ -11,10 +11,10 @@ class RepairJob extends StaticJob {
 
     finalizeTargetList(targets){
         var sorted = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-        if(sorted.length < 20){
+        if(sorted.length < 30){
             return sorted;
         }
-        return _.slice(sorted, 0, 20);
+        return _.slice(sorted, 0, 30);
     }
 
 }

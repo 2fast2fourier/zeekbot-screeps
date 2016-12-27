@@ -94,7 +94,7 @@ module.exports = {
                 // additionalPer: {
                 //     room: 2
                 // },
-                ideal: 2,
+                ideal: 4,
                 requirements: {
                     energy: 250000
                 },
@@ -168,9 +168,9 @@ module.exports = {
             repair: {
                 quota: {
                     jobType: 'repair',
-                    allocation: 200,
+                    allocation: 1,
                     ratio: 1,
-                    max: 6
+                    max: 10
                 },
                 rules: { pickup: {}, repair: {} },
                 actions: { repair: {} },

@@ -74,42 +74,6 @@ class Catalog {
         return this.roomData[room.name];
     }
 
-    // getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
-    //     var types = [
-    //         STRUCTURE_CONTAINER,
-    //         STRUCTURE_EXTENSION,
-    //         STRUCTURE_TOWER,
-    //         STRUCTURE_LINK,
-    //         STRUCTURE_STORAGE,
-    //         STRUCTURE_SPAWN
-    //     ];
-    //     var containers = _.filter(this.buildings[creep.pos.roomName],
-    //                               structure => _.includes(containerTypes || types, structure.structureType)
-    //                                             && RoomUtil.getEnergyPercent(structure) < 1
-    //                                             && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
-    //                              );
-
-    //     var filterClass = _.isArray(ignoreClass);
-    //     if(filterClass || !ignoreCreeps){
-    //         var targetCreeps = creep.room.find(FIND_MY_CREEPS, {
-    //             filter: (target)=>!RoomUtil.energyFull(target) && (!filterClass || !_.includes(ignoreClass, target.memory.class))
-    //         });
-
-    //         if(excludeRemote){
-    //             targetCreeps = _.filter(targetCreeps, creep => !creep.memory.remote);
-    //         }
-
-    //         if(targetCreeps.length > 0){
-    //             containers = containers.concat(targetCreeps);
-    //         }
-    //     }
-    //     if(maxRange > 0){
-    //         containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
-    //     }
-
-    //     return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
-    // }
-
     getFlagsByPrefix(prefix){
         if(!this.flagsPrefix[prefix]){
             this.flagsPrefix[prefix] = _.filter(Game.flags, flag => flag.name.startsWith(prefix));

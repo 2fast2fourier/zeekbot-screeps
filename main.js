@@ -48,10 +48,10 @@ module.exports =
 	"use strict";
 
 	var Controller = __webpack_require__(1);
-	var Spawner = __webpack_require__(3);
-	var WorkManager = __webpack_require__(5);
-	var Catalog = __webpack_require__(30);
-	var Misc = __webpack_require__(49);
+	var Spawner = __webpack_require__(2);
+	var WorkManager = __webpack_require__(4);
+	var Catalog = __webpack_require__(29);
+	var Misc = __webpack_require__(48);
 
 	module.exports.loop = function () {
 	    var start = Game.cpu.getUsed();
@@ -129,11 +129,9 @@ module.exports =
 
 /***/ },
 /* 1 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ function(module, exports) {
 
 	"use strict";
-
-	var RoomUtil = __webpack_require__(2);
 
 	class Controller {
 
@@ -223,234 +221,11 @@ module.exports =
 
 /***/ },
 /* 2 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	class RoomUtil {
-
-	    static getStats(room){
-	        return _.get(Memory.stats.rooms, room.name, false);
-	    }
-
-	    static getStat(room, stat, fallback){
-	        return _.get(Memory.stats.rooms, [room.name, stat], fallback);
-	    }
-
-	    static exists(id){
-	        return id != null && id != false && Game.getObjectById(id) != null;
-	    }
-
-	    static prioritizeSources(room){
-	        var sources = room.find(FIND_SOURCES);
-	        var currentHarvesters = room.find(FIND_MY_CREEPS, {
-	            filter: (creep)=>!!creep.memory.traits.mining || !!creep.memory.lastSource
-	        });
-	        var usage = _.countBy(currentHarvesters, function(harv){
-	            return harv.memory.lastSource || harv.memory.traits.mining;
-	        });
-	        var leastId = sources[0].id;
-	        var leastCount = _.get(usage, sources[0].id, 0);
-	        _.forEach(sources, function(source){
-	            if(!usage[source.id] || leastCount > usage[source.id]){
-	                leastId = source.id;
-	                leastCount = usage[source.id] || 0;
-	            }
-	        });
-	        return leastId;
-	    }
-
-	    static getNearestSource(creep, maxRange){
-	        if(maxRange > 0){
-	            var sources = _.filter(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange);
-	            return _.first(_.sortBy(sources, source => creep.pos.getRangeTo(source)));
-	        }else{
-	            return _.first(_.sortBy(creep.room.find(FIND_SOURCES), source => creep.pos.getRangeTo(source) <= maxRange));
-	        }
-	    }
-
-	    static calculateSourceEnergy(room){
-	        var energy = 0;
-	        var sources = room.find(FIND_SOURCES);
-	        _.forEach(sources, source => energy += source.energy);
-	        return energy;
-	    }
-
-	    static onEdge(pos){
-	        return pos.x < 1 || pos.x > 48 || pos.y < 1 || pos.y > 48;
-	    }
-
-	    static energyFull(entity){
-	        return !(RoomUtil.getEnergy(entity) < RoomUtil.getEnergyCapacity(entity));
-	    }
-	    
-	    static getStorage(entity){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return _.sum(entity.carry);
-	        }else if(entity.storeCapacity > 0){
-	            return _.sum(entity.store);
-	        }else if(entity.energyCapacity > 0){
-	            return entity.energy;
-	        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
-	            return entity.amount;
-	        }
-	        return 0;
-	    }
-
-	    static getStorageCapacity(entity){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return entity.carryCapacity;
-	        }else if(entity.storeCapacity > 0){
-	            return entity.storeCapacity;
-	        }else if(entity.energyCapacity > 0){
-	            return entity.energyCapacity;
-	        }else if(entity.resourceType && entity.amount > 0){
-	            return entity.amount;
-	        }
-	        return 0;
-	    }
-
-	    static getStoragePercent(entity){
-	        return RoomUtil.getStorage(entity) / RoomUtil.getStorageCapacity(entity);
-	    }
-
-	    static getEnergyPercent(entity){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return entity.carry.energy / entity.carryCapacity;
-	        }else if(entity.storeCapacity > 0){
-	            return entity.store[RESOURCE_ENERGY] / entity.storeCapacity;
-	        }else if(entity.energyCapacity > 0){
-	            return entity.energy / entity.energyCapacity;
-	        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
-	            return Math.min(entity.amount, 1);
-	        }
-	        return 0;
-	    }
-
-	    static getResource(entity, type){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return entity.carry[type];
-	        }else if(entity.storeCapacity > 0){
-	            return entity.store[type];
-	        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
-	            return entity.energy;
-	        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
-	            return entity.amount;
-	        }
-	        return 0;
-	    }
-
-	    static getEnergy(entity){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return entity.carry.energy;
-	        }else if(entity.storeCapacity > 0){
-	            return entity.store[RESOURCE_ENERGY];
-	        }else if(entity.energyCapacity > 0){
-	            return entity.energy;
-	        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
-	            return entity.amount;
-	        }
-	        return 0;
-	    }
-
-	    static getEnergyCapacity(entity){
-	        if(!entity){
-	            return 0;
-	        }
-	        if(entity.carryCapacity > 0){
-	            return entity.carryCapacity;
-	        }else if(entity.storeCapacity > 0){
-	            return entity.storeCapacity;
-	        }else if(entity.energyCapacity > 0){
-	            return entity.energyCapacity;
-	        }else if(entity.resourceType && entity.resourceType == RESOURCE_ENERGY && entity.amount > 0){
-	            return entity.amount;
-	        }
-	        return 0;
-	    }
-
-	    static getEnergyDeficit(entity){
-	        return RoomUtil.getEnergyCapacity(entity) - RoomUtil.getEnergy(entity);
-	    }
-
-	    static getStorageDeficit(entity){
-	        return RoomUtil.getStorageCapacity(entity) - RoomUtil.getStorage(entity);
-	    }
-
-	    static findEnergyNeeds(room, creep, ignoreContainers){
-	        var needs;
-	        if(ignoreContainers){
-	            needs = room.find(FIND_STRUCTURES, {
-	                    filter: (structure) => {
-	                        return (structure.structureType == STRUCTURE_EXTENSION ||
-	                                structure.structureType == STRUCTURE_SPAWN ||
-	                                structure.structureType == STRUCTURE_TOWER) &&
-	                            RoomUtil.getEnergyPercent(structure) < 1;
-	                    }
-	            });
-	        }else{
-	            needs = room.find(FIND_STRUCTURES, {
-	                    filter: (structure) => {
-	                        return (structure.structureType == STRUCTURE_EXTENSION ||
-	                                structure.structureType == STRUCTURE_SPAWN ||
-	                                structure.structureType == STRUCTURE_TOWER ||
-	                                structure.structureType == STRUCTURE_CONTAINER) &&
-	                            RoomUtil.getEnergyPercent(structure) < 1;
-	                    }
-	            });
-	        }
-	        if(creep){
-	            needs = _.sortBy(needs, (target)=>creep.pos.getRangeTo(target));
-	        }
-	        return needs;
-	    }
-	    
-	    static getEnergyPriority(type){
-	        if(!type){
-	            return 1;
-	        }
-	        var priorities = {
-	            'spawn': 0.5,
-	            'extension': 1.25,
-	            'tower': -1,
-	            'container': 1.5,
-	            'storage': 10,
-	            'link': 1.5
-	        };
-	        return _.get(priorities, type, 1);
-	    }
-
-	    static findFreeMiningId(room, creep, catalog){
-	        //TODO balance, find max capacity, ect
-	        return RoomUtil.prioritizeSources(room);
-	    }
-	}
-
-	module.exports = RoomUtil;
-
-/***/ },
-/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var classConfig = __webpack_require__(4);
-	// var behaviors = require('./behaviors');
+	var classConfig = __webpack_require__(3);
 
 	class Spawner {
 
@@ -728,7 +503,7 @@ module.exports =
 	module.exports = Spawner;
 
 /***/ },
-/* 4 */
+/* 3 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -827,7 +602,7 @@ module.exports =
 	                // additionalPer: {
 	                //     room: 2
 	                // },
-	                ideal: 2,
+	                ideal: 4,
 	                requirements: {
 	                    energy: 250000
 	                },
@@ -901,9 +676,9 @@ module.exports =
 	            repair: {
 	                quota: {
 	                    jobType: 'repair',
-	                    allocation: 200,
+	                    allocation: 1,
 	                    ratio: 1,
-	                    max: 6
+	                    max: 10
 	                },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { repair: {} },
@@ -977,13 +752,13 @@ module.exports =
 	};
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Actions = __webpack_require__(6);
-	var Work = __webpack_require__(11);
+	var Actions = __webpack_require__(5);
+	var Work = __webpack_require__(10);
 
 	class WorkManager {
 	    static process(catalog){
@@ -1081,14 +856,14 @@ module.exports =
 	module.exports = WorkManager;
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Avoid = __webpack_require__(7);
-	var Repair = __webpack_require__(9);
-	var SelfHeal = __webpack_require__(10);
+	var Avoid = __webpack_require__(6);
+	var Repair = __webpack_require__(8);
+	var SelfHeal = __webpack_require__(9);
 
 	module.exports = function(catalog){
 	    return {
@@ -1099,12 +874,12 @@ module.exports =
 	};
 
 /***/ },
-/* 7 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(8);
+	var BaseAction = __webpack_require__(7);
 
 	class AvoidAction extends BaseAction {
 	    constructor(catalog){
@@ -1137,7 +912,7 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 8 */
+/* 7 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1165,12 +940,12 @@ module.exports =
 	module.exports = BaseAction;
 
 /***/ },
-/* 9 */
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(8);
+	var BaseAction = __webpack_require__(7);
 
 	class RepairAction extends BaseAction {
 	    constructor(catalog){
@@ -1192,12 +967,12 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 10 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(8);
+	var BaseAction = __webpack_require__(7);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(catalog){
@@ -1215,26 +990,26 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 11 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Attack = __webpack_require__(12);
-	var Build = __webpack_require__(15);
-	var Defend = __webpack_require__(16);
-	var Deliver = __webpack_require__(17);
-	var Drop = __webpack_require__(18);
-	var Heal = __webpack_require__(19);
-	var Idle = __webpack_require__(20);
-	var Keep = __webpack_require__(21);
-	var Mine = __webpack_require__(22);
-	var Observe = __webpack_require__(23);
-	var Pickup = __webpack_require__(24);
-	var Repair = __webpack_require__(25);
-	var Reserve = __webpack_require__(27);
-	var Transfer = __webpack_require__(28);
-	var Upgrade = __webpack_require__(29);
+	var Attack = __webpack_require__(11);
+	var Build = __webpack_require__(14);
+	var Defend = __webpack_require__(15);
+	var Deliver = __webpack_require__(16);
+	var Drop = __webpack_require__(17);
+	var Heal = __webpack_require__(18);
+	var Idle = __webpack_require__(19);
+	var Keep = __webpack_require__(20);
+	var Mine = __webpack_require__(21);
+	var Observe = __webpack_require__(22);
+	var Pickup = __webpack_require__(23);
+	var Repair = __webpack_require__(24);
+	var Reserve = __webpack_require__(26);
+	var Transfer = __webpack_require__(27);
+	var Upgrade = __webpack_require__(28);
 
 	module.exports = function(catalog){
 	    return {
@@ -1257,12 +1032,12 @@ module.exports =
 	};
 
 /***/ },
-/* 12 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class AttackWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'attack', { chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 4 } }); }
@@ -1305,12 +1080,12 @@ module.exports =
 	module.exports = AttackWorker;
 
 /***/ },
-/* 13 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var SimpleWorker = __webpack_require__(14);
+	var SimpleWorker = __webpack_require__(13);
 
 	class BaseWorker extends SimpleWorker {
 	    constructor(catalog, type, opts){
@@ -1409,7 +1184,7 @@ module.exports =
 	module.exports = BaseWorker;
 
 /***/ },
-/* 14 */
+/* 13 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1500,12 +1275,12 @@ module.exports =
 	module.exports = SimpleWorker;
 
 /***/ },
-/* 15 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class BuildWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'build', { requiresEnergy: true, chatty: true }); }
@@ -1530,12 +1305,12 @@ module.exports =
 	module.exports = BuildWorker;
 
 /***/ },
-/* 16 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class DefendWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 3 } }); }
@@ -1578,12 +1353,12 @@ module.exports =
 	module.exports = DefendWorker;
 
 /***/ },
-/* 17 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	var defaultTypes = [
 	    STRUCTURE_SPAWN,
@@ -1649,12 +1424,12 @@ module.exports =
 	module.exports = DeliverWorker;
 
 /***/ },
-/* 18 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var SimpleWorker = __webpack_require__(14);
+	var SimpleWorker = __webpack_require__(13);
 
 	class DropWorker extends SimpleWorker {
 	    constructor(catalog){ super(catalog, 'drop', { requiresEnergy: true }); }
@@ -1684,12 +1459,12 @@ module.exports =
 	module.exports = DropWorker;
 
 /***/ },
-/* 19 */
+/* 18 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class HealWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'heal', { chatty: true }); }
@@ -1717,12 +1492,12 @@ module.exports =
 	module.exports = HealWorker;
 
 /***/ },
-/* 20 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class IdleWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'idle', { idleTimer: 5 }); }
@@ -1749,12 +1524,12 @@ module.exports =
 	module.exports = IdleWorker;
 
 /***/ },
-/* 21 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class KeepWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'keep'); }
@@ -1804,12 +1579,12 @@ module.exports =
 	module.exports = KeepWorker;
 
 /***/ },
-/* 22 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class MineWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'mine'); }
@@ -1856,12 +1631,12 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 23 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class ObserveWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'observe', { idleTimer: 50 }); }
@@ -1885,12 +1660,12 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 24 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class PickupWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'pickup'); }
@@ -1942,12 +1717,12 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 25 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticWorker = __webpack_require__(26);
+	var StaticWorker = __webpack_require__(25);
 
 	class RepairWorker extends StaticWorker {
 	    constructor(catalog){ super(catalog, 'repair', { requiresEnergy: true, chatty: true }); }
@@ -1969,12 +1744,12 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 26 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var SimpleWorker = __webpack_require__(14);
+	var SimpleWorker = __webpack_require__(13);
 
 	class StaticWorker extends SimpleWorker {
 	    constructor(catalog, type, opts){
@@ -2059,12 +1834,12 @@ module.exports =
 	module.exports = StaticWorker;
 
 /***/ },
-/* 27 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class ReserveWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'reserve'); }
@@ -2092,12 +1867,12 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 28 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class TransferWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'transfer', { chatty: true }); }
@@ -2142,12 +1917,12 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 29 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseWorker = __webpack_require__(13);
+	var BaseWorker = __webpack_require__(12);
 
 	class UpgradeWorker extends BaseWorker {
 	    constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true, idleTimer: 50 }); }
@@ -2169,12 +1944,12 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 30 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var JobManager = __webpack_require__(31);
+	var JobManager = __webpack_require__(30);
 
 	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
@@ -2247,42 +2022,6 @@ module.exports =
 	        }
 	        return this.roomData[room.name];
 	    }
-
-	    // getEnergyNeeds(creep, { ignoreCreeps, ignoreClass, containerTypes, maxRange, excludeRemote, maxStorage }){
-	    //     var types = [
-	    //         STRUCTURE_CONTAINER,
-	    //         STRUCTURE_EXTENSION,
-	    //         STRUCTURE_TOWER,
-	    //         STRUCTURE_LINK,
-	    //         STRUCTURE_STORAGE,
-	    //         STRUCTURE_SPAWN
-	    //     ];
-	    //     var containers = _.filter(this.buildings[creep.pos.roomName],
-	    //                               structure => _.includes(containerTypes || types, structure.structureType)
-	    //                                             && RoomUtil.getEnergyPercent(structure) < 1
-	    //                                             && (!maxStorage || RoomUtil.getEnergy(structure) < maxStorage)
-	    //                              );
-
-	    //     var filterClass = _.isArray(ignoreClass);
-	    //     if(filterClass || !ignoreCreeps){
-	    //         var targetCreeps = creep.room.find(FIND_MY_CREEPS, {
-	    //             filter: (target)=>!RoomUtil.energyFull(target) && (!filterClass || !_.includes(ignoreClass, target.memory.class))
-	    //         });
-
-	    //         if(excludeRemote){
-	    //             targetCreeps = _.filter(targetCreeps, creep => !creep.memory.remote);
-	    //         }
-
-	    //         if(targetCreeps.length > 0){
-	    //             containers = containers.concat(targetCreeps);
-	    //         }
-	    //     }
-	    //     if(maxRange > 0){
-	    //         containers = _.filter(containers, target => creep.pos.getRangeTo(target) <= maxRange);
-	    //     }
-
-	    //     return _.sortBy(containers, container => RoomUtil.getEnergyPercent(container) + creep.pos.getRangeTo(container)/50 + Catalog.getEnergyDeliveryOffset(container));
-	    // }
 
 	    getFlagsByPrefix(prefix){
 	        if(!this.flagsPrefix[prefix]){
@@ -2527,12 +2266,12 @@ module.exports =
 	module.exports = Catalog;
 
 /***/ },
-/* 31 */
+/* 30 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Jobs = __webpack_require__(32);
+	var Jobs = __webpack_require__(31);
 
 	class JobManager {
 	    constructor(catalog){
@@ -2606,25 +2345,25 @@ module.exports =
 	module.exports = JobManager;
 
 /***/ },
-/* 32 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Attack = __webpack_require__(33);
-	var Build = __webpack_require__(35);
-	var Defend = __webpack_require__(36);
-	var Deliver = __webpack_require__(37);
-	var Mine = __webpack_require__(38);
-	var Idle = __webpack_require__(39);
-	var Keep = __webpack_require__(40);
-	var Observe = __webpack_require__(41);
-	var Pickup = __webpack_require__(42);
-	var Repair = __webpack_require__(43);
-	var Reserve = __webpack_require__(45);
-	var Transfer = __webpack_require__(46);
-	var Upgrade = __webpack_require__(47);
-	var Heal = __webpack_require__(48);
+	var Attack = __webpack_require__(32);
+	var Build = __webpack_require__(34);
+	var Defend = __webpack_require__(35);
+	var Deliver = __webpack_require__(36);
+	var Mine = __webpack_require__(37);
+	var Idle = __webpack_require__(38);
+	var Keep = __webpack_require__(39);
+	var Observe = __webpack_require__(40);
+	var Pickup = __webpack_require__(41);
+	var Repair = __webpack_require__(42);
+	var Reserve = __webpack_require__(44);
+	var Transfer = __webpack_require__(45);
+	var Upgrade = __webpack_require__(46);
+	var Heal = __webpack_require__(47);
 
 	module.exports = function(catalog){
 	    return {
@@ -2646,12 +2385,12 @@ module.exports =
 	};
 
 /***/ },
-/* 33 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class AttackJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
@@ -2678,7 +2417,7 @@ module.exports =
 
 
 /***/ },
-/* 34 */
+/* 33 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2789,18 +2528,18 @@ module.exports =
 	module.exports = BaseJob;
 
 /***/ },
-/* 35 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class BuildJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'build'); }
 
 	    calculateCapacity(room, target){
-	        return Math.min(4, Math.ceil((target.progressTotal - target.progress) / 1000));
+	        return Math.min(4, Math.ceil((target.progressTotal - target.progress) / 3000));
 	    }
 
 	    generate(){
@@ -2813,12 +2552,12 @@ module.exports =
 	module.exports = BuildJob;
 
 /***/ },
-/* 36 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class DefendJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend' }); }
@@ -2847,12 +2586,12 @@ module.exports =
 
 
 /***/ },
-/* 37 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	var offsets = {
 	    spawn: -0.25,
@@ -2912,12 +2651,12 @@ module.exports =
 	module.exports = DeliverJob;
 
 /***/ },
-/* 38 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class MineJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'mine', { flagPrefix: 'Mine' }); }
@@ -2954,12 +2693,12 @@ module.exports =
 
 
 /***/ },
-/* 39 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	var types = {
 	    spawn: 2,
@@ -3016,12 +2755,12 @@ module.exports =
 	module.exports = IdleJob;
 
 /***/ },
-/* 40 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class KeepJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
@@ -3069,12 +2808,12 @@ module.exports =
 
 
 /***/ },
-/* 41 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class ObserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'observe', { flagPrefix: 'Observe' }); }
@@ -3092,12 +2831,12 @@ module.exports =
 	module.exports = ObserveJob;
 
 /***/ },
-/* 42 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	var types = [
 	    STRUCTURE_STORAGE,
@@ -3137,12 +2876,12 @@ module.exports =
 	module.exports = PickupJob;
 
 /***/ },
-/* 43 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticJob = __webpack_require__(44);
+	var StaticJob = __webpack_require__(43);
 
 	class RepairJob extends StaticJob {
 	    constructor(catalog){ super(catalog, 'repair', { flagPrefix: 'Repair', refresh: 20 }); }
@@ -3153,10 +2892,10 @@ module.exports =
 
 	    finalizeTargetList(targets){
 	        var sorted = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-	        if(sorted.length < 20){
+	        if(sorted.length < 30){
 	            return sorted;
 	        }
-	        return _.slice(sorted, 0, 20);
+	        return _.slice(sorted, 0, 30);
 	    }
 
 	}
@@ -3164,7 +2903,7 @@ module.exports =
 	module.exports = RepairJob;
 
 /***/ },
-/* 44 */
+/* 43 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -3263,12 +3002,12 @@ module.exports =
 	module.exports = StaticJob;
 
 /***/ },
-/* 45 */
+/* 44 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class ReserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'reserve', { flagPrefix: 'Reserve' }); }
@@ -3286,12 +3025,12 @@ module.exports =
 	module.exports = ReserveJob;
 
 /***/ },
-/* 46 */
+/* 45 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class TransferJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'transfer'); }
@@ -3369,12 +3108,12 @@ module.exports =
 	module.exports = TransferJob;
 
 /***/ },
-/* 47 */
+/* 46 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class UpgradeJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'upgrade', { flagPrefix: 'Upgrade' }); }
@@ -3395,12 +3134,12 @@ module.exports =
 	module.exports = UpgradeJob;
 
 /***/ },
-/* 48 */
+/* 47 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(34);
+	var BaseJob = __webpack_require__(33);
 
 	class HealJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'heal'); }
@@ -3423,12 +3162,10 @@ module.exports =
 	module.exports = HealJob;
 
 /***/ },
-/* 49 */
-/***/ function(module, exports, __webpack_require__) {
+/* 48 */
+/***/ function(module, exports) {
 
 	"use strict";
-
-	var RoomUtil = __webpack_require__(2);
 
 	class Misc {
 	    static updateStats(catalog){
@@ -3493,8 +3230,8 @@ module.exports =
 	                mineralId: _.get(mineral, 'id', false),
 	                mineralType: _.get(mineral, 'mineralType', false),
 	                mineralAmount: _.get(mineral, 'mineralAmount', 0),
-	                energy: RoomUtil.getEnergy(room.storage),
-	                terminalEnergy: RoomUtil.getEnergy(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL))),
+	                energy: catalog.getResource(room.storage, RESOURCE_ENERGY),
+	                terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
 	                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
 	            };
 	        });

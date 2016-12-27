@@ -1,7 +1,6 @@
 "use strict";
 
 var classConfig = require('./creeps');
-// var behaviors = require('./behaviors');
 
 class Spawner {
 

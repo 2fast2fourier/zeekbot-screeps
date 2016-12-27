@@ -1,7 +1,5 @@
 "use strict";
 
-var RoomUtil = require('./roomutil');
-
 class Misc {
     static updateStats(catalog){
         if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
@@ -65,8 +63,8 @@ class Misc {
                 mineralId: _.get(mineral, 'id', false),
                 mineralType: _.get(mineral, 'mineralType', false),
                 mineralAmount: _.get(mineral, 'mineralAmount', 0),
-                energy: RoomUtil.getEnergy(room.storage),
-                terminalEnergy: RoomUtil.getEnergy(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL))),
+                energy: catalog.getResource(room.storage, RESOURCE_ENERGY),
+                terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
                 upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
         });

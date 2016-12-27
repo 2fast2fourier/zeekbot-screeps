@@ -1,7 +1,5 @@
 "use strict";
 
-var RoomUtil = require('./roomutil');
-
 class Controller {
 
     static control(catalog){
