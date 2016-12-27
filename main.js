@@ -174,9 +174,9 @@ module.exports =
 	    }
 
 	    static towerRepair(tower, catalog, ix) {
-	        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.repairTarget) * Memory.settings.towerRepairPercent);
+	        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
 	        if(damagedBuildings.length > ix) {
-	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.repairTarget));
+	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
 	            tower.repair(damaged[ix]);
 	        }
 	    }
@@ -3463,9 +3463,9 @@ module.exports =
 	                if(structure.structureType == STRUCTURE_EXTENSION){
 	                    spawnCapacity += structure.energyCapacity;
 	                }
-	                if(structure.hits < structure.hitsMax && structure.hits < Memory.repairTarget){
+	                if(structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget)){
 	                    repairJobs++;
-	                    repairHits += Math.min(structure.hitsMax, Memory.repairTarget) - structure.hits;
+	                    repairHits += Math.min(structure.hitsMax, Memory.settings.repairTarget) - structure.hits;
 	                }
 	            });
 	            var buildSites = room.find(FIND_MY_CONSTRUCTION_SITES);
