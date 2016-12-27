@@ -88,9 +88,6 @@ class WorkManager {
     }
 
     static processCreep(creep, workers, catalog, actions, block){
-        if(block){
-            console.log(creep, block);
-        }
         var action = false;
         if(creep.memory.jobType && !creep.memory.block){
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);

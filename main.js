@@ -876,31 +876,6 @@ module.exports =
 	    },
 	    worker: {
 	        versions: {
-	            // milli: {
-	            //     additionalPer: {
-	            //         room: 2,
-	            //         flagPrefix: 'Repair'
-	            //     },
-	            //     parts: {work: 4, carry: 4, move: 8}
-	            // },
-	            // micro: {
-	            //     ideal: 2,
-	            //     disable: {
-	            //         maxSpawn: 1400
-	            //     },
-	            //     parts: {work: 4, carry: 2, move: 6}
-	            // },
-	            // nano: {
-	            //     ideal: 2,
-	            //     disable: {
-	            //         maxSpawn: 800
-	            //     },
-	            //     parts: {work: 2, carry: 2, move: 4}
-	            // },
-	            // pico: {
-	            //     bootstrap: 1,
-	            //     parts: {work: 1, carry: 2, move: 2}
-	            // },
 	            builder: {
 	                quota: {
 	                    jobType: 'build',
@@ -941,7 +916,8 @@ module.exports =
 	            repair: { priority: 5 },
 	            upgrade: { priority: 10 },
 	            idle: { type: 'worker' }
-	        }
+	        },
+	        actions: { avoid: {} }
 	    },
 	    claimer: {
 	        versions: {
@@ -1094,9 +1070,6 @@ module.exports =
 	    }
 
 	    static processCreep(creep, workers, catalog, actions, block){
-	        if(block){
-	            console.log(creep, block);
-	        }
 	        var action = false;
 	        if(creep.memory.jobType && !creep.memory.block){
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
@@ -2827,7 +2800,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'build'); }
 
 	    calculateCapacity(room, target){
-	        return (target.progressTotal - target.progress) <= 200 ? 1 : 2;
+	        return Math.min(4, Math.ceil((target.progressTotal - target.progress) / 1000));
 	    }
 
 	    generate(){
@@ -3056,7 +3029,7 @@ module.exports =
 	    calculateCapacity(room, target){
 	        if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
 	            return 15;
-	        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 290){
+	        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
 	            return 0;
 	        }
 	        return 30;
@@ -3084,7 +3057,7 @@ module.exports =
 	        }else{
 	            job.priority = 0;
 	        }
-	        if(!(target.ticksToSpawn > 15 && target.ticksToSpawn < 290)){
+	        if(!(target.ticksToSpawn > 15 && target.ticksToSpawn < 295)){
 	            this.catalog.addAvoid(target.pos);
 	        }
 	        return job;

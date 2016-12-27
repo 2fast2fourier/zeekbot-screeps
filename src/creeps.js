@@ -143,31 +143,6 @@ module.exports = {
     },
     worker: {
         versions: {
-            // milli: {
-            //     additionalPer: {
-            //         room: 2,
-            //         flagPrefix: 'Repair'
-            //     },
-            //     parts: {work: 4, carry: 4, move: 8}
-            // },
-            // micro: {
-            //     ideal: 2,
-            //     disable: {
-            //         maxSpawn: 1400
-            //     },
-            //     parts: {work: 4, carry: 2, move: 6}
-            // },
-            // nano: {
-            //     ideal: 2,
-            //     disable: {
-            //         maxSpawn: 800
-            //     },
-            //     parts: {work: 2, carry: 2, move: 4}
-            // },
-            // pico: {
-            //     bootstrap: 1,
-            //     parts: {work: 1, carry: 2, move: 2}
-            // },
             builder: {
                 quota: {
                     jobType: 'build',
@@ -208,7 +183,8 @@ module.exports = {
             repair: { priority: 5 },
             upgrade: { priority: 10 },
             idle: { type: 'worker' }
-        }
+        },
+        actions: { avoid: {} }
     },
     claimer: {
         versions: {
