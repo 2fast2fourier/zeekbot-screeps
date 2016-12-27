@@ -60,7 +60,12 @@ class StaticWorker extends SimpleWorker {
     }
 
     calculateBid(creep, opts, target){
-        return this.catalog.getRealDistance(creep, target) / this.distanceWeight;
+        var distance = this.catalog.getRealDistance(creep, target) / this.distanceWeight;
+        if(this.requiresEnergy){
+            return (1 - creep.carry.energy / creep.carryCapacity) / 5 + distance;
+        }else{
+            return distance;
+        }
     }
 
     process(creep, opts){

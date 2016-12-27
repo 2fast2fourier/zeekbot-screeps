@@ -12,7 +12,7 @@ class BaseAction {
         return false;
     }
 
-    postWork(creep, opts, action){}
+    postWork(creep, opts, action, block){}
 
     hasJob(creep){
         return creep.memory.jobId && creep.memory.jobType;

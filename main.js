@@ -812,9 +812,9 @@ module.exports =
 	                parts: {carry: 10, move: 10}
 	            },
 	            long: {
-	                ideal: 3,
+	                ideal: 4,
 	                additionalPer: {
-	                    count: 3,
+	                    count: 4,
 	                    flagPrefix: 'Pickup'
 	                },
 	                rules: {
@@ -824,9 +824,10 @@ module.exports =
 	                parts: {carry: 20, move: 10}
 	            },
 	            leveler: {
-	                additionalPer: {
-	                    room: 2
-	                },
+	                // additionalPer: {
+	                //     room: 2
+	                // },
+	                ideal: 2,
 	                requirements: {
 	                    energy: 250000
 	                },
@@ -944,9 +945,12 @@ module.exports =
 	    },
 	    claimer: {
 	        versions: {
+	            // attack: {
+	            //     parts: {claim: 6, move: 6}
+	            // },
 	            pico: {
 	                parts: {claim: 2, move: 2}
-	            },
+	            }
 	        },
 	        quota: {
 	            jobType: 'reserve',
@@ -1019,7 +1023,8 @@ module.exports =
 
 	        // var validate = Game.cpu.getUsed();
 	        
-	        _.forEach(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
+	        var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
+	        // console.log(blocks.length, _.compact(blocks.length).length);
 
 	        // var action = Game.cpu.getUsed();
 	        
@@ -1028,7 +1033,7 @@ module.exports =
 
 	        var bid = Game.cpu.getUsed();
 	        
-	        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog, actions));
+	        _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
 
 	        // var work = Game.cpu.getUsed();
 	        // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed() - start, Game.cpu.getUsed(), '----');
@@ -1052,10 +1057,12 @@ module.exports =
 	    }
 
 	    static creepAction(creep, actions, catalog){
-	        creep.memory.block = _.reduce(creep.memory.actions, (result, opts, type) => {
+	        var block = _.reduce(creep.memory.actions, (result, opts, type) => {
 	            actions[type].preWork(creep, opts);
 	            return actions[type].shouldBlock(creep, opts) || result;
 	        }, false);
+	        creep.memory.block = !!block;
+	        return block;
 	    }
 
 	    static bidCreep(creep, workers, catalog, startTime){
@@ -1086,12 +1093,15 @@ module.exports =
 	        }
 	    }
 
-	    static processCreep(creep, workers, catalog, actions){
+	    static processCreep(creep, workers, catalog, actions, block){
+	        if(block){
+	            console.log(creep, block);
+	        }
 	        var action = false;
 	        if(creep.memory.jobType && !creep.memory.block){
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
 	        }
-	        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
+	        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action, block));
 	    }
 	}
 
@@ -1126,6 +1136,27 @@ module.exports =
 	class AvoidAction extends BaseAction {
 	    constructor(catalog){
 	        super(catalog, 'avoid');
+	        this.range = 7;
+	    }
+
+	    shouldBlock(creep, opts){
+	        var avoid = this.catalog.getAvoid(creep.pos);
+	        if(avoid && avoid.length > 0){
+	            var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) < this.range);
+	            if(positions.length > 0){
+	                return _.map(positions, position => {
+	                    return { pos: position, range: this.range };
+	                });
+	            }
+	        }
+	        return false;
+	    }
+
+	    postWork(creep, opts, action, block){
+	        if(block){
+	            var result = PathFinder.search(creep.pos, block, { flee: true });
+	            creep.move(creep.pos.getDirectionTo(result.path[0]));
+	        }
 	    }
 	}
 
@@ -1150,7 +1181,7 @@ module.exports =
 	        return false;
 	    }
 
-	    postWork(creep, opts, action){}
+	    postWork(creep, opts, action, block){}
 
 	    hasJob(creep){
 	        return creep.memory.jobId && creep.memory.jobType;
@@ -1440,7 +1471,7 @@ module.exports =
 	        if(this.moveOpts){
 	            return creep.moveTo(target, this.moveOpts);
 	        }
-	        return creep.moveTo(target, { reusePath: 20 });
+	        return creep.moveTo(target, { reusePath: 15 });
 	    }
 
 	    orMove(creep, target, result){
@@ -2030,7 +2061,12 @@ module.exports =
 	    }
 
 	    calculateBid(creep, opts, target){
-	        return this.catalog.getRealDistance(creep, target) / this.distanceWeight;
+	        var distance = this.catalog.getRealDistance(creep, target) / this.distanceWeight;
+	        if(this.requiresEnergy){
+	            return (1 - creep.carry.energy / creep.carryCapacity) / 5 + distance;
+	        }else{
+	            return distance;
+	        }
 	    }
 
 	    process(creep, opts){
@@ -2508,7 +2544,10 @@ module.exports =
 	            this.avoid[pos.roomName] = [];
 	        }
 	        this.avoid[pos.roomName].push(pos);
-	        // console.log('avoid', pos.roomName, pos);
+	    }
+
+	    getAvoid(pos){
+	        return this.avoid[pos.roomName];
 	    }
 	}
 
@@ -3045,7 +3084,7 @@ module.exports =
 	        }else{
 	            job.priority = 0;
 	        }
-	        if(!(target.ticksToSpawn > 10 && target.ticksToSpawn < 290)){
+	        if(!(target.ticksToSpawn > 15 && target.ticksToSpawn < 290)){
 	            this.catalog.addAvoid(target.pos);
 	        }
 	        return job;
@@ -3186,7 +3225,6 @@ module.exports =
 	            Memory.jobUpdateTime[this.type] = Game.time + this.refresh;
 	        }
 
-	        console.log('refreshing', this.type);
 	        var targetLists = _.map(this.catalog.rooms, room => this.generateTargets(room));
 	        if(this.flagPrefix){
 	            var flagTargetLists = _.map(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => this.generateTargetsForFlag(flag));

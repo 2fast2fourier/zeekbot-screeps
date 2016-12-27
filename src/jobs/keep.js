@@ -36,7 +36,7 @@ class KeepJob extends BaseJob {
         }else{
             job.priority = 0;
         }
-        if(!(target.ticksToSpawn > 10 && target.ticksToSpawn < 290)){
+        if(!(target.ticksToSpawn > 15 && target.ticksToSpawn < 290)){
             this.catalog.addAvoid(target.pos);
         }
         return job;

@@ -17,7 +17,8 @@ class WorkManager {
 
         // var validate = Game.cpu.getUsed();
         
-        _.forEach(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
+        var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
+        // console.log(blocks.length, _.compact(blocks.length).length);
 
         // var action = Game.cpu.getUsed();
         
@@ -26,7 +27,7 @@ class WorkManager {
 
         var bid = Game.cpu.getUsed();
         
-        _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog, actions));
+        _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
 
         // var work = Game.cpu.getUsed();
         // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed() - start, Game.cpu.getUsed(), '----');
@@ -50,10 +51,12 @@ class WorkManager {
     }
 
     static creepAction(creep, actions, catalog){
-        creep.memory.block = _.reduce(creep.memory.actions, (result, opts, type) => {
+        var block = _.reduce(creep.memory.actions, (result, opts, type) => {
             actions[type].preWork(creep, opts);
             return actions[type].shouldBlock(creep, opts) || result;
         }, false);
+        creep.memory.block = !!block;
+        return block;
     }
 
     static bidCreep(creep, workers, catalog, startTime){
@@ -84,12 +87,15 @@ class WorkManager {
         }
     }
 
-    static processCreep(creep, workers, catalog, actions){
+    static processCreep(creep, workers, catalog, actions, block){
+        if(block){
+            console.log(creep, block);
+        }
         var action = false;
         if(creep.memory.jobType && !creep.memory.block){
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
         }
-        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
+        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action, block));
     }
 }
 

@@ -79,9 +79,9 @@ module.exports = {
                 parts: {carry: 10, move: 10}
             },
             long: {
-                ideal: 3,
+                ideal: 4,
                 additionalPer: {
-                    count: 3,
+                    count: 4,
                     flagPrefix: 'Pickup'
                 },
                 rules: {
@@ -91,9 +91,10 @@ module.exports = {
                 parts: {carry: 20, move: 10}
             },
             leveler: {
-                additionalPer: {
-                    room: 2
-                },
+                // additionalPer: {
+                //     room: 2
+                // },
+                ideal: 2,
                 requirements: {
                     energy: 250000
                 },
@@ -211,9 +212,12 @@ module.exports = {
     },
     claimer: {
         versions: {
+            // attack: {
+            //     parts: {claim: 6, move: 6}
+            // },
             pico: {
                 parts: {claim: 2, move: 2}
-            },
+            }
         },
         quota: {
             jobType: 'reserve',

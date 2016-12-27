@@ -343,7 +343,10 @@ class Catalog {
             this.avoid[pos.roomName] = [];
         }
         this.avoid[pos.roomName].push(pos);
-        // console.log('avoid', pos.roomName, pos);
+    }
+
+    getAvoid(pos){
+        return this.avoid[pos.roomName];
     }
 }
 

@@ -29,7 +29,6 @@ class StaticJob {
             Memory.jobUpdateTime[this.type] = Game.time + this.refresh;
         }
 
-        console.log('refreshing', this.type);
         var targetLists = _.map(this.catalog.rooms, room => this.generateTargets(room));
         if(this.flagPrefix){
             var flagTargetLists = _.map(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => this.generateTargetsForFlag(flag));
