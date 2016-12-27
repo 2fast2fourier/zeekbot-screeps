@@ -21,6 +21,9 @@ class KeepWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
+        if(job.target.ticksToSpawn > creep.ticksToLive){
+            return false;
+        }
         return 99 + distance / this.distanceWeight + job.priority;
     }
 

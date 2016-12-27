@@ -17,14 +17,10 @@ class BaseJob {
         return this.type+'-'+(entity.id || entity.name);
     }
 
-    getRooms(){
-        return this.catalog.rooms;
-    }
-
     generate(){
         var start = Game.cpu.getUsed();
         var jobs = {};
-        _.forEach(this.getRooms(), room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
+        _.forEach(this.catalog.rooms, room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
         if(this.flagPrefix){
             _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
         }
@@ -85,6 +81,24 @@ class BaseJob {
 
     generateTargets(room, flag){
         return [];
+    }
+
+    addAllocation(jobs, jobId, allocation){
+        if(jobId && _.has(jobs, jobId)){
+            _.set(jobs, [jobId, 'allocated'], _.get(jobs, [jobId, 'allocated'], 0) + allocation);
+            var job = _.get(jobs, jobId, false);
+            return job && job.allocated >= job.capacity;
+        }
+        return false;
+    }
+
+    removeAllocation(jobs, jobId, allocation){
+        if(jobId && _.has(jobs, jobId)){
+            _.set(jobs, [jobId, 'allocated'], _.get(jobs, [jobId, 'allocated'], 0) - allocation);
+            var job = _.get(jobs, jobId, false);
+            return job && job.allocated < job.capacity;
+        }
+        return false;
     }
 
 }

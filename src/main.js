@@ -59,12 +59,12 @@ module.exports.loop = function () {
 
     // var controller = Game.cpu.getUsed();
     // if(Game.cpu.getUsed() > Game.cpu.limit){
-    //     console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed(),'----');
-    //     console.log('catalog', cat - start);
-    //     console.log('jobs', jobs - cat);
-    //     console.log('worker', worker - jobs);
-    //     console.log('spawner', spawner - worker);
-    //     console.log('controller', controller - spawner);
+        // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed(),'----');
+        // console.log('catalog', cat - start);
+        // console.log('jobs', jobs - cat);
+        // console.log('worker', worker - jobs);
+        // console.log('spawner', spawner - worker);
+        // console.log('controller', controller - spawner);
     // }
 
     

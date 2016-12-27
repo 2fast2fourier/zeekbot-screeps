@@ -46,6 +46,7 @@ class Catalog {
         // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
 
         this.rooms = _.filter(Game.rooms, 'controller.my');
+        this.avoid = {};
 
         this.jobs = new JobManager(this);
 
@@ -335,6 +336,14 @@ class Catalog {
 
     sortByDistance(entity, targets){
         return _.sortBy(targets, target => this.getRealDistance(entity, target));
+    }
+
+    addAvoid(pos){
+        if(!_.has(this.avoid, pos.roomName)){
+            this.avoid[pos.roomName] = [];
+        }
+        this.avoid[pos.roomName].push(pos);
+        // console.log('avoid', pos.roomName, pos);
     }
 }
 

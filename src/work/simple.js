@@ -30,7 +30,7 @@ class SimpleWorker {
         if(this.moveOpts){
             return creep.moveTo(target, this.moveOpts);
         }
-        return creep.moveTo(target, { reusePath: 10 });
+        return creep.moveTo(target, { reusePath: 20 });
     }
 
     orMove(creep, target, result){

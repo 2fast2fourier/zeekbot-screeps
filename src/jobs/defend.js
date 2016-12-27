@@ -19,6 +19,7 @@ class DefendJob extends BaseJob {
         if(!job.keeper){
             Memory.stats.rooms[room.name].hostileCount++;
         }
+        this.catalog.addAvoid(target.pos);
         return job;
     }
 }

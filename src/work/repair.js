@@ -1,35 +1,20 @@
 "use strict";
 
-var BaseWorker = require('./base');
+var StaticWorker = require('./static');
 
-class RepairWorker extends BaseWorker {
+class RepairWorker extends StaticWorker {
     constructor(catalog){ super(catalog, 'repair', { requiresEnergy: true, chatty: true }); }
 
-    calculateAllocation(creep, opts){
-        if(creep.getActiveBodyparts(WORK) > 0){
-            return this.catalog.getResource(creep, RESOURCE_ENERGY);
-        }
-        return 0;
+    isValid(creep, opts, target){
+        return target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget);
     }
 
-    calculateBid(creep, opts, job, allocation, distance){
-        var energy = this.getEnergyOffset(creep);
-        if(energy < 0.75){
-            return distance / 100 + this.calcRepairOffset(job.target);
-        }
-        return energy + distance / 100 + this.calcRepairOffset(job.target);
+    canBid(creep, opts, target){
+        return target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget);
     }
 
-    calcRepairOffset(target){
-        var percent = target.hits / Math.min(target.hitsMax, Memory.settings.repairTarget);
-        if(percent < 0.5){
-            return -1 + percent;
-        }
-        return 0;
-    }
-
-    processStep(creep, job, target, opts){
-        this.orMove(creep, target, creep.repair(target));
+    processStep(creep, target, opts){
+        return this.orMove(creep, target, creep.repair(target)) == OK;
     }
 
 }

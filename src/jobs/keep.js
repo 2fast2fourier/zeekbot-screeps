@@ -8,7 +8,7 @@ class KeepJob extends BaseJob {
     calculateCapacity(room, target){
         if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
             return 15;
-        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
+        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 290){
             return 0;
         }
         return 30;
@@ -35,6 +35,9 @@ class KeepJob extends BaseJob {
             job.priority = target.ticksToSpawn/300;
         }else{
             job.priority = 0;
+        }
+        if(!(target.ticksToSpawn > 10 && target.ticksToSpawn < 290)){
+            this.catalog.addAvoid(target.pos);
         }
         return job;
     }

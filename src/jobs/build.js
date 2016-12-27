@@ -6,7 +6,7 @@ class BuildJob extends BaseJob {
     constructor(catalog){ super(catalog, 'build'); }
 
     calculateCapacity(room, target){
-        return Math.min(Math.ceil((target.progressTotal - target.progress)/5), 40);
+        return (target.progressTotal - target.progress) <= 200 ? 1 : 2;
     }
 
     generate(){

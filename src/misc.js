@@ -10,7 +10,9 @@ class Misc {
             var maxAvg = 0;
             var nameMax = "";
             var maxMax = 0;
+            var total = 0;
             _.forEach(Memory.stats.profile.job, (job, name) =>{
+                total += job.avg;
                 if(maxAvg < job.avg){
                     maxAvg = job.avg;
                     nameAvg = name;
@@ -20,7 +22,7 @@ class Misc {
                     nameMax = name;
                 }
             });
-            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax);
+            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax, total);
         }
         var stats = {
             rooms: {},

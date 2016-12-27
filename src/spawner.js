@@ -239,7 +239,7 @@ class Spawner {
         var classFallback = {
             miner: 'milli',
             hauler: 'micro',
-            worker: 'milli',
+            worker: 'repair',
             healer: 'pico',
             fighter: 'melee'
         }
@@ -265,6 +265,7 @@ class Spawner {
             creep.memory.type = newVer + newClass;
             creep.memory.class = newClass;
             creep.memory.rules = version.rules || config.rules;
+            creep.memory.actions = version.actions || config.actions;
             creep.memory.jobId = false;
             creep.memory.jobType = false;
             creep.memory.jobAllocation = 0;

@@ -5,13 +5,36 @@ var Work = require('./work');
 
 class WorkManager {
     static process(catalog){
+        // var start = Game.cpu.getUsed();
+
         var workers = Work(catalog);
         var actions = Actions(catalog);
         var creeps = _.filter(Game.creeps, creep => !creep.spawning);
+
+        // var prep = Game.cpu.getUsed();
+
         _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+
+        // var validate = Game.cpu.getUsed();
+        
         _.forEach(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
-        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog));
+
+        // var action = Game.cpu.getUsed();
+        
+        var startBid = Game.cpu.getUsed();
+        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
+
+        var bid = Game.cpu.getUsed();
+        
         _.forEach(creeps, creep => WorkManager.processCreep(creep, workers, catalog, actions));
+
+        // var work = Game.cpu.getUsed();
+        // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed() - start, Game.cpu.getUsed(), '----');
+        // console.log('prep', prep - start);
+        // console.log('validate', validate - prep);
+        // console.log('action', action - validate);
+        // console.log('bid', bid - action);
+        // console.log('work', work - bid);
     }
 
     static validateCreep(creep, workers, catalog){
@@ -33,14 +56,13 @@ class WorkManager {
         }, false);
     }
 
-    static bidCreep(creep, workers, catalog){
+    static bidCreep(creep, workers, catalog, startTime){
         if(!creep.memory.jobType){
+            if(Game.cpu.bucket < 9000 && Game.cpu.getUsed() - startTime > 10){
+                return;
+            }
             var lowestBid = 99999999;
             var bidder = _.reduce(creep.memory.rules, (result, rule, type) => {
-                if(!workers[type]){
-                    console.log('missing worker', type);
-                    return result;
-                }
                 var bid = workers[type].bid(creep, rule);
                 if(bid !== false && bid.bid < lowestBid){
                     lowestBid = bid.bid;

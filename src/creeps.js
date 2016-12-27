@@ -142,31 +142,44 @@ module.exports = {
     },
     worker: {
         versions: {
-            milli: {
-                additionalPer: {
-                    room: 2,
-                    flagPrefix: 'Repair'
-                },
-                parts: {work: 4, carry: 4, move: 8}
-            },
-            micro: {
-                ideal: 2,
-                disable: {
-                    maxSpawn: 1400
-                },
-                parts: {work: 4, carry: 2, move: 6}
-            },
-            nano: {
-                ideal: 2,
-                disable: {
-                    maxSpawn: 800
-                },
-                parts: {work: 2, carry: 2, move: 4}
-            },
+            // milli: {
+            //     additionalPer: {
+            //         room: 2,
+            //         flagPrefix: 'Repair'
+            //     },
+            //     parts: {work: 4, carry: 4, move: 8}
+            // },
+            // micro: {
+            //     ideal: 2,
+            //     disable: {
+            //         maxSpawn: 1400
+            //     },
+            //     parts: {work: 4, carry: 2, move: 6}
+            // },
+            // nano: {
+            //     ideal: 2,
+            //     disable: {
+            //         maxSpawn: 800
+            //     },
+            //     parts: {work: 2, carry: 2, move: 4}
+            // },
             // pico: {
             //     bootstrap: 1,
             //     parts: {work: 1, carry: 2, move: 2}
             // },
+            builder: {
+                quota: {
+                    jobType: 'build',
+                    allocation: 1,
+                    max: 4
+                },
+                rules: {
+                    pickup: {},
+                    build: {},
+                    repair: { priority: 99 }
+                },
+                parts: { work: 4, carry: 4, move: 8 }
+            },
             upgrade: {
                 quota: {
                     jobType: 'upgrade',
@@ -179,15 +192,13 @@ module.exports = {
             repair: {
                 quota: {
                     jobType: 'repair',
-                    allocation: 100,
+                    allocation: 200,
                     ratio: 1,
-                    max: 10
+                    max: 6
                 },
-                rules: {
-                    pickup: {},
-                    repair: {},
-                },
-                parts: {work: 2, carry: 2, move: 4}
+                rules: { pickup: {}, repair: {} },
+                actions: { repair: {} },
+                parts: { work: 5, carry: 5, move: 10 }
             }
         },
         rules: {

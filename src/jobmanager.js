@@ -9,16 +9,25 @@ class JobManager {
         this.openJobs = {};
         this.capacity = {};
         this.allocation = {};
+        this.staticAllocation = {};
         this.categories = Jobs(catalog);
     }
 
     generate(){
+        if(!Memory.jobs){
+            Memory.jobs = {};
+            Memory.jobUpdateTime = {};
+        }
         _.forEach(this.categories, category =>{
             var cap = 0;
-            this.jobs[category.getType()] = category.generate();
-            _.forEach(this.jobs[category.getType()], job => cap += job.capacity);
+            var jobList = category.generate();
+            this.jobs[category.getType()] = jobList;
+            if(category.static){
+                cap = _.size(Memory.jobs[category.getType()]);
+            }else{
+                _.forEach(this.jobs[category.getType()], job => cap += job.capacity);
+            }
             this.capacity[category.getType()] = cap;
-            // console.log(category.getType(), cap);
             this.allocation[category.getType()] = 0;
         });
         if(Memory.debugJob){
@@ -42,11 +51,10 @@ class JobManager {
     }
 
     addAllocation(type, jobId, allocation){
-        if(jobId && type && _.has(this.jobs, [type, jobId])){
-            _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) + allocation);
+        if(jobId && type){
+            var full = this.categories[type].addAllocation(this.jobs[type], jobId, allocation);
             this.allocation[type] += allocation;
-            var job = _.get(this.jobs[type], jobId, false);
-            if(job && job.allocated >= job.capacity && _.has(this.openJobs, [type, jobId])){
+            if(full && _.has(this.openJobs, [type, jobId])){
                 delete this.openJobs[type][jobId];
             }
         }
@@ -54,10 +62,9 @@ class JobManager {
 
     removeAllocation(type, jobId, allocation){
         if(jobId && type && _.has(this.jobs, [type, jobId])){
-            _.set(this.jobs[type], [jobId, 'allocated'], _.get(this.jobs[type], [jobId, 'allocated'], 0) - allocation);
+            var recalc = this.categories[type].removeAllocation(this.jobs[type], jobId, allocation);
             this.allocation[type] -= allocation;
-            var job = _.get(this.jobs[type], jobId, false);
-            if(job && job.allocated < job.capacity && !_.has(this.openJobs, [type, jobId])){
+            if(recalc && !_.has(this.openJobs, [type, jobId])){
                 this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
             }
         }
