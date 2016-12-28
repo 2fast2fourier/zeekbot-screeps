@@ -170,6 +170,25 @@ class Catalog {
         return total;
     }
 
+    getAccessibility(pos, room){
+        var name = pos.roomName + '-' + pos.x + '-'  + pos.y;
+        var access = _.get(Memory.accessibility, name, false);
+        if(access === false){
+            access = 0;
+            if(room){
+                var area = room.lookForAtArea(LOOK_TERRAIN, pos.y - 1, pos.x - 1, pos.y + 1, pos.x + 1, true);
+                _.forEach(area, (target)=>{
+                    if(!(target.x == pos.x && target.y == pos.y) && target.terrain != 'wall'){
+                        access++;
+                    }
+                });
+                console.log('cached pos availability', pos, room, access);
+                Memory.accessibility[name] = access;
+            }
+        }
+        return access;
+    }
+
     getResource(entity, type){
         if(!entity){
             return 0;

@@ -41,13 +41,11 @@ class TransferJob extends BaseJob {
                 result[job.id] = job;
             }else if(resource){
                 var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-                if(amount >= 50){
+                if(amount >= Memory.settings.transferRefillThreshold){
                     var sources = this.catalog.getStorageContainers(resource);
-                    var pickup = _.first(this.catalog.sortByDistance(target, sources));
-                    if(pickup){
-                        var job = this.createJob(target, pickup, amount, resource);
-                        result[job.id] = job;
-                    }
+                    var pickup = _.first(_.sortBy(sources, source => -this.catalog.getResource(source, resource)));
+                    var job = this.createJob(target, pickup, amount, resource);
+                    result[job.id] = job;
                 }
             }
             return result;

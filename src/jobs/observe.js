@@ -8,7 +8,7 @@ class ObserveJob extends BaseJob {
     generateJobsForFlag(flag){
         return [{
             allocated: 0,
-            capacity: 1,
+            capacity: 5,
             id: this.type+"-"+flag.name,
             target: flag
         }];

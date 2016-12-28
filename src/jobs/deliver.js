@@ -43,13 +43,13 @@ class DeliverJob extends BaseJob {
                 id: this.generateId(entity),
                 target: entity,
                 creep: this.catalog.isCreep(entity),
-                offset: this.getOffset(entity.structureType),
+                offset: this.getOffset(entity.structureType, entity),
                 minerals: _.includes(mineralContainers, entity.structureType)
             }
         });
     }
 
-    getOffset(type){
+    getOffset(type, entity){
         if(!type){
             return 0;
         }

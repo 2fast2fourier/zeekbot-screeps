@@ -68,11 +68,6 @@ class Controller {
     }
 
     static runReaction(type, data, catalog){
-        // Memory.react[type] = {
-        //     lab: labNum,
-        //     deficit: reaction.deficit,
-        //     components: reaction.components
-        // };
         var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
         var targetLab = labs[2];
         if(!_.every(labs) || !targetLab){
@@ -85,7 +80,6 @@ class Controller {
             Memory.transfer.lab[targetLab.id] = false;
             return;
         }
-        // console.log(type, data.deficit);
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }

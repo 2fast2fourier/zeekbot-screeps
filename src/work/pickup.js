@@ -10,7 +10,7 @@ class PickupWorker extends BaseWorker {
     }
 
     canBid(creep, opts){
-        return !this.catalog.isFull(creep);
+        return !this.catalog.isFull(creep) && creep.ticksToLive > 30;
     }
 
     calculateAllocation(creep, opts){

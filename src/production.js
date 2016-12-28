@@ -17,6 +17,10 @@ class Production {
 //      }
 // }
     process(){
+        if(Game.time < (Memory.productionTime || 0)){
+            return;
+        }
+        Memory.productionTime = Game.time + 25;
         var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
         var reactions = {};
         _.forEach(needs, (amount, type) => {
@@ -25,7 +29,7 @@ class Production {
         _.forEach(Memory.react, (data, type)=>{
             if(!reactions[type]){
                 console.log('ending reaction', type);
-                var labs = Memory.production.labs[Memory.react.lab];
+                var labs = Memory.production.labs[data.lab];
                 _.forEach(labs, (lab) => Memory.transfer.lab[lab] = false);
                 delete Memory.react[type];
             }

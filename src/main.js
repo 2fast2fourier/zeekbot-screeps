@@ -9,12 +9,7 @@ var Production = require('./production');
 
 module.exports.loop = function () {
     var start = Game.cpu.getUsed();
-    if(!Memory.upgradedLogic){
-        Misc.setSettings();
-        Memory.updateTime = 0;
-        Spawner.resetBehavior(catalog);
-        Memory.upgradedLogic = true;
-    }
+    Misc.initMemory();
     if(!Memory.settings){
         Misc.setSettings();
     }
@@ -24,11 +19,7 @@ module.exports.loop = function () {
     var catalog = new Catalog();
     var production = new Production(catalog);
 
-    if(!Memory.transfer){
-        Memory.transfer = {
-            lab: {},
-            energy: {}
-        };
+    if(Memory.refreshTransfer){
         _.forEach(catalog.buildings.lab, lab => {
             Memory.transfer.lab[lab.id] = false;
             Memory.transfer.energy[lab.id] = lab.energyCapacity;
@@ -36,6 +27,8 @@ module.exports.loop = function () {
         _.forEach(catalog.buildings.terminal, terminal => {
             Memory.transfer.energy[terminal.id] = 50000;
         });
+        console.log('refreshed transfer settings');
+        Memory.refreshTransfer = false;
     }
 
     if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){

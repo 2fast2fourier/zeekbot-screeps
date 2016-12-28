@@ -14,10 +14,6 @@ class JobManager {
     }
 
     generate(){
-        if(!Memory.jobs){
-            Memory.jobs = {};
-            Memory.jobUpdateTime = {};
-        }
         _.forEach(this.categories, category =>{
             var cap = 0;
             var jobList = category.generate();

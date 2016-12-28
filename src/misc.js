@@ -1,5 +1,7 @@
 "use strict";
 
+var memoryVersion = 1;
+
 class Misc {
     static updateStats(catalog){
         if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
@@ -81,6 +83,22 @@ class Misc {
         Memory.stats = stats;
     }
 
+    static initMemory(){
+        if(Memory.memoryVersion != memoryVersion){
+            console.log('Init memory version', memoryVersion);
+            Memory.accessibility = {};
+            Memory.memoryVersion = memoryVersion;
+            Memory.jobs = {};
+            Memory.jobUpdateTime = {};
+            Memory.uid = 1;
+            Memory.updateTime = 0;
+            Memory.transfer = {
+                lab: {},
+                energy: {}
+            };
+        }
+    }
+
     static setSettings(){
         Memory.settings = {
             flagRange: {
@@ -91,6 +109,7 @@ class Misc {
             updateDelta: 100,
             towerRepairPercent: 0.8,
             transferStoreThreshold: 500,
+            transferRefillThreshold: 500,
             repairTarget: 250000,
             upgradeCapacity: 15,
             terminalMaxResources: 100000

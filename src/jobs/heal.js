@@ -6,7 +6,7 @@ class HealJob extends BaseJob {
     constructor(catalog){ super(catalog, 'heal'); }
 
     generate(){
-        var hurtCreeps = _.filter(Game.creeps, creep => creep.hits < creep.hitsMax);
+        var hurtCreeps = _.filter(Game.creeps, creep => creep.hits < creep.hitsMax && !creep.memory.ignoreHealth);
         return _.reduce(hurtCreeps, (result, creep) => {
             var id = this.generateId(creep);
             result[id] = {

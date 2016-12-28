@@ -73,53 +73,39 @@ module.exports = {
                 quota: {
                     jobType: 'transfer',
                     allocation: 500,
-                    max: 1
+                    max: 2
                 },
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
             long: {
-                ideal: 4,
-                additionalPer: {
-                    count: 4,
-                    flagPrefix: 'Pickup'
-                },
+                ideal: 10,
+                // additionalPer: {
+                //     count: 4,
+                //     flagPrefix: 'Pickup'
+                // },
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
-                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
                 },
                 parts: {carry: 20, move: 10}
-            },
-            leveler: {
-                // additionalPer: {
-                //     room: 2
-                // },
-                ideal: 4,
-                requirements: {
-                    energy: 250000
-                },
-                rules: {
-                    pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
-                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
-                },
-                parts: {carry: 10, move: 10}
             },
             micro: {
                 additionalPer: {
                     room: 2
                 },
-                parts: {carry: 6, move: 6}
+                parts: { carry: 6, move: 6 }
             },
             nano: {
                 ideal: 2,
                 disable: {
                     maxSpawn: 600
                 },
-                parts: {carry: 5, move: 5}
+                parts: { carry: 5, move: 5 }
             },
             pico: {
                 bootstrap: 1,
-                parts: {carry: 2, move: 2}
+                parts: { carry: 2, move: 2 }
             }
         },
         rules: {
@@ -133,10 +119,13 @@ module.exports = {
             pico: {
                 quota: {
                     jobType: 'observe',
-                    allocation: 1,
-                    ratio: 1
+                    allocation: 5,
+                    ratio: 1,
+                    max: 5
                 },
-                parts: {tough: 1, move: 1}
+                parts: {tough: 1, move: 1},
+                // parts: { tough: 40, move: 10 },
+                memory: { ignoreHealth: true }
             },
         },
         rules: { observe: {} }
@@ -166,17 +155,12 @@ module.exports = {
                 rules: { pickup: {}, upgrade: {} }
             },
             repair: {
-                // quota: {
-                //     jobType: 'repair',
-                //     allocation: 1,
-                //     ratio: 0.4,
-                //     max: 10
-                // },
                 additionalPer: {
-                    repair: 10000
+                    repair: 10000,
+                    max: 10
                 },
                 rules: { pickup: {}, repair: {} },
-                actions: { repair: {} },
+                actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 5, move: 10 }
             }
         },
@@ -191,17 +175,22 @@ module.exports = {
     },
     claimer: {
         versions: {
-            // attack: {
-            //     parts: {claim: 6, move: 6}
-            // },
+            attack: {
+                parts: { claim: 6, move: 6 },
+                additionalPer: {
+                    count: 1,
+                    flagPrefix: 'Downgrade'
+                },
+                rules: { reserve: { downgrade: true } }
+            },
             pico: {
-                parts: {claim: 2, move: 2}
+                parts: { claim: 2, move: 2 },
+                quota: {
+                    jobType: 'reserve',
+                    allocation: 2,
+                    ratio: 1
+                }
             }
-        },
-        quota: {
-            jobType: 'reserve',
-            allocation: 2,
-            ratio: 1
         },
         rules: { reserve: {} }
     },

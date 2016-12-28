@@ -6,12 +6,13 @@ class KeepJob extends BaseJob {
     constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
     calculateCapacity(room, target){
+        var access = Math.min(2, this.catalog.getAccessibility(target.pos, room));
         if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
             return 15;
         }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
             return 0;
         }
-        return 30;
+        return 15 * access;
     }
 
     generateTargets(room){

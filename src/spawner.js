@@ -61,14 +61,20 @@ class Spawner {
 
         var additionalPer = version.additionalPer || config.additionalPer;
         if(additionalPer){
+            var add = 0;
             if(additionalPer.flagPrefix){
-                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length * _.get(additionalPer, 'count', 1);
+                add += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length * _.get(additionalPer, 'count', 1);
             }
             if(additionalPer.room > 0){
-                count += catalog.rooms.length * additionalPer.room;
+                add += catalog.rooms.length * additionalPer.room;
             }
             if(additionalPer.repair > 0){
-                count += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+                add += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+            }
+            if(additionalPer.max > 0){
+                count += Math.min(add, additionalPer.max);
+            }else{
+                count += add;
             }
         }
 
@@ -176,6 +182,11 @@ class Spawner {
             actions: version.actions || category.actions
         };
 
+        var optMemory = version.memory || category.memory;
+        if(optMemory){
+            _.assign(memory, optMemory);
+        }
+
         return memory;
     }
 
@@ -218,9 +229,6 @@ class Spawner {
     }
 
     static spawn(catalog){
-        if(!Memory.uid){
-            Memory.uid = 1;
-        }
         if(Memory.resetBehavior){
             Spawner.resetBehavior(catalog);
         }

@@ -56,12 +56,7 @@ module.exports =
 
 	module.exports.loop = function () {
 	    var start = Game.cpu.getUsed();
-	    if(!Memory.upgradedLogic){
-	        Misc.setSettings();
-	        Memory.updateTime = 0;
-	        Spawner.resetBehavior(catalog);
-	        Memory.upgradedLogic = true;
-	    }
+	    Misc.initMemory();
 	    if(!Memory.settings){
 	        Misc.setSettings();
 	    }
@@ -71,11 +66,7 @@ module.exports =
 	    var catalog = new Catalog();
 	    var production = new Production(catalog);
 
-	    if(!Memory.transfer){
-	        Memory.transfer = {
-	            lab: {},
-	            energy: {}
-	        };
+	    if(Memory.refreshTransfer){
 	        _.forEach(catalog.buildings.lab, lab => {
 	            Memory.transfer.lab[lab.id] = false;
 	            Memory.transfer.energy[lab.id] = lab.energyCapacity;
@@ -83,6 +74,8 @@ module.exports =
 	        _.forEach(catalog.buildings.terminal, terminal => {
 	            Memory.transfer.energy[terminal.id] = 50000;
 	        });
+	        console.log('refreshed transfer settings');
+	        Memory.refreshTransfer = false;
 	    }
 
 	    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
@@ -205,11 +198,6 @@ module.exports =
 	    }
 
 	    static runReaction(type, data, catalog){
-	        // Memory.react[type] = {
-	        //     lab: labNum,
-	        //     deficit: reaction.deficit,
-	        //     components: reaction.components
-	        // };
 	        var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
 	        var targetLab = labs[2];
 	        if(!_.every(labs) || !targetLab){
@@ -222,7 +210,6 @@ module.exports =
 	            Memory.transfer.lab[targetLab.id] = false;
 	            return;
 	        }
-	        // console.log(type, data.deficit);
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
@@ -305,14 +292,20 @@ module.exports =
 
 	        var additionalPer = version.additionalPer || config.additionalPer;
 	        if(additionalPer){
+	            var add = 0;
 	            if(additionalPer.flagPrefix){
-	                count += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length * _.get(additionalPer, 'count', 1);
+	                add += catalog.getFlagsByPrefix(additionalPer.flagPrefix).length * _.get(additionalPer, 'count', 1);
 	            }
 	            if(additionalPer.room > 0){
-	                count += catalog.rooms.length * additionalPer.room;
+	                add += catalog.rooms.length * additionalPer.room;
 	            }
 	            if(additionalPer.repair > 0){
-	                count += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+	                add += Math.ceil(Memory.stats.global.repair / additionalPer.repair);
+	            }
+	            if(additionalPer.max > 0){
+	                count += Math.min(add, additionalPer.max);
+	            }else{
+	                count += add;
 	            }
 	        }
 
@@ -420,6 +413,11 @@ module.exports =
 	            actions: version.actions || category.actions
 	        };
 
+	        var optMemory = version.memory || category.memory;
+	        if(optMemory){
+	            _.assign(memory, optMemory);
+	        }
+
 	        return memory;
 	    }
 
@@ -462,9 +460,6 @@ module.exports =
 	    }
 
 	    static spawn(catalog){
-	        if(!Memory.uid){
-	            Memory.uid = 1;
-	        }
 	        if(Memory.resetBehavior){
 	            Spawner.resetBehavior(catalog);
 	        }
@@ -601,53 +596,39 @@ module.exports =
 	                quota: {
 	                    jobType: 'transfer',
 	                    allocation: 500,
-	                    max: 1
+	                    max: 2
 	                },
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
 	            },
 	            long: {
-	                ideal: 4,
-	                additionalPer: {
-	                    count: 4,
-	                    flagPrefix: 'Pickup'
-	                },
+	                ideal: 10,
+	                // additionalPer: {
+	                //     count: 4,
+	                //     flagPrefix: 'Pickup'
+	                // },
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
-	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
+	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
 	                },
 	                parts: {carry: 20, move: 10}
-	            },
-	            leveler: {
-	                // additionalPer: {
-	                //     room: 2
-	                // },
-	                ideal: 4,
-	                requirements: {
-	                    energy: 250000
-	                },
-	                rules: {
-	                    pickup: { types: [ STRUCTURE_STORAGE ], min: 250000 },
-	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true }
-	                },
-	                parts: {carry: 10, move: 10}
 	            },
 	            micro: {
 	                additionalPer: {
 	                    room: 2
 	                },
-	                parts: {carry: 6, move: 6}
+	                parts: { carry: 6, move: 6 }
 	            },
 	            nano: {
 	                ideal: 2,
 	                disable: {
 	                    maxSpawn: 600
 	                },
-	                parts: {carry: 5, move: 5}
+	                parts: { carry: 5, move: 5 }
 	            },
 	            pico: {
 	                bootstrap: 1,
-	                parts: {carry: 2, move: 2}
+	                parts: { carry: 2, move: 2 }
 	            }
 	        },
 	        rules: {
@@ -661,10 +642,13 @@ module.exports =
 	            pico: {
 	                quota: {
 	                    jobType: 'observe',
-	                    allocation: 1,
-	                    ratio: 1
+	                    allocation: 5,
+	                    ratio: 1,
+	                    max: 5
 	                },
-	                parts: {tough: 1, move: 1}
+	                parts: {tough: 1, move: 1},
+	                // parts: { tough: 40, move: 10 },
+	                memory: { ignoreHealth: true }
 	            },
 	        },
 	        rules: { observe: {} }
@@ -694,17 +678,12 @@ module.exports =
 	                rules: { pickup: {}, upgrade: {} }
 	            },
 	            repair: {
-	                // quota: {
-	                //     jobType: 'repair',
-	                //     allocation: 1,
-	                //     ratio: 0.4,
-	                //     max: 10
-	                // },
 	                additionalPer: {
-	                    repair: 10000
+	                    repair: 10000,
+	                    max: 10
 	                },
 	                rules: { pickup: {}, repair: {} },
-	                actions: { repair: {} },
+	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 5, move: 10 }
 	            }
 	        },
@@ -719,17 +698,22 @@ module.exports =
 	    },
 	    claimer: {
 	        versions: {
-	            // attack: {
-	            //     parts: {claim: 6, move: 6}
-	            // },
+	            attack: {
+	                parts: { claim: 6, move: 6 },
+	                additionalPer: {
+	                    count: 1,
+	                    flagPrefix: 'Downgrade'
+	                },
+	                rules: { reserve: { downgrade: true } }
+	            },
 	            pico: {
-	                parts: {claim: 2, move: 2}
+	                parts: { claim: 2, move: 2 },
+	                quota: {
+	                    jobType: 'reserve',
+	                    allocation: 2,
+	                    ratio: 1
+	                }
 	            }
-	        },
-	        quota: {
-	            jobType: 'reserve',
-	            allocation: 2,
-	            ratio: 1
 	        },
 	        rules: { reserve: {} }
 	    },
@@ -1413,17 +1397,18 @@ module.exports =
 	        if(creep.memory.lastSource == job.target.id){
 	            return false;
 	        }
+	        var distanceOffset = opts.ignoreDistance ? 0 : distance / this.distanceWeight;
 	        if(this.catalog.hasMinerals(creep)){
 	            if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
-	                // console.log(creep, job.target, job.minerals);
 	                return false;
 	            }
+	            return this.getStorageOffset(creep) + distanceOffset + this.catalog.getStoragePercent(job.target)/10 + job.offset;
 	        }else{
 	            if(job.target.structureType && !_.includes(opts.types || defaultTypes, job.target.structureType)){
 	                return false;
 	            }
+	            return this.getStorageOffset(creep) + distanceOffset + this.catalog.getResourcePercent(job.target, RESOURCE_ENERGY)/10 + job.offset;
 	        }
-	        return this.getStorageOffset(creep) + distance / this.distanceWeight + this.catalog.getStoragePercent(job.target)/10 + job.offset;
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -1698,7 +1683,7 @@ module.exports =
 	    }
 
 	    canBid(creep, opts){
-	        return !this.catalog.isFull(creep);
+	        return !this.catalog.isFull(creep) && creep.ticksToLive > 30;
 	    }
 
 	    calculateAllocation(creep, opts){
@@ -1919,6 +1904,9 @@ module.exports =
 	    calculateBid(creep, opts, job, allocation, distance){
 	        var holding = this.catalog.getResource(creep, job.resource);
 	        if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
+	            return false;
+	        }
+	        if(!job.pickup || this.catalog.getResource(job.pickup, job.resource) == 0){
 	            return false;
 	        }
 	        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity);
@@ -2142,6 +2130,25 @@ module.exports =
 	        return total;
 	    }
 
+	    getAccessibility(pos, room){
+	        var name = pos.roomName + '-' + pos.x + '-'  + pos.y;
+	        var access = _.get(Memory.accessibility, name, false);
+	        if(access === false){
+	            access = 0;
+	            if(room){
+	                var area = room.lookForAtArea(LOOK_TERRAIN, pos.y - 1, pos.x - 1, pos.y + 1, pos.x + 1, true);
+	                _.forEach(area, (target)=>{
+	                    if(!(target.x == pos.x && target.y == pos.y) && target.terrain != 'wall'){
+	                        access++;
+	                    }
+	                });
+	                console.log('cached pos availability', pos, room, access);
+	                Memory.accessibility[name] = access;
+	            }
+	        }
+	        return access;
+	    }
+
 	    getResource(entity, type){
 	        if(!entity){
 	            return 0;
@@ -2331,10 +2338,6 @@ module.exports =
 	    }
 
 	    generate(){
-	        if(!Memory.jobs){
-	            Memory.jobs = {};
-	            Memory.jobUpdateTime = {};
-	        }
 	        _.forEach(this.categories, category =>{
 	            var cap = 0;
 	            var jobList = category.generate();
@@ -2680,13 +2683,13 @@ module.exports =
 	                id: this.generateId(entity),
 	                target: entity,
 	                creep: this.catalog.isCreep(entity),
-	                offset: this.getOffset(entity.structureType),
+	                offset: this.getOffset(entity.structureType, entity),
 	                minerals: _.includes(mineralContainers, entity.structureType)
 	            }
 	        });
 	    }
 
-	    getOffset(type){
+	    getOffset(type, entity){
 	        if(!type){
 	            return 0;
 	        }
@@ -2812,12 +2815,13 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
 
 	    calculateCapacity(room, target){
+	        var access = Math.min(2, this.catalog.getAccessibility(target.pos, room));
 	        if(target.ticksToSpawn > 60 && target.ticksToSpawn < 100){
 	            return 15;
 	        }else if(target.ticksToSpawn >= 100 && target.ticksToSpawn < 280){
 	            return 0;
 	        }
-	        return 30;
+	        return 15 * access;
 	    }
 
 	    generateTargets(room){
@@ -2867,7 +2871,7 @@ module.exports =
 	    generateJobsForFlag(flag){
 	        return [{
 	            allocated: 0,
-	            capacity: 1,
+	            capacity: 5,
 	            id: this.type+"-"+flag.name,
 	            target: flag
 	        }];
@@ -3117,13 +3121,11 @@ module.exports =
 	                result[job.id] = job;
 	            }else if(resource){
 	                var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-	                if(amount >= 50){
+	                if(amount >= Memory.settings.transferRefillThreshold){
 	                    var sources = this.catalog.getStorageContainers(resource);
-	                    var pickup = _.first(this.catalog.sortByDistance(target, sources));
-	                    if(pickup){
-	                        var job = this.createJob(target, pickup, amount, resource);
-	                        result[job.id] = job;
-	                    }
+	                    var pickup = _.first(_.sortBy(sources, source => -this.catalog.getResource(source, resource)));
+	                    var job = this.createJob(target, pickup, amount, resource);
+	                    result[job.id] = job;
 	                }
 	            }
 	            return result;
@@ -3191,7 +3193,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'heal'); }
 
 	    generate(){
-	        var hurtCreeps = _.filter(Game.creeps, creep => creep.hits < creep.hitsMax);
+	        var hurtCreeps = _.filter(Game.creeps, creep => creep.hits < creep.hitsMax && !creep.memory.ignoreHealth);
 	        return _.reduce(hurtCreeps, (result, creep) => {
 	            var id = this.generateId(creep);
 	            result[id] = {
@@ -3212,6 +3214,8 @@ module.exports =
 /***/ function(module, exports) {
 
 	"use strict";
+
+	var memoryVersion = 1;
 
 	class Misc {
 	    static updateStats(catalog){
@@ -3294,6 +3298,22 @@ module.exports =
 	        Memory.stats = stats;
 	    }
 
+	    static initMemory(){
+	        if(Memory.memoryVersion != memoryVersion){
+	            console.log('Init memory version', memoryVersion);
+	            Memory.accessibility = {};
+	            Memory.memoryVersion = memoryVersion;
+	            Memory.jobs = {};
+	            Memory.jobUpdateTime = {};
+	            Memory.uid = 1;
+	            Memory.updateTime = 0;
+	            Memory.transfer = {
+	                lab: {},
+	                energy: {}
+	            };
+	        }
+	    }
+
 	    static setSettings(){
 	        Memory.settings = {
 	            flagRange: {
@@ -3304,6 +3324,7 @@ module.exports =
 	            updateDelta: 100,
 	            towerRepairPercent: 0.8,
 	            transferStoreThreshold: 500,
+	            transferRefillThreshold: 500,
 	            repairTarget: 250000,
 	            upgradeCapacity: 15,
 	            terminalMaxResources: 100000
@@ -3344,6 +3365,10 @@ module.exports =
 	//      }
 	// }
 	    process(){
+	        if(Game.time < (Memory.productionTime || 0)){
+	            return;
+	        }
+	        Memory.productionTime = Game.time + 25;
 	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
 	        var reactions = {};
 	        _.forEach(needs, (amount, type) => {
@@ -3352,7 +3377,7 @@ module.exports =
 	        _.forEach(Memory.react, (data, type)=>{
 	            if(!reactions[type]){
 	                console.log('ending reaction', type);
-	                var labs = Memory.production.labs[Memory.react.lab];
+	                var labs = Memory.production.labs[data.lab];
 	                _.forEach(labs, (lab) => Memory.transfer.lab[lab] = false);
 	                delete Memory.react[type];
 	            }

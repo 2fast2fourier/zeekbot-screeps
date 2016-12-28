@@ -26,6 +26,9 @@ class TransferWorker extends BaseWorker {
         if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
             return false;
         }
+        if(!job.pickup || this.catalog.getResource(job.pickup, job.resource) == 0){
+            return false;
+        }
         return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity);
     }
 
