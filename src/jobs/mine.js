@@ -15,6 +15,7 @@ class MineJob extends BaseJob {
     }
 
     generateTargets(room, flag){
+        //TODO check ownership/reservation
         var targets = room.find(FIND_SOURCES);
         var roomStats = Memory.stats.rooms[room.name];
         if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){

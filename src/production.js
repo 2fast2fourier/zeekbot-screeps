@@ -30,7 +30,10 @@ class Production {
             if(!reactions[type]){
                 console.log('ending reaction', type);
                 var labs = Memory.production.labs[data.lab];
-                _.forEach(labs, (lab) => Memory.transfer.lab[lab] = false);
+                console.log(labs, data.lab);
+                _.forEach(labs, (lab) => {
+                    Memory.transfer.lab[lab] = false;
+                });
                 delete Memory.react[type];
             }
         });
@@ -68,15 +71,13 @@ class Production {
         var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
         var canReact = _.every(inventory, (amount, ix) => {
             if(deficit - amount > 0){
-                // console.log(type, 'needs resource', components[ix], need);
                 //generate child reactions
-                this.generateReactions(components[ix], need, output);
+                this.generateReactions(components[ix], deficit - amount, output);
             }
             return amount > 0;
         });
 
         if(canReact){
-            // console.log('have everything for', type);
             if(output[type]){
                 output[type].deficit += deficit;
             }else{

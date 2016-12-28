@@ -10,11 +10,14 @@ class ObserveWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
+        if((opts.subflag && opts.subflag != job.subflag) || (!opts.subflag && !!job.subflag)){
+            return false;
+        }
         return distance/this.distanceWeight;
     }
 
     processStep(creep, job, target, opts){
-        if(this.getJobDistance(creep, job) > 1){
+        if(creep.pos.getRangeTo(target) > 1){
             this.move(creep, target);
         }
     }

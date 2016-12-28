@@ -79,11 +79,16 @@ module.exports = {
                 parts: {carry: 10, move: 10}
             },
             long: {
-                ideal: 10,
+                // ideal: 2,
                 // additionalPer: {
                 //     count: 4,
                 //     flagPrefix: 'Pickup'
                 // },
+                quota: {
+                    jobType: 'mine',
+                    allocation: 7,
+                    max: 15
+                },
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -116,19 +121,25 @@ module.exports = {
     },
     observer: {
         versions: {
+            soaker: {
+                additionalPer: {
+                    count: 5,
+                    flagPrefix: 'Observe-soak'
+                },
+                parts: { tough: 40, move: 10 },
+                memory: { ignoreHealth: true },
+                rules: { observe: { subflag: 'soak' } }
+            },
             pico: {
-                quota: {
-                    jobType: 'observe',
-                    allocation: 5,
-                    ratio: 1,
-                    max: 5
+                additionalPer: {
+                    count: 1,
+                    flagPrefix: 'Observe'
                 },
                 parts: {tough: 1, move: 1},
-                // parts: { tough: 40, move: 10 },
-                memory: { ignoreHealth: true }
-            },
-        },
-        rules: { observe: {} }
+                memory: { ignoreHealth: true },
+                rules: { observe: {} }
+            }
+        }
     },
     worker: {
         versions: {
@@ -176,21 +187,21 @@ module.exports = {
     claimer: {
         versions: {
             attack: {
-                parts: { claim: 6, move: 6 },
+                parts: { claim: 5, move: 5 },
                 additionalPer: {
-                    count: 1,
+                    count: 5,
                     flagPrefix: 'Downgrade'
                 },
                 rules: { reserve: { downgrade: true } }
             },
-            pico: {
-                parts: { claim: 2, move: 2 },
-                quota: {
-                    jobType: 'reserve',
-                    allocation: 2,
-                    ratio: 1
-                }
-            }
+            // pico: {
+            //     parts: { claim: 2, move: 2 },
+            //     quota: {
+            //         jobType: 'reserve',
+            //         allocation: 2,
+            //         ratio: 1
+            //     }
+            // }
         },
         rules: { reserve: {} }
     },
@@ -213,22 +224,32 @@ module.exports = {
             ranged: {
                 additionalPer: {
                     count: 2,
-                    flagPrefix: 'Defend'
+                    flagPrefix: 'Defend',
+                    max: 4
                 },
                 parts: { tough: 10, move: 10, ranged_attack: 10 },
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             melee: {
-                additionalPer: {
-                    count: 1,
-                    flagPrefix: 'Keep'
-                },
+                ideal: 1,
+                // additionalPer: {
+                //     count: 1,
+                //     flagPrefix: 'Keep'
+                // },
                 quota: {
                     jobType: 'keep',
                     allocation: 15
                 },
                 parts: { tough: 15, move: 16, attack: 15, heal: 2 },
                 actions: { selfheal: {} }
+            },
+            assault: {
+                additionalPer: {
+                    count: 5,
+                    flagPrefix: 'Idle-staging'
+                },
+                parts: { tough: 17, move: 16, attack: 15 },
+                rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
             }
         },
         rules: { defend: {}, keep: {}, idle: { type: 'keep' } }

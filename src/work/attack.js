@@ -10,20 +10,21 @@ class AttackWorker extends BaseWorker {
     }
 
     canBid(creep, opts){
-        if(creep.hits < creep.hitsMax / 2){
+        if(creep.hits < creep.hitsMax / 1.5){
             return false;
         }
         return true;
     }
 
     calculateBid(creep, opts, job, allocation, distance){
-        if(distance > 10){
-            return false;
-        }
-        return distance / this.distanceWeight;
+        return distance / this.distanceWeight - 99;
     }
 
     processStep(creep, job, target, opts){
+        if(!target.room){
+            this.move(creep, target);
+            return;
+        }
         if(opts.ranged){
             if(creep.pos.getRangeTo(target) > 3){
                 this.move(creep, target);

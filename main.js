@@ -602,11 +602,16 @@ module.exports =
 	                parts: {carry: 10, move: 10}
 	            },
 	            long: {
-	                ideal: 10,
+	                // ideal: 2,
 	                // additionalPer: {
 	                //     count: 4,
 	                //     flagPrefix: 'Pickup'
 	                // },
+	                quota: {
+	                    jobType: 'mine',
+	                    allocation: 7,
+	                    max: 15
+	                },
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -639,19 +644,25 @@ module.exports =
 	    },
 	    observer: {
 	        versions: {
+	            soaker: {
+	                additionalPer: {
+	                    count: 5,
+	                    flagPrefix: 'Observe-soak'
+	                },
+	                parts: { tough: 40, move: 10 },
+	                memory: { ignoreHealth: true },
+	                rules: { observe: { subflag: 'soak' } }
+	            },
 	            pico: {
-	                quota: {
-	                    jobType: 'observe',
-	                    allocation: 5,
-	                    ratio: 1,
-	                    max: 5
+	                additionalPer: {
+	                    count: 1,
+	                    flagPrefix: 'Observe'
 	                },
 	                parts: {tough: 1, move: 1},
-	                // parts: { tough: 40, move: 10 },
-	                memory: { ignoreHealth: true }
-	            },
-	        },
-	        rules: { observe: {} }
+	                memory: { ignoreHealth: true },
+	                rules: { observe: {} }
+	            }
+	        }
 	    },
 	    worker: {
 	        versions: {
@@ -699,21 +710,21 @@ module.exports =
 	    claimer: {
 	        versions: {
 	            attack: {
-	                parts: { claim: 6, move: 6 },
+	                parts: { claim: 5, move: 5 },
 	                additionalPer: {
-	                    count: 1,
+	                    count: 5,
 	                    flagPrefix: 'Downgrade'
 	                },
 	                rules: { reserve: { downgrade: true } }
 	            },
-	            pico: {
-	                parts: { claim: 2, move: 2 },
-	                quota: {
-	                    jobType: 'reserve',
-	                    allocation: 2,
-	                    ratio: 1
-	                }
-	            }
+	            // pico: {
+	            //     parts: { claim: 2, move: 2 },
+	            //     quota: {
+	            //         jobType: 'reserve',
+	            //         allocation: 2,
+	            //         ratio: 1
+	            //     }
+	            // }
 	        },
 	        rules: { reserve: {} }
 	    },
@@ -736,22 +747,32 @@ module.exports =
 	            ranged: {
 	                additionalPer: {
 	                    count: 2,
-	                    flagPrefix: 'Defend'
+	                    flagPrefix: 'Defend',
+	                    max: 4
 	                },
 	                parts: { tough: 10, move: 10, ranged_attack: 10 },
 	                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
 	            },
 	            melee: {
-	                additionalPer: {
-	                    count: 1,
-	                    flagPrefix: 'Keep'
-	                },
+	                ideal: 1,
+	                // additionalPer: {
+	                //     count: 1,
+	                //     flagPrefix: 'Keep'
+	                // },
 	                quota: {
 	                    jobType: 'keep',
 	                    allocation: 15
 	                },
 	                parts: { tough: 15, move: 16, attack: 15, heal: 2 },
 	                actions: { selfheal: {} }
+	            },
+	            assault: {
+	                additionalPer: {
+	                    count: 5,
+	                    flagPrefix: 'Idle-staging'
+	                },
+	                parts: { tough: 17, move: 16, attack: 15 },
+	                rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
 	            }
 	        },
 	        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
@@ -1054,20 +1075,21 @@ module.exports =
 	    }
 
 	    canBid(creep, opts){
-	        if(creep.hits < creep.hitsMax / 2){
+	        if(creep.hits < creep.hitsMax / 1.5){
 	            return false;
 	        }
 	        return true;
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
-	        if(distance > 10){
-	            return false;
-	        }
-	        return distance / this.distanceWeight;
+	        return distance / this.distanceWeight - 99;
 	    }
 
 	    processStep(creep, job, target, opts){
+	        if(!target.room){
+	            this.move(creep, target);
+	            return;
+	        }
 	        if(opts.ranged){
 	            if(creep.pos.getRangeTo(target) > 3){
 	                this.move(creep, target);
@@ -1654,11 +1676,14 @@ module.exports =
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
+	        if((opts.subflag && opts.subflag != job.subflag) || (!opts.subflag && !!job.subflag)){
+	            return false;
+	        }
 	        return distance/this.distanceWeight;
 	    }
 
 	    processStep(creep, job, target, opts){
-	        if(this.getJobDistance(creep, job) > 1){
+	        if(creep.pos.getRangeTo(target) > 1){
 	            this.move(creep, target);
 	        }
 	    }
@@ -1857,12 +1882,17 @@ module.exports =
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
+	        if(!!opts.downgrade != job.downgrade){
+	            return false;
+	        }
 	        return distance/this.distanceWeight;
 	    }
 
 	    processStep(creep, job, target, opts){
 	        if(target.name){
 	            this.move(creep, target);
+	        }else if(opts.downgrade){
+	            this.orMove(creep, target, creep.attackController(target));
 	        }else if(creep.memory.claim && creep.claimController(target) == OK){
 	            creep.memory.claim = false;
 	        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
@@ -2454,8 +2484,20 @@ module.exports =
 
 	    generateJobsForFlag(flag){
 	        if(flag.room){
+	            var towers = flag.room.find(FIND_HOSTILE_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } });
+	            if(towers.length > 0){
+	                return _.map(towers, target => this.generateJobForTarget(flag.room, target));
+	            }
+	            var structures = _.filter(flag.room.find(FIND_HOSTILE_STRUCTURES), structure => structure.structureType != STRUCTURE_CONTROLLER);
 	            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
-	            return _.map(targets, target => this.generateJobForTarget(flag.room, target));
+	            if(structures.length > 0){
+	                targets = targets.concat(structures);
+	            }
+	            if(targets.length > 0){
+	                return _.map(targets, target => this.generateJobForTarget(flag.room, target));
+	            }
+	        }else{
+	            return [this.generateJobForTarget(flag.room, flag, flag)];
 	        }
 	        return [];
 	    }
@@ -2720,6 +2762,7 @@ module.exports =
 	    }
 
 	    generateTargets(room, flag){
+	        //TODO check ownership/reservation
 	        var targets = room.find(FIND_SOURCES);
 	        var roomStats = Memory.stats.rooms[room.name];
 	        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){
@@ -2869,11 +2912,17 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'observe', { flagPrefix: 'Observe' }); }
 
 	    generateJobsForFlag(flag){
+	        var flagparts = flag.name.split('-');
+	        var subflag = false;
+	        if(flagparts.length > 2){
+	            subflag = flagparts[1];
+	        }
 	        return [{
 	            allocated: 0,
-	            capacity: 5,
+	            capacity: subflag ? 5 : 2,
 	            id: this.type+"-"+flag.name,
-	            target: flag
+	            target: flag,
+	            subflag
 	        }];
 	    }
 	}
@@ -3062,12 +3111,34 @@ module.exports =
 	class ReserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'reserve', { flagPrefix: 'Reserve' }); }
 
+	    generate(){
+	        var jobs = super.generate();
+	        var downgradeFlags = this.catalog.getFlagsByPrefix('Downgrade');
+	        if(downgradeFlags.length > 0){
+	            _.forEach(downgradeFlags, flag =>{
+	                if(flag.room && !flag.room.controller.owner){
+	                    return;
+	                }
+	                var id = this.type+"-"+flag.name;
+	                jobs[id] = {
+	                    allocated: 0,
+	                    capacity: 50,
+	                    id,
+	                    target: _.get(flag.room, 'controller', flag),
+	                    downgrade: true
+	                };
+	            });
+	        }
+	        return jobs;
+	    }
+
 	    generateJobsForFlag(flag){
 	        return [{
 	            allocated: 0,
 	            capacity: 2,
 	            id: this.type+"-"+flag.name,
-	            target: _.get(flag.room, 'controller', flag)
+	            target: _.get(flag.room, 'controller', flag),
+	            downgrade: false
 	        }];
 	    }
 	}
@@ -3378,7 +3449,10 @@ module.exports =
 	            if(!reactions[type]){
 	                console.log('ending reaction', type);
 	                var labs = Memory.production.labs[data.lab];
-	                _.forEach(labs, (lab) => Memory.transfer.lab[lab] = false);
+	                console.log(labs, data.lab);
+	                _.forEach(labs, (lab) => {
+	                    Memory.transfer.lab[lab] = false;
+	                });
 	                delete Memory.react[type];
 	            }
 	        });
@@ -3416,15 +3490,13 @@ module.exports =
 	        var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
 	        var canReact = _.every(inventory, (amount, ix) => {
 	            if(deficit - amount > 0){
-	                // console.log(type, 'needs resource', components[ix], need);
 	                //generate child reactions
-	                this.generateReactions(components[ix], need, output);
+	                this.generateReactions(components[ix], deficit - amount, output);
 	            }
 	            return amount > 0;
 	        });
 
 	        if(canReact){
-	            // console.log('have everything for', type);
 	            if(output[type]){
 	                output[type].deficit += deficit;
 	            }else{
