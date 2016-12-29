@@ -3,10 +3,16 @@
 module.exports = {
     miner: {
         versions: {
+            // boost: {
+            //     allocation: 7,
+            //     critical: 500,
+            //     parts: { move: 2, carry: 2, work: 4},
+            //     boost: { XUHO2: 2 }
+            // },
             milli: {
                 allocation: 7,
                 critical: 1400,
-                parts: {move: 5, carry: 2, work: 7}
+                parts: { move: 5, carry: 2, work: 8 }
             },
             micro: {
                 allocation: 6,
@@ -189,7 +195,7 @@ module.exports = {
             attack: {
                 parts: { claim: 5, move: 5 },
                 additionalPer: {
-                    count: 5,
+                    count: 3,
                     flagPrefix: 'Downgrade'
                 },
                 rules: { reserve: { downgrade: true } }

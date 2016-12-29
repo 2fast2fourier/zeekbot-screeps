@@ -78,7 +78,10 @@ class Misc {
             maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
             totalEnergy: _.sum(_.map(stats.rooms, 'energy')),
             build: totalBuild,
-            repair: totalRepair
+            repair: totalRepair,
+            upgrade: {
+                XUHO2: 50
+            }
         }
         Memory.stats = stats;
     }
@@ -86,12 +89,16 @@ class Misc {
     static initMemory(){
         if(Memory.memoryVersion != memoryVersion){
             console.log('Init memory version', memoryVersion);
-            Memory.accessibility = {};
             Memory.memoryVersion = memoryVersion;
+            Memory.accessibility = {};
             Memory.jobs = {};
             Memory.jobUpdateTime = {};
             Memory.uid = 1;
             Memory.updateTime = 0;
+            Memory.production = {
+                labs: [],
+                quota: {}
+            };
             Memory.transfer = {
                 lab: {},
                 energy: {}

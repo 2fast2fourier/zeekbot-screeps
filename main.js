@@ -526,6 +526,12 @@ module.exports =
 	module.exports = {
 	    miner: {
 	        versions: {
+	            // boost: {
+	            //     allocation: 7,
+	            //     critical: 500,
+	            //     parts: { move: 2, carry: 2, work: 4},
+	            //     boost: { XUHO2: 2 }
+	            // },
 	            milli: {
 	                allocation: 7,
 	                critical: 1400,
@@ -712,7 +718,7 @@ module.exports =
 	            attack: {
 	                parts: { claim: 5, move: 5 },
 	                additionalPer: {
-	                    count: 5,
+	                    count: 3,
 	                    flagPrefix: 'Downgrade'
 	                },
 	                rules: { reserve: { downgrade: true } }
@@ -2041,6 +2047,8 @@ module.exports =
 	        this.rooms = _.filter(Game.rooms, 'controller.my');
 	        this.avoid = {};
 
+	        this.spawnAllocation = {};
+
 	        this.jobs = new JobManager(this);
 
 	        //class
@@ -3364,7 +3372,10 @@ module.exports =
 	            maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
 	            totalEnergy: _.sum(_.map(stats.rooms, 'energy')),
 	            build: totalBuild,
-	            repair: totalRepair
+	            repair: totalRepair,
+	            upgrade: {
+	                XUHO2: 50
+	            }
 	        }
 	        Memory.stats = stats;
 	    }
@@ -3372,12 +3383,16 @@ module.exports =
 	    static initMemory(){
 	        if(Memory.memoryVersion != memoryVersion){
 	            console.log('Init memory version', memoryVersion);
-	            Memory.accessibility = {};
 	            Memory.memoryVersion = memoryVersion;
+	            Memory.accessibility = {};
 	            Memory.jobs = {};
 	            Memory.jobUpdateTime = {};
 	            Memory.uid = 1;
 	            Memory.updateTime = 0;
+	            Memory.production = {
+	                labs: [],
+	                quota: {}
+	            };
 	            Memory.transfer = {
 	                lab: {},
 	                energy: {}
