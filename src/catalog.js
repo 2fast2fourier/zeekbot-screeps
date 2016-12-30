@@ -51,6 +51,8 @@ class Catalog {
         this.rooms = _.filter(Game.rooms, 'controller.my');
         this.avoid = {};
 
+        this.spawnAllocation = {};
+
         this.jobs = new JobManager(this);
 
         //class
@@ -353,6 +355,16 @@ class Catalog {
 
     getAvoid(pos){
         return this.avoid[pos.roomName];
+    }
+
+    profile(type, value){
+        if(!_.has(Memory.stats.profile.misc, type)){
+            Memory.stats.profile.misc[type] = value;
+            Memory.stats.profile.miscCount[type] = 1;
+        }else{
+            Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
+            Memory.stats.profile.miscCount[type]++;
+        }
     }
 }
 

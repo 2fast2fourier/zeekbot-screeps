@@ -24,9 +24,16 @@ class Misc {
             });
             console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax, total);
         }
+        if(Memory.debugMisc === true){
+            _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat))
+        }else if(Memory.debugMisc){
+            console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
+        }
         var stats = {
             rooms: {},
             profile: {
+                misc: {},
+                miscCount: {},
                 job: {},
                 worker: {},
                 spawner: {},

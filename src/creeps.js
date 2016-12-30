@@ -92,14 +92,13 @@ module.exports = {
                 // },
                 quota: {
                     jobType: 'mine',
-                    allocation: 7,
-                    max: 15
+                    allocation: 6
                 },
                 rules: {
-                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
-                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
+                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150 },
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
                 },
-                parts: {carry: 20, move: 10}
+                parts: { carry: 20, move: 10 }
             },
             micro: {
                 additionalPer: {
@@ -195,7 +194,7 @@ module.exports = {
             attack: {
                 parts: { claim: 5, move: 5 },
                 additionalPer: {
-                    count: 3,
+                    count: 2,
                     flagPrefix: 'Downgrade'
                 },
                 rules: { reserve: { downgrade: true } }

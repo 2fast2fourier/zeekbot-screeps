@@ -18,6 +18,7 @@ class PickupWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
+        var distanceWeight = opts.distanceWeight || this.distanceWeight;
         if(opts.resource && job.resource != opts.resource){
             return false;
         }
@@ -30,7 +31,7 @@ class PickupWorker extends BaseWorker {
         if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
             return false;
         }
-        return 1 + this.getStorageOffset(creep) + distance / this.distanceWeight + this.calcAvailRatio(job, allocation);
+        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation);
     }
 
     processStep(creep, job, target, opts){
@@ -44,6 +45,7 @@ class PickupWorker extends BaseWorker {
             this.move(creep, target);
         }else if(result == OK){
             creep.memory.lastSource = target.id;
+            creep.memory.lastPickupTime = Game.time;
         }
     }
 

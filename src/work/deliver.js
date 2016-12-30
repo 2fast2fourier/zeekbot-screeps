@@ -32,7 +32,7 @@ class DeliverWorker extends BaseWorker {
         if(creep.memory.lastSource == job.target.id){
             return false;
         }
-        var distanceOffset = opts.ignoreDistance ? 0 : distance / this.distanceWeight;
+        var distanceOffset = opts.ignoreDistance ? 0 : distance / _.get(opts, 'distanceWeight', this.distanceWeight);
         if(this.catalog.hasMinerals(creep)){
             if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
                 return false;
@@ -48,6 +48,7 @@ class DeliverWorker extends BaseWorker {
 
     processStep(creep, job, target, opts){
         var done = false;
+        var total = 0;
         _.forEach(this.catalog.getResourceList(creep), (amount, type) => {
             if(done){
                 return;
@@ -57,9 +58,19 @@ class DeliverWorker extends BaseWorker {
                 this.move(creep, target);
                 done = true;
             }else if(result == OK){
+                total += amount;
                 done = true;
             }
         });
+        if(opts.profile && total > 0){
+            if(creep.memory.lastPickupTime > 0 && creep.memory.lastDeliveryTime > 0){
+                var ticks = Game.time - creep.memory.lastPickupTime;
+                var totalticks = Game.time - creep.memory.lastDeliveryTime;
+                var eps = total / totalticks;
+                this.catalog.profile('delivery', eps);
+            }
+            creep.memory.lastDeliveryTime = Game.time;
+        }
     }
 
 }

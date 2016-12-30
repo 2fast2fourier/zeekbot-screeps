@@ -6,7 +6,7 @@ class MineWorker extends BaseWorker {
     constructor(catalog){ super(catalog, 'mine'); }
 
     isValid(creep, opts, job, target){
-        return this.catalog.getAvailableCapacity(creep) > 8;
+        return this.catalog.getAvailableCapacity(creep) > 0;
     }
 
     canBid(creep, opts){
@@ -26,8 +26,8 @@ class MineWorker extends BaseWorker {
 
     processStep(creep, job, target, opts){
         if(this.catalog.getAvailableCapacity(creep) < 20){
-            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1 && this.catalog.getAvailableCapacity(job.target) > 0);
-            var nearby = _.sortBy(deliverables, job => this.catalog.getAvailableCapacity(job.target));
+            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1);
+            var nearby = _.sortBy(deliverables, job => job.offset);
             if(nearby.length > 0){
                 _.forEach(creep.carry, (amount, type)=>{
                     if(amount > 0){

@@ -101,7 +101,7 @@ class Spawner {
                 return false;
             }
             if(requirements.mineralAmount > 0 && roomStats.mineralAmount < requirements.mineralAmount){
-                return false
+                return false;
             }
             if(requirements.energy > 0 && roomStats.energy < requirements.energy){
                 return false;
@@ -111,16 +111,6 @@ class Spawner {
             }
             if(requirements.repairHits > 0 && requirements.repairHits > roomStats.repairHits){
                 return false;
-            }
-            if(requirements.flagClear > 0 && !!Game.flags[requirements.flag]){
-                var flag = Game.flags[requirements.flag];
-                if(!flag.room){
-                    return false;
-                }
-                var hostiles = _.filter(catalog.getHostileCreeps(flag.room), hostile => flag.pos.getRangeTo(hostile) < requirements.flagClear);
-                if(hostiles.length > 0){
-                    return false;
-                }
             }
         }
         return true;
@@ -277,6 +267,10 @@ class Spawner {
             creep.memory.jobId = false;
             creep.memory.jobType = false;
             creep.memory.jobAllocation = 0;
+            var optMemory = version.memory || config.memory;
+            if(optMemory){
+                _.assign(creep.memory, optMemory);
+            }
         });
         Memory.resetBehavior = false;
         console.log("Reset behavior!");

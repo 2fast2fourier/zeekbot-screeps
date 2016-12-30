@@ -332,7 +332,7 @@ module.exports =
 	                return false;
 	            }
 	            if(requirements.mineralAmount > 0 && roomStats.mineralAmount < requirements.mineralAmount){
-	                return false
+	                return false;
 	            }
 	            if(requirements.energy > 0 && roomStats.energy < requirements.energy){
 	                return false;
@@ -342,16 +342,6 @@ module.exports =
 	            }
 	            if(requirements.repairHits > 0 && requirements.repairHits > roomStats.repairHits){
 	                return false;
-	            }
-	            if(requirements.flagClear > 0 && !!Game.flags[requirements.flag]){
-	                var flag = Game.flags[requirements.flag];
-	                if(!flag.room){
-	                    return false;
-	                }
-	                var hostiles = _.filter(catalog.getHostileCreeps(flag.room), hostile => flag.pos.getRangeTo(hostile) < requirements.flagClear);
-	                if(hostiles.length > 0){
-	                    return false;
-	                }
 	            }
 	        }
 	        return true;
@@ -508,6 +498,10 @@ module.exports =
 	            creep.memory.jobId = false;
 	            creep.memory.jobType = false;
 	            creep.memory.jobAllocation = 0;
+	            var optMemory = version.memory || config.memory;
+	            if(optMemory){
+	                _.assign(creep.memory, optMemory);
+	            }
 	        });
 	        Memory.resetBehavior = false;
 	        console.log("Reset behavior!");
@@ -535,7 +529,7 @@ module.exports =
 	            milli: {
 	                allocation: 7,
 	                critical: 1400,
-	                parts: {move: 5, carry: 2, work: 7}
+	                parts: { move: 5, carry: 2, work: 8 }
 	            },
 	            micro: {
 	                allocation: 6,
@@ -615,14 +609,13 @@ module.exports =
 	                // },
 	                quota: {
 	                    jobType: 'mine',
-	                    allocation: 7,
-	                    max: 15
+	                    allocation: 6
 	                },
 	                rules: {
-	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ] },
-	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
+	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150 },
+	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
 	                },
-	                parts: {carry: 20, move: 10}
+	                parts: { carry: 20, move: 10 }
 	            },
 	            micro: {
 	                additionalPer: {
@@ -718,7 +711,7 @@ module.exports =
 	            attack: {
 	                parts: { claim: 5, move: 5 },
 	                additionalPer: {
-	                    count: 3,
+	                    count: 2,
 	                    flagPrefix: 'Downgrade'
 	                },
 	                rules: { reserve: { downgrade: true } }
@@ -1144,7 +1137,6 @@ module.exports =
 
 	    getJobDistance(creep, job){
 	        return this.catalog.getRealDistance(creep, job.target);
-	        // return Math.min(creep.pos.getRangeTo(job.target), 99);
 	    }
 
 	    calcAvailRatio(job, allocation){
@@ -1321,14 +1313,11 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'build', { requiresEnergy: true, chatty: true }); }
 
 	    calculateAllocation(creep, opts){
-	        // if(creep.getActiveBodyparts(WORK) > 0){
-	        //     return Math.ceil(this.catalog.getResource(creep, RESOURCE_ENERGY)/5);
-	        // }
 	        return 1;
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
-	        return this.getEnergyOffset(creep) + distance / this.distanceWeight;
+	        return this.getEnergyOffset(creep) + distance / this.distanceWeight + job.offset;
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -1425,7 +1414,7 @@ module.exports =
 	        if(creep.memory.lastSource == job.target.id){
 	            return false;
 	        }
-	        var distanceOffset = opts.ignoreDistance ? 0 : distance / this.distanceWeight;
+	        var distanceOffset = opts.ignoreDistance ? 0 : distance / _.get(opts, 'distanceWeight', this.distanceWeight);
 	        if(this.catalog.hasMinerals(creep)){
 	            if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
 	                return false;
@@ -1441,6 +1430,7 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        var done = false;
+	        var total = 0;
 	        _.forEach(this.catalog.getResourceList(creep), (amount, type) => {
 	            if(done){
 	                return;
@@ -1450,9 +1440,19 @@ module.exports =
 	                this.move(creep, target);
 	                done = true;
 	            }else if(result == OK){
+	                total += amount;
 	                done = true;
 	            }
 	        });
+	        if(opts.profile && total > 0){
+	            if(creep.memory.lastPickupTime > 0 && creep.memory.lastDeliveryTime > 0){
+	                var ticks = Game.time - creep.memory.lastPickupTime;
+	                var totalticks = Game.time - creep.memory.lastDeliveryTime;
+	                var eps = total / totalticks;
+	                this.catalog.profile('delivery', eps);
+	            }
+	            creep.memory.lastDeliveryTime = Game.time;
+	        }
 	    }
 
 	}
@@ -1626,7 +1626,7 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'mine'); }
 
 	    isValid(creep, opts, job, target){
-	        return this.catalog.getAvailableCapacity(creep) > 8;
+	        return this.catalog.getAvailableCapacity(creep) > 0;
 	    }
 
 	    canBid(creep, opts){
@@ -1646,8 +1646,8 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        if(this.catalog.getAvailableCapacity(creep) < 20){
-	            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1 && this.catalog.getAvailableCapacity(job.target) > 0);
-	            var nearby = _.sortBy(deliverables, job => this.catalog.getAvailableCapacity(job.target));
+	            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1);
+	            var nearby = _.sortBy(deliverables, job => job.offset);
 	            if(nearby.length > 0){
 	                _.forEach(creep.carry, (amount, type)=>{
 	                    if(amount > 0){
@@ -1722,6 +1722,7 @@ module.exports =
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
+	        var distanceWeight = opts.distanceWeight || this.distanceWeight;
 	        if(opts.resource && job.resource != opts.resource){
 	            return false;
 	        }
@@ -1734,7 +1735,7 @@ module.exports =
 	        if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
 	            return false;
 	        }
-	        return 1 + this.getStorageOffset(creep) + distance / this.distanceWeight + this.calcAvailRatio(job, allocation);
+	        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation);
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -1748,6 +1749,7 @@ module.exports =
 	            this.move(creep, target);
 	        }else if(result == OK){
 	            creep.memory.lastSource = target.id;
+	            creep.memory.lastPickupTime = Game.time;
 	        }
 	    }
 
@@ -2352,6 +2354,16 @@ module.exports =
 	    getAvoid(pos){
 	        return this.avoid[pos.roomName];
 	    }
+
+	    profile(type, value){
+	        if(!_.has(Memory.stats.profile.misc, type)){
+	            Memory.stats.profile.misc[type] = value;
+	            Memory.stats.profile.miscCount[type] = 1;
+	        }else{
+	            Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
+	            Memory.stats.profile.miscCount[type]++;
+	        }
+	    }
 	}
 
 	module.exports = Catalog;
@@ -2634,6 +2646,16 @@ module.exports =
 
 	var BaseJob = __webpack_require__(33);
 
+	var offsets = {
+	    container: -0.5,
+	    tower: -1,
+	    extension: -0.25,
+	    road: 0.5,
+	    constructedWall: 1,
+	    rampart: 1,
+	    spawn: -1
+	}
+
 	class BuildJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'build'); }
 
@@ -2645,6 +2667,12 @@ module.exports =
 	        var jobs = {};
 	        _.forEach(_.map(Game.constructionSites, target => this.generateJobForTarget(null, target)), job => jobs[job.id] = job);
 	        return jobs;
+	    }
+
+	    generateJobForTarget(room, target, flag){
+	        var job = super.generateJobForTarget(room, target, flag);
+	        job.offset = _.get(offsets, target.structureType, 0);
+	        return job;
 	    }
 	}
 
@@ -3318,9 +3346,16 @@ module.exports =
 	            });
 	            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax, total);
 	        }
+	        if(Memory.debugMisc === true){
+	            _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat))
+	        }else if(Memory.debugMisc){
+	            console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
+	        }
 	        var stats = {
 	            rooms: {},
 	            profile: {
+	                misc: {},
+	                miscCount: {},
 	                job: {},
 	                worker: {},
 	                spawner: {},
