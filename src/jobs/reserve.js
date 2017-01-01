@@ -41,6 +41,8 @@ class ReserveJob extends BaseJob {
             if(subtype == 'downgrade'){
                 job.capacity = 50;
             }
+        }else{
+            job.subtype = 'reserve';
         }
         return [job];
     }

@@ -18,7 +18,8 @@ class IdleJob extends BaseJob {
                 capacity: capacity,
                 id: this.generateId(target)+"-"+type,
                 target: target,
-                idleType: type
+                idleType: type,
+                subtype: type
             };
         });
         spots.push({
@@ -38,7 +39,8 @@ class IdleJob extends BaseJob {
                 capacity: _.parseInt(parts[2]) || 1,
                 id: this.generateId(flag)+"-"+parts[1],
                 target: flag,
-                idleType: parts[1]
+                idleType: parts[1],
+                subtype: parts[1]
             }];
         }
         if(parts.length == 2){
@@ -47,7 +49,8 @@ class IdleJob extends BaseJob {
                 capacity: 4,
                 id: this.generateId(flag)+"-"+parts[1],
                 target: flag,
-                idleType: parts[1]
+                idleType: parts[1],
+                subtype: parts[1]
             }];
         }
         return [];

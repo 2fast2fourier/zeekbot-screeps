@@ -60,9 +60,6 @@ class Catalog {
 
         this.quota = new QuotaManager(this);
 
-        //class
-        this.deficits = {};
-
         this.profileData = {};
 
     }

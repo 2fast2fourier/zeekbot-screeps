@@ -11,7 +11,7 @@ module.exports = {
             // },
             milli: {
                 allocation: 7,
-                critical: 1400,
+                critical: true,
                 parts: { move: 5, carry: 2, work: 8 }
             },
             // micro: {
@@ -40,13 +40,9 @@ module.exports = {
             //     }
             // }
         },
-        quota: {
-            jobType: 'mine',
-            ratio: 1
-        },
+        quota: 'mine',
         rules: {
             mine: {},
-            // deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
             drop: { priority: 5 }
         },
         actions: { avoid: {}, minecart: {} }
@@ -54,11 +50,9 @@ module.exports = {
     hauler: {
         versions: {
             spawn: {
-                critical: 600,
+                quota: 'spawnhauler',
+                critical: true,
                 parts: {carry: 10, move: 10},
-                additionalPer: {
-                    room: 2
-                },
                 rules: {
                     pickup: { subtype: false },
                     deliver: { subtype: 'spawn' },
@@ -76,43 +70,35 @@ module.exports = {
             //     }
             // },
             transfer: {
-                quota: {
-                    jobType: 'transfer',
-                    allocation: 500,
-                    max: 2
-                },
+                quota: 'transfer',
+                allocation: 500,
+                max: 2,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
             leveler: {
-                additionalPer: {
-                    room: 2
-                },
+                quota: 'levelerhauler',
+                max: 8,
                 rules: {
-                    pickup: { types: [ STRUCTURE_STORAGE ], distanceWeight: 150, min: 250000 },
+                    pickup: { types: [ STRUCTURE_STORAGE ], distanceWeight: 150, min: 100000 },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
                 },
                 parts: { carry: 20, move: 10 }
             },
             long: {
-                // ideal: 2,
-                // additionalPer: {
-                //     count: 4,
-                //     flagPrefix: 'Pickup'
-                // },
-                // quota: {
-                //     jobType: 'mine',
-                //     allocation: 6
-                // },
-                ideal: 20,
+                quota: 'pickup-remote',
+                allocation: 500,
+                max: 10,
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
                 },
-                parts: { carry: 20, move: 10 }
+                parts: { carry: 30, move: 15 }
             },
             mineral: {
-                ideal: 1,
+                quota: 'pickup-mineral',
+                allocation: 1000,
+                max: 1,
                 parts: { carry: 6, move: 6 },
                 rules: {
                     pickup: { subtype: 'mineral', minerals: true, types: [ STRUCTURE_CONTAINER ] },
@@ -136,19 +122,14 @@ module.exports = {
     observer: {
         versions: {
             soaker: {
-                additionalPer: {
-                    count: 5,
-                    flagPrefix: 'Observe-soak'
-                },
+                quota: 'observe-soak',
+                max: 5,
                 parts: { tough: 40, move: 10 },
                 memory: { ignoreHealth: true },
                 rules: { observe: { subtype: 'soak' } }
             },
             pico: {
-                additionalPer: {
-                    count: 1,
-                    flagPrefix: 'Observe'
-                },
+                quota: 'observe',
                 parts: {tough: 1, move: 1},
                 memory: { ignoreHealth: true },
                 rules: { observe: { subtype: false } }
@@ -158,11 +139,9 @@ module.exports = {
     worker: {
         versions: {
             builder: {
-                quota: {
-                    jobType: 'build',
-                    allocation: 3,
-                    max: 4
-                },
+                quota: 'build',
+                allocation: 3,
+                max: 4,
                 rules: {
                     pickup: {},
                     build: {},
@@ -171,19 +150,14 @@ module.exports = {
                 parts: { work: 4, carry: 4, move: 8 }
             },
             upgrade: {
-                quota: {
-                    jobType: 'upgrade',
-                    allocation: 5,
-                    ratio: 1
-                },
+                quota: 'upgrade',
+                allocation: 5,
                 parts: {work: 5, carry: 2, move: 7},
                 rules: { pickup: {}, upgrade: {} }
             },
             repair: {
-                additionalPer: {
-                    repair: 10000,
-                    max: 10
-                },
+                quota: 'repair',
+                max: 10,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 5, move: 10 }
@@ -202,74 +176,49 @@ module.exports = {
         versions: {
             attack: {
                 parts: { claim: 5, move: 5 },
-                additionalPer: {
-                    count: 2,
-                    flagPrefix: 'Reserve-downgrade'
-                },
+                quota: 'reserve-downgrade',
+                allocation: 5,
+                max: 5,
                 rules: { reserve: { downgrade: true } }
             },
             pico: {
                 parts: { claim: 2, move: 2 },
-                additionalPer: {
-                    count: 1,
-                    flagPrefix: 'Reserve'
-                }
-                // quota: {
-                //     jobType: 'reserve',
-                //     allocation: 2,
-                //     ratio: 1
-                // }
+                quota: 'reserve-reserve',
+                allocation: 2,
+                rules: { reserve: { subtype: 'reserve'} }
             }
         },
-        rules: { reserve: {} }
     },
     healer: {
         versions: {
             pico: {
-                ideal: 1,
+                quota: 'heal',
+                max: 2,
                 parts: {tough: 4, move: 8, heal: 4}
             },
-        },
-        quota: {
-            jobType: 'heal',
-            allocation: 1,
-            max: 1
         },
         rules: { heal: {}, idle: { type: 'heal' } }
     },
     fighter: {
         versions: {
             melee: {
-                ideal: 1,
-                // additionalPer: {
-                //     count: 1,
-                //     flagPrefix: 'Keep'
-                // },
-                require: {
-                    energy: 250000
-                },
-                critical: 2300,
-                quota: {
-                    jobType: 'keep',
-                    allocation: 15
-                },
+                critical: true,
+                quota: 'keep',
+                allocation: 15,
                 parts: { tough: 15, move: 16, attack: 15, heal: 2 },
                 actions: { selfheal: {} }
             },
             ranged: {
-                additionalPer: {
-                    count: 2,
-                    flagPrefix: 'Defend',
-                    max: 2
-                },
+                quota: 'idle-defend',
+                max: 2,
+                allocation: 1,
                 parts: { tough: 10, move: 10, ranged_attack: 10 },
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             assault: {
-                additionalPer: {
-                    count: 5,
-                    flagPrefix: 'Idle-staging'
-                },
+                quota: 'idle-staging',
+                max: 5,
+                allocation: 1,
                 parts: { tough: 17, move: 16, attack: 15 },
                 rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
             }

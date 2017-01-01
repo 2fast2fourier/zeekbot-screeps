@@ -10,7 +10,7 @@ class Misc {
             console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
         }
         if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
-            console.log('CPU (- a +):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max);
+            console.log('CPU (- a + b):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max, Game.cpu.bucket);
         }
         var stats = {
             rooms: {},
@@ -61,9 +61,11 @@ class Misc {
             totalRepair += repairHits;
             totalBuild += buildHits;
         });
+        var energyList = _.map(stats.rooms, 'energy');
         stats.global = {
             maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
-            totalEnergy: _.sum(_.map(stats.rooms, 'energy')),
+            totalEnergy: _.sum(energyList),
+            energySpread: _.min(energyList) / _.max(energyList),
             build: totalBuild,
             repair: totalRepair,
             upgrade: {
@@ -114,6 +116,7 @@ class Misc {
     static mourn(){
         for(var name in Memory.creeps) {
             if(!Game.creeps[name]) {
+                console.log('RIP', name);
                 delete Memory.creeps[name];
             }
         }
