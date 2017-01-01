@@ -28,9 +28,7 @@ class Production {
         });
         _.forEach(Memory.react, (data, type)=>{
             if(!reactions[type]){
-                console.log('ending reaction', type);
                 var labs = Memory.production.labs[data.lab];
-                console.log(labs, data.lab);
                 _.forEach(labs, (lab) => {
                     Memory.transfer.lab[lab] = false;
                 });
@@ -72,7 +70,7 @@ class Production {
         var canReact = _.every(inventory, (amount, ix) => {
             if(deficit - amount > 0){
                 //generate child reactions
-                this.generateReactions(components[ix], deficit - amount, output);
+                this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output);
             }
             return amount > 0;
         });

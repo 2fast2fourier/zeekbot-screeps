@@ -18,37 +18,12 @@ class BaseJob {
     }
 
     generate(){
-        var start = Game.cpu.getUsed();
         var jobs = {};
         _.forEach(this.catalog.rooms, room => _.forEach(this.generateJobs(room), job => jobs[job.id] = job));
         if(this.flagPrefix){
             _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => _.forEach(this.generateJobsForFlag(flag), job => jobs[job.id] = job));
         }
-        this.profile(start);
         return this.postGenerate(jobs);
-    }
-
-    profile(start){
-        var profile = Memory.stats.profile.job[this.getType()];
-        var usage = Game.cpu.getUsed() - start;
-        if(!profile){
-            profile = {
-                max: usage,
-                min: usage,
-                avg: usage,
-                count: 1
-            };
-            Memory.stats.profile.job[this.getType()] = profile;
-        }else{
-            profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
-            profile.count++;
-            if(profile.max < usage){
-                profile.max = usage;
-            }
-            if(profile.min > usage){
-                profile.min = usage;
-            }
-        }
     }
 
     postGenerate(jobs){
@@ -97,6 +72,14 @@ class BaseJob {
             _.set(jobs, [jobId, 'allocated'], _.get(jobs, [jobId, 'allocated'], 0) - allocation);
             var job = _.get(jobs, jobId, false);
             return job && job.allocated < job.capacity;
+        }
+        return false;
+    }
+
+    getSubflag(flag){
+        var flagparts = flag.name.split('-');
+        if(flagparts.length > 2){
+            return flagparts[1];
         }
         return false;
     }

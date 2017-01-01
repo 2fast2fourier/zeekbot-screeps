@@ -1,11 +1,14 @@
 "use strict";
 
 var JobManager = require('./jobmanager');
+var QuotaManager = require('./quota');
 
 var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 class Catalog {
     constructor(){
+        //DEPRECATED
+        //TODO remove
         this.types = {
             collect: [ STRUCTURE_CONTAINER ],
             dropoff: [ STRUCTURE_STORAGE ],
@@ -45,18 +48,22 @@ class Catalog {
             room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
         };
 
+        // console.log(this.creeps.type.meleefighter);
+
         this.buildings = _.groupBy(Game.structures, structure => structure.structureType);
         // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
 
         this.rooms = _.filter(Game.rooms, 'controller.my');
         this.avoid = {};
 
-        this.spawnAllocation = {};
-
         this.jobs = new JobManager(this);
+
+        this.quota = new QuotaManager(this);
 
         //class
         this.deficits = {};
+
+        this.profileData = {};
 
     }
 
@@ -189,6 +196,10 @@ class Catalog {
             }
         }
         return access;
+    }
+
+    lookForArea(room, pos, type, radius){
+        return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
     }
 
     getResource(entity, type){
@@ -365,6 +376,14 @@ class Catalog {
             Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
             Memory.stats.profile.miscCount[type]++;
         }
+    }
+
+    profileAdd(type, value){
+        _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
+    }
+
+    finishProfile(){
+        _.forEach(this.profileData, (value, type) => this.profile(type, value));
     }
 }
 

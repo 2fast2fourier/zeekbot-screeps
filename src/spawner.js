@@ -4,6 +4,110 @@ var classConfig = require('./creeps');
 
 class Spawner {
 
+    static spawn(catalog){
+        var start = Game.cpu.getUsed();
+        if(Memory.resetBehavior){
+            Spawner.resetBehavior(catalog);
+        }
+        // var spawnlist = Spawner.generateSpawnList(catalog);
+        var spawned = false;
+        _.forEach(Game.spawns, spawn => {
+            spawned = Spawner.processSpawn(spawn, catalog, spawned);
+        });
+        catalog.profile('spawner', Game.cpu.getUsed() - start);
+    }
+
+    static generateSpawnList(catalog){
+        var spawnlist = {
+            spawn: {},
+            critical: {},
+            costs: {}
+        };
+        var allocation = Spawner.calculateQuotaAllocation(catalog);
+        // _.forEach(allocation, (allocated, type) => console.log(type, allocated));
+        
+        _.forEach(classConfig, (config, className)=>{
+            _.forEach(config.versions, (version, versionName)=>{
+                var type = versionName+className;
+                var limit = Spawner.calculateSpawnLimit(catalog, type, version, config);
+                var quota = Spawner.calculateRemainingQuota(catalog, type, version, config, allocation);
+                if(Math.min(limit, quota) > 0){
+                    spawnlist.costs[type] = Spawner.calculateCost(version.parts || config.parts);
+                    if(version.critical){
+                        spawnlist.critical[type] = Math.min(limit, quota);
+                        // console.log('critical spawn', type, limit, quota, spawnlist.costs[type]);
+                    }else{
+                        // console.log('spawn', type, limit, quota, spawnlist.costs[type]);
+                    }
+                    spawnlist.spawn[type] = Math.min(limit, quota);
+                }
+            });
+        });
+        // _.forEach(spawnlist.costs, (cost, type) => console.log(type, cost));
+
+        return spawnlist;
+    }
+
+    static calculateQuotaAllocation(catalog){
+        var allocation = {};
+        _.forEach(classConfig, (config, className)=>{
+            _.forEach(config.versions, (version, versionName)=>{
+                var type = versionName+className;
+                var quota = version.quota || config.quota;
+                if(quota){
+                    var jobType = _.isString(quota) ? quota : quota.jobType;
+                    var allocate = _.get(version, 'allocation', _.get(quota, 'allocation', 1));
+                    _.set(allocation, jobType, _.get(allocation, jobType, 0) + (_.get(catalog.creeps.type, [type, 'length'], 0) * allocate));
+                }
+
+            });
+        });
+
+        return allocation;
+    }
+
+    static calculateRemainingQuota(catalog, type, version, config, allocation){
+        var quota = version.quota || config.quota;
+        if(quota){
+            var jobType = _.isString(quota) ? quota : quota.jobType;
+            var capacity = _.get(catalog.jobs.capacity, jobType, 0);
+            var creepsNeeded = Math.ceil(capacity/_.get(version, 'allocation', _.get(quota, 'allocation', 1)));
+            var existing = Math.ceil(_.get(allocation, jobType, 0)/_.get(version, 'allocation', _.get(quota, 'allocation', 1)));
+            // if(type == 'milliminer'){
+            //     console.log(jobType, capacity, _.get(allocation, jobType, 0));
+            // }
+            return Math.min(creepsNeeded, _.get(quota, 'max', Infinity)) - existing;
+        }
+        return 0;
+    }
+
+    static calculateScalingQuota(catalog, type, version, config, allocation){
+        var quota = _.get(version, 'ideal', 0);
+        var scale = version.scale || config.scale;
+        if(scale){
+            //TODO make generic stats collection to remove this if-chain
+            if(scale.room > 0){
+                quota += Math.ceil(scale.room * catalog.rooms.length);
+            }
+            if(scale.repair > 0){
+                quota += Math.ceil(Memory.stats.global.repair / scale.repair);
+            }
+            if(scale.energy > 0){
+                quota += Math.floor(Memory.stats.global.totalEnergy / scale.energy);
+            }
+        }
+        return Math.min(quota, _.get(scale, 'max', Infinity));
+    }
+
+    static calculateSpawnLimit(catalog, type, version, config){
+        if(version.disable){
+            if(version.disable.maxSpawn > 0 && Memory.stats.global.maxSpawn >= version.disable.maxSpawn){
+                return 0;
+            }
+        }
+        return Infinity;
+    }
+
     static partList(args){
         var parts = [];
         _.forEach(args, (count, name)=>{
@@ -22,6 +126,14 @@ class Spawner {
         });
         return cost;
     }
+
+
+
+
+
+
+
+// nuke this sick code
 
     static shouldSpawn(spawn, fullType, className, version, catalog, category, roomStats){
         if(!Spawner.checkRequirements(spawn, catalog, category, version, roomStats) ||
@@ -216,16 +328,6 @@ class Spawner {
             });
         });
         return startedSpawn;
-    }
-
-    static spawn(catalog){
-        if(Memory.resetBehavior){
-            Spawner.resetBehavior(catalog);
-        }
-        var spawned = false;
-        _.forEach(Game.spawns, spawn => {
-            spawned = Spawner.processSpawn(spawn, catalog, spawned);
-        });
     }
 
     static resetBehavior(catalog){

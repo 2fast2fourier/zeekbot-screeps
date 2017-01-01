@@ -8,7 +8,7 @@ var Misc = require('./misc');
 var Production = require('./production');
 
 module.exports.loop = function () {
-    var start = Game.cpu.getUsed();
+    PathFinder.use(true);
     Misc.initMemory();
     if(!Memory.settings){
         Misc.setSettings();
@@ -35,37 +35,34 @@ module.exports.loop = function () {
         Misc.updateStats(catalog);
         Memory.updateTime = Game.time + Memory.settings.updateDelta;
     }
-    // var cat = Game.cpu.getUsed();
+
+    var startup = Game.cpu.getUsed();
+    catalog.profile('startup', startup);
 
     production.process();
 
     catalog.jobs.generate();
     catalog.jobs.allocate();
+    catalog.quota.process();
 
-    // console.log(_.size(catalog.jobs.jobs.repair), catalog.jobs.capacity.repair);
+    // console.log(_.size(catalog.jobs.jobs.keep), catalog.jobs.capacity.keep);
     // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
-    // var jobs = Game.cpu.getUsed();
+    var jobs = Game.cpu.getUsed();
+    catalog.profile('jobs', jobs - startup);
+    
     WorkManager.process(catalog);
 
-    // var worker = Game.cpu.getUsed();
+    var worker = Game.cpu.getUsed();
+    catalog.profile('worker', worker - jobs);
+
     Spawner.spawn(catalog);
 
-    // var spawner = Game.cpu.getUsed();
+    var spawner = Game.cpu.getUsed();
     Controller.control(catalog);
+    catalog.profile('controller', Game.cpu.getUsed() - spawner);
 
-    // var controller = Game.cpu.getUsed();
-    // if(Game.cpu.getUsed() > Game.cpu.limit){
-        // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed(),'----');
-        // console.log('catalog', cat - start);
-        // console.log('jobs', jobs - cat);
-        // console.log('worker', worker - jobs);
-        // console.log('spawner', spawner - worker);
-        // console.log('controller', controller - spawner);
-    // }
-
-    
-    var usage = Game.cpu.getUsed() - start;
+    var usage = Game.cpu.getUsed();
     var profile = Memory.stats.profile;
     profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
     profile.count++;
@@ -75,4 +72,6 @@ module.exports.loop = function () {
     if(profile.min > usage){
         profile.min = usage;
     }
+
+    catalog.finishProfile();
 }

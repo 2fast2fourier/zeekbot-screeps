@@ -6,8 +6,6 @@ class TransferJob extends BaseJob {
     constructor(catalog){ super(catalog, 'transfer'); }
 
     generate(){
-        var start = Game.cpu.getUsed();
-
         var energyStorage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getResource(storage, RESOURCE_ENERGY) > 0);
         var jobs = _.reduce(Memory.transfer.energy, (result, need, id)=>{
             var target = Game.getObjectById(id);
@@ -51,7 +49,17 @@ class TransferJob extends BaseJob {
             return result;
         }, jobs);
 
-        this.profile(start);
+        jobs = _.reduce(this.catalog.buildings.terminal, (result, terminal)=>{
+            _.forEach(this.catalog.getResourceList(terminal), (amount, type)=>{
+                if(amount > Memory.settings.terminalMaxResources){
+                    var dropoff = _.first(this.catalog.sortByDistance(terminal, storage));
+                    var job = this.createJob(dropoff, terminal, amount - Memory.settings.terminalMaxResources, type);
+                    result[job.id] = job;
+                }
+            });
+            return result;
+        }, jobs);
+
         return this.postGenerate(jobs);
     }
 

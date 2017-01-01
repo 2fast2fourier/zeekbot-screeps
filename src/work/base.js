@@ -11,6 +11,10 @@ class BaseWorker extends SimpleWorker {
         return this.catalog.jobs.getOpenJobs(this.type);
     }
 
+    getOpenSubJobs(subtype){
+        return this.catalog.jobs.getOpenSubJobs(this.type, subtype);
+    }
+
     getCurrentJob(creep){
         if(creep.memory.jobType !== this.type){
             return false;
@@ -56,7 +60,12 @@ class BaseWorker extends SimpleWorker {
         if(!allocation){
             return false;
         }
-        var jobs = this.getOpenJobs();
+        var jobs;
+        if(_.isUndefined(opts.subtype)){
+            jobs = this.getOpenJobs()
+        }else{
+            jobs = this.getOpenSubJobs(opts.subtype);
+        }
         var result = _.reduce(jobs, (result, job) =>{
             var distance = this.getJobDistance(creep, job);
             if(opts.maxRange > 0 && distance > opts.maxRange){

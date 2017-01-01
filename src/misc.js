@@ -4,39 +4,19 @@ var memoryVersion = 1;
 
 class Misc {
     static updateStats(catalog){
-        if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
-            console.log('CPU (- a +):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max);
-            var nameAvg = "";
-            var maxAvg = 0;
-            var nameMax = "";
-            var maxMax = 0;
-            var total = 0;
-            _.forEach(Memory.stats.profile.job, (job, name) =>{
-                total += job.avg;
-                if(maxAvg < job.avg){
-                    maxAvg = job.avg;
-                    nameAvg = name;
-                }
-                if(maxMax < job.max){
-                    maxMax = job.max;
-                    nameMax = name;
-                }
-            });
-            console.log('Jobs - avg:', nameAvg, maxAvg, 'max:', nameMax, maxMax, total);
-        }
         if(Memory.debugMisc === true){
             _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat))
         }else if(Memory.debugMisc){
             console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
+        }
+        if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
+            console.log('CPU (- a +):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max);
         }
         var stats = {
             rooms: {},
             profile: {
                 misc: {},
                 miscCount: {},
-                job: {},
-                worker: {},
-                spawner: {},
                 avg: 0,
                 count: 0,
                 max: 0,
@@ -121,6 +101,7 @@ class Misc {
                 attack: 25
             },
             updateDelta: 100,
+            productionOverhead: 100,
             towerRepairPercent: 0.8,
             transferStoreThreshold: 500,
             transferRefillThreshold: 500,

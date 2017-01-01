@@ -30,6 +30,27 @@ class SimpleWorker {
         if(this.moveOpts){
             return creep.moveTo(target, this.moveOpts);
         }
+        if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
+            var range = 5;
+            return creep.moveTo(target, { reusePath: 15, costCallback: (roomName, costMatrix) => {
+                var avoidList = this.catalog.getAvoid({ roomName });
+                if(!avoidList){
+                    return;
+                }
+                for(var avoid of avoidList){
+                    var minX = Math.max(0, avoid.x - range);
+                    var minY = Math.max(0, avoid.y - range);
+                    var maxX = Math.min(49, avoid.x + range);
+                    var maxY = Math.min(49, avoid.y + range);
+                    for(var iy = minY; iy < maxY; iy++){
+                        for(var ix = minX; ix < maxX; ix++){
+                            costMatrix.set(ix, iy, 256);
+                        }
+                    }
+                }
+            }});
+        }
+        
         return creep.moveTo(target, { reusePath: 15 });
     }
 

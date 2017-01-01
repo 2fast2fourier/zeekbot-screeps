@@ -5,37 +5,30 @@ var Work = require('./work');
 
 class WorkManager {
     static process(catalog){
-        // var start = Game.cpu.getUsed();
-
+        var start = Game.cpu.getUsed();
         var workers = Work(catalog);
         var actions = Actions(catalog);
         var creeps = _.filter(Game.creeps, creep => !creep.spawning);
 
-        // var prep = Game.cpu.getUsed();
-
         _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
 
-        // var validate = Game.cpu.getUsed();
+
+        var validate = Game.cpu.getUsed();
+        catalog.profile('work-validate', validate - start);
         
         var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
-        // console.log(blocks.length, _.compact(blocks.length).length);
-
-        // var action = Game.cpu.getUsed();
         
         var startBid = Game.cpu.getUsed();
+        catalog.profile('work-block', startBid - validate);
+
         _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
 
         var bid = Game.cpu.getUsed();
+        catalog.profile('work-bid', bid - startBid);
+
         
         _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
-
-        // var work = Game.cpu.getUsed();
-        // console.log('---- start', Game.cpu.bucket, start, Game.cpu.getUsed() - start, Game.cpu.getUsed(), '----');
-        // console.log('prep', prep - start);
-        // console.log('validate', validate - prep);
-        // console.log('action', action - validate);
-        // console.log('bid', bid - action);
-        // console.log('work', work - bid);
+        catalog.profile('work-process', Game.cpu.getUsed() - bid);
     }
 
     static validateCreep(creep, workers, catalog){
@@ -61,7 +54,7 @@ class WorkManager {
 
     static bidCreep(creep, workers, catalog, startTime){
         if(!creep.memory.jobType){
-            if(Game.cpu.bucket < 9000 && Game.cpu.getUsed() - startTime > 10){
+            if(Game.cpu.bucket < 5000 && Game.cpu.getUsed() - startTime > 10){
                 return;
             }
             var lowestBid = 99999999;
@@ -90,7 +83,9 @@ class WorkManager {
     static processCreep(creep, workers, catalog, actions, block){
         var action = false;
         if(creep.memory.jobType && !creep.memory.block){
+            var start = Game.cpu.getUsed();
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
+            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
         }
         _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action, block));
     }

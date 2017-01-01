@@ -6,17 +6,13 @@ class ObserveJob extends BaseJob {
     constructor(catalog){ super(catalog, 'observe', { flagPrefix: 'Observe' }); }
 
     generateJobsForFlag(flag){
-        var flagparts = flag.name.split('-');
-        var subflag = false;
-        if(flagparts.length > 2){
-            subflag = flagparts[1];
-        }
+        var subflag = this.getSubflag(flag);
         return [{
             allocated: 0,
-            capacity: subflag ? 5 : 2,
+            capacity: subflag ? 5 : 1,
             id: this.type+"-"+flag.name,
             target: flag,
-            subflag
+            subtype: subflag
         }];
     }
 }

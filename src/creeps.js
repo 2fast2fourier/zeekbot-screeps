@@ -6,7 +6,7 @@ module.exports = {
             // boost: {
             //     allocation: 7,
             //     critical: 500,
-            //     parts: { move: 2, carry: 2, work: 4},
+            //     parts: { move: 4, carry: 2, work: 2},
             //     boost: { XUHO2: 2 }
             // },
             milli: {
@@ -14,31 +14,31 @@ module.exports = {
                 critical: 1400,
                 parts: { move: 5, carry: 2, work: 8 }
             },
-            micro: {
-                allocation: 6,
-                critical: 750,
-                disable: {
-                    maxSpawn: 1400
-                },
-                parts: {work: 6, carry: 2, move: 1}
-            },
-            nano: {
-                allocation: 4,
-                critical: 550,
-                disable: {
-                    maxSpawn: 750
-                },
-                parts: {work: 4, carry: 2, move: 1}
-            },
-            pico: {
-                bootstrap: 1,
-                quota: false,
-                critical: 300,
-                parts: {work: 2, carry: 1, move: 1},
-                disable: {
-                    energy: 2000
-                }
-            }
+            // micro: {
+            //     allocation: 6,
+            //     critical: 750,
+            //     disable: {
+            //         maxSpawn: 1400
+            //     },
+            //     parts: {work: 6, carry: 2, move: 1}
+            // },
+            // nano: {
+            //     allocation: 4,
+            //     critical: 550,
+            //     disable: {
+            //         maxSpawn: 750
+            //     },
+            //     parts: {work: 4, carry: 2, move: 1}
+            // },
+            // pico: {
+            //     bootstrap: 1,
+            //     quota: false,
+            //     critical: 300,
+            //     parts: {work: 2, carry: 1, move: 1},
+            //     disable: {
+            //         energy: 2000
+            //     }
+            // }
         },
         quota: {
             jobType: 'mine',
@@ -46,35 +46,35 @@ module.exports = {
         },
         rules: {
             mine: {},
-            deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
-            drop: { priority: 1 }
+            // deliver: { maxRange: 2, ignoreCreeps: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TOWER ] },
+            drop: { priority: 5 }
         },
-        actions: { avoid: {} }
+        actions: { avoid: {}, minecart: {} }
     },
     hauler: {
         versions: {
             spawn: {
                 critical: 600,
-                parts: {carry: 6, move: 6},
+                parts: {carry: 10, move: 10},
                 additionalPer: {
                     room: 2
                 },
                 rules: {
-                    pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, local: true },
+                    pickup: { subtype: false },
+                    deliver: { subtype: 'spawn' },
                     idle: { type: 'spawn' }
                 }
             },
-            picospawn: {
-                bootstrap: 1,
-                critical: 300,
-                parts: {carry: 3, move: 3},
-                rules: {
-                    pickup: {},
-                    deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true },
-                    idle: { type: 'spawn' }
-                }
-            },
+            // picospawn: {
+            //     bootstrap: 1,
+            //     critical: 300,
+            //     parts: {carry: 3, move: 3},
+            //     rules: {
+            //         pickup: {},
+            //         deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, subtype: 'spawn' },
+            //         idle: { type: 'spawn' }
+            //     }
+            // },
             transfer: {
                 quota: {
                     jobType: 'transfer',
@@ -84,43 +84,52 @@ module.exports = {
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
+            leveler: {
+                additionalPer: {
+                    room: 2
+                },
+                rules: {
+                    pickup: { types: [ STRUCTURE_STORAGE ], distanceWeight: 150, min: 250000 },
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
+                },
+                parts: { carry: 20, move: 10 }
+            },
             long: {
                 // ideal: 2,
                 // additionalPer: {
                 //     count: 4,
                 //     flagPrefix: 'Pickup'
                 // },
-                quota: {
-                    jobType: 'mine',
-                    allocation: 6
-                },
+                // quota: {
+                //     jobType: 'mine',
+                //     allocation: 6
+                // },
+                ideal: 20,
                 rules: {
-                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150 },
+                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
                 },
                 parts: { carry: 20, move: 10 }
             },
-            micro: {
-                additionalPer: {
-                    room: 2
-                },
-                parts: { carry: 6, move: 6 }
+            mineral: {
+                ideal: 1,
+                parts: { carry: 6, move: 6 },
+                rules: {
+                    pickup: { subtype: 'mineral', minerals: true, types: [ STRUCTURE_CONTAINER ] },
+                    deliver: {}
+                }
             },
-            nano: {
-                ideal: 2,
-                disable: {
-                    maxSpawn: 600
-                },
-                parts: { carry: 5, move: 5 }
-            },
-            pico: {
-                bootstrap: 1,
-                parts: { carry: 2, move: 2 }
-            }
-        },
-        rules: {
-            pickup: { minerals: true, types: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ] },
-            deliver: {}
+            // nano: {
+            //     ideal: 2,
+            //     disable: {
+            //         maxSpawn: 600
+            //     },
+            //     parts: { carry: 5, move: 5 }
+            // },
+            // pico: {
+            //     bootstrap: 1,
+            //     parts: { carry: 2, move: 2 }
+            // }
         },
         actions: { avoid: {} }
     },
@@ -133,7 +142,7 @@ module.exports = {
                 },
                 parts: { tough: 40, move: 10 },
                 memory: { ignoreHealth: true },
-                rules: { observe: { subflag: 'soak' } }
+                rules: { observe: { subtype: 'soak' } }
             },
             pico: {
                 additionalPer: {
@@ -142,7 +151,7 @@ module.exports = {
                 },
                 parts: {tough: 1, move: 1},
                 memory: { ignoreHealth: true },
-                rules: { observe: {} }
+                rules: { observe: { subtype: false } }
             }
         }
     },
@@ -195,18 +204,22 @@ module.exports = {
                 parts: { claim: 5, move: 5 },
                 additionalPer: {
                     count: 2,
-                    flagPrefix: 'Downgrade'
+                    flagPrefix: 'Reserve-downgrade'
                 },
                 rules: { reserve: { downgrade: true } }
             },
-            // pico: {
-            //     parts: { claim: 2, move: 2 },
-            //     quota: {
-            //         jobType: 'reserve',
-            //         allocation: 2,
-            //         ratio: 1
-            //     }
-            // }
+            pico: {
+                parts: { claim: 2, move: 2 },
+                additionalPer: {
+                    count: 1,
+                    flagPrefix: 'Reserve'
+                }
+                // quota: {
+                //     jobType: 'reserve',
+                //     allocation: 2,
+                //     ratio: 1
+                // }
+            }
         },
         rules: { reserve: {} }
     },
@@ -226,27 +239,31 @@ module.exports = {
     },
     fighter: {
         versions: {
-            ranged: {
-                additionalPer: {
-                    count: 2,
-                    flagPrefix: 'Defend',
-                    max: 4
-                },
-                parts: { tough: 10, move: 10, ranged_attack: 10 },
-                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
-            },
             melee: {
                 ideal: 1,
                 // additionalPer: {
                 //     count: 1,
                 //     flagPrefix: 'Keep'
                 // },
+                require: {
+                    energy: 250000
+                },
+                critical: 2300,
                 quota: {
                     jobType: 'keep',
                     allocation: 15
                 },
                 parts: { tough: 15, move: 16, attack: 15, heal: 2 },
                 actions: { selfheal: {} }
+            },
+            ranged: {
+                additionalPer: {
+                    count: 2,
+                    flagPrefix: 'Defend',
+                    max: 2
+                },
+                parts: { tough: 10, move: 10, ranged_attack: 10 },
+                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             assault: {
                 additionalPer: {

@@ -25,17 +25,6 @@ class MineWorker extends BaseWorker {
     }
 
     processStep(creep, job, target, opts){
-        if(this.catalog.getAvailableCapacity(creep) < 20){
-            var deliverables = _.filter(this.catalog.jobs.getOpenJobs('deliver'), job => !job.creep && creep.pos.getRangeTo(job.target) <= 1);
-            var nearby = _.sortBy(deliverables, job => job.offset);
-            if(nearby.length > 0){
-                _.forEach(creep.carry, (amount, type)=>{
-                    if(amount > 0){
-                        creep.transfer(nearby[0].target, type);
-                    }
-                });
-            }
-        }
         this.orMove(creep, target, creep.harvest(target));
         if(creep.ticksToLive == 100){
             creep.memory.jobAllocation = Math.ceil(creep.memory.jobAllocation / 2);

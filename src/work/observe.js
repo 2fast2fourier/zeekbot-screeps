@@ -10,9 +10,6 @@ class ObserveWorker extends BaseWorker {
     }
 
     calculateBid(creep, opts, job, allocation, distance){
-        if((opts.subflag && opts.subflag != job.subflag) || (!opts.subflag && !!job.subflag)){
-            return false;
-        }
         return distance/this.distanceWeight;
     }
 
