@@ -10,6 +10,9 @@ class KeepWorker extends BaseWorker {
     }
 
     calculateAllocation(creep, opts){
+        if(creep.memory.boosted && creep.memory.boosted.XUH2O > 0){
+            return this.calculateBoostedTotal(creep, 'attack', 'XUH2O', 'attack')  + creep.getActiveBodyparts(RANGED_ATTACK);
+        }
         return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
     }
 

@@ -26,6 +26,12 @@ class SimpleWorker {
         return 1 - this.catalog.getStoragePercent(creep);
     }
 
+    calculateBoostedTotal(creep, part, boost, effect){
+        var partCount = creep.getActiveBodyparts(part);
+        var boosted = _.get(creep.memory.boosted, boost, 0);
+        return partCount - boosted + boosted * _.get(BOOSTS, [part, boost, effect], 0);
+    }
+
     move(creep, target){
         if(this.moveOpts){
             return creep.moveTo(target, this.moveOpts);
@@ -44,7 +50,11 @@ class SimpleWorker {
                     var maxY = Math.min(49, avoid.y + range);
                     for(var iy = minY; iy < maxY; iy++){
                         for(var ix = minX; ix < maxX; ix++){
-                            costMatrix.set(ix, iy, 256);
+                            if(ix == minX || ix == maxX || iy == minY || iy == maxY){
+                                costMatrix.set(ix, iy, 10);
+                            }else{
+                                costMatrix.set(ix, iy, 256);
+                            }
                         }
                     }
                 }

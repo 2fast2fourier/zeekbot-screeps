@@ -67,10 +67,7 @@ class Misc {
             totalEnergy: _.sum(energyList),
             energySpread: _.min(energyList) / _.max(energyList),
             build: totalBuild,
-            repair: totalRepair,
-            upgrade: {
-                XUHO2: 50
-            }
+            repair: totalRepair
         }
         Memory.stats = stats;
     }
@@ -91,6 +88,10 @@ class Misc {
             Memory.transfer = {
                 lab: {},
                 energy: {}
+            };
+            Memory.boost = {
+                labs: {},
+                stored: {}
             };
         }
     }
@@ -116,7 +117,6 @@ class Misc {
     static mourn(){
         for(var name in Memory.creeps) {
             if(!Game.creeps[name]) {
-                console.log('RIP', name);
                 delete Memory.creeps[name];
             }
         }

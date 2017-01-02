@@ -34,6 +34,24 @@ class PickupJob extends BaseJob {
         }, []);
         return result;
     }
+
+    postGenerate(jobs){
+        var storage = _.first(_.sortBy(this.catalog.buildings.storage, storage => -storage.store[RESOURCE_ENERGY]));
+        if(storage){
+            var id = this.generateId(storage, 'level');
+            var levelJob = {
+                allocated: 0,
+                capacity: storage.store[RESOURCE_ENERGY],
+                id,
+                target: storage,
+                dropped: false,
+                resource: RESOURCE_ENERGY,
+                subtype: 'level'
+            };
+            jobs[id] = levelJob;
+        }
+        return jobs;
+    }
 }
 
 module.exports = PickupJob;

@@ -143,6 +143,7 @@ module.exports =
 
 	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
 	        _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+	        _.forEach(Memory.boost.labs, (labId, type) => Controller.boost(catalog, type, labId));
 	    }
 
 	    static towerDefend(tower, catalog) {
@@ -219,6 +220,26 @@ module.exports =
 	            return;
 	        }
 	        targetLab.runReaction(labs[0], labs[1]);
+	    }
+
+	    static boost(catalog, type, labId){
+	        var lab = Game.getObjectById(labId);
+	        if(!lab){
+	            console.log('invalid lab');
+	            return;
+	        }
+	        if(lab.mineralType != type){
+	            // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
+	            Memory.boost.stored[type] = 0;
+	            return;
+	        }
+	        if(lab.mineralAmount < 50 || lab.energy < 50){
+	            // console.log('missing resources', lab, lab.energy, lab.mineralAmount);
+	            Memory.boost.stored[type] = 0;
+	            return;
+	        }
+	        Memory.boost.stored[type] = lab.mineralAmount;
+	        
 	    }
 	}
 
@@ -321,12 +342,18 @@ module.exports =
 	    }
 
 	    static calculateSpawnLimit(catalog, type, version, config){
-	        if(version.disable){
-	            if(version.disable.maxSpawn > 0 && Memory.stats.global.maxSpawn >= version.disable.maxSpawn){
-	                return 0;
-	            }
+	        var limit = Infinity;
+	        if(version.boost){
+	            //TODO account for in-progress boosts
+	            _.forEach(version.boost, (parts, type) =>{
+	                if(!Memory.boost.labs[type]){
+	                    limit = 0;
+	                }
+	                limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
+	            });
+	            // console.log(type, limit);
 	        }
-	        return Infinity;
+	        return limit;
 	    }
 
 	    static spawner(spawn, catalog, spawnlist){
@@ -352,7 +379,7 @@ module.exports =
 	            var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(config, version, spawnType, className, versionName));
 	            Memory.uid++;
 	            var current = _.size(catalog.creeps.type[spawnType]);
-	            console.log(spawn, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
+	            console.log(spawn.name, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
 	            return spawned;
 	        }
 	        return false;
@@ -373,6 +400,10 @@ module.exports =
 	            rules: version.rules || config.rules,
 	            actions: version.actions || config.actions
 	        };
+
+	        if(version.boost){
+	            memory.boost = _.keys(version.boost);
+	        }
 
 	        var optMemory = version.memory || config.memory;
 	        if(optMemory){
@@ -462,12 +493,13 @@ module.exports =
 	module.exports = {
 	    miner: {
 	        versions: {
-	            // boost: {
-	            //     allocation: 7,
-	            //     critical: 500,
-	            //     parts: { move: 4, carry: 2, work: 2},
-	            //     boost: { XUHO2: 2 }
-	            // },
+	            boost: {
+	                allocation: 7,
+	                critical: true,
+	                parts: { move: 3, carry: 2, work: 1},
+	                boost: { XUHO2: 1 },
+	                actions: { boost: {}, avoid: {}, minecart: {} }
+	            },
 	            milli: {
 	                allocation: 7,
 	                critical: true,
@@ -513,8 +545,8 @@ module.exports =
 	                critical: true,
 	                parts: {carry: 10, move: 10},
 	                rules: {
-	                    pickup: { subtype: false },
-	                    deliver: { subtype: 'spawn' },
+	                    pickup: { subtype: false, local: true },
+	                    deliver: { subtype: 'spawn', local: true },
 	                    idle: { type: 'spawn' }
 	                }
 	            },
@@ -539,20 +571,20 @@ module.exports =
 	                quota: 'levelerhauler',
 	                max: 8,
 	                rules: {
-	                    pickup: { types: [ STRUCTURE_STORAGE ], distanceWeight: 150, min: 100000 },
+	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
 	                },
 	                parts: { carry: 20, move: 10 }
 	            },
 	            long: {
 	                quota: 'pickup-remote',
-	                allocation: 500,
-	                max: 10,
+	                allocation: 1000,
+	                max: 12,
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
 	                },
-	                parts: { carry: 30, move: 15 }
+	                parts: { carry: 32, move: 16 }
 	            },
 	            mineral: {
 	                quota: 'pickup-mineral',
@@ -610,8 +642,8 @@ module.exports =
 	            },
 	            upgrade: {
 	                quota: 'upgrade',
-	                allocation: 5,
-	                parts: {work: 5, carry: 2, move: 7},
+	                allocation: 10,
+	                parts: { work: 10, carry: 2, move: 6 },
 	                rules: { pickup: {}, upgrade: {} }
 	            },
 	            repair: {
@@ -650,16 +682,31 @@ module.exports =
 	    },
 	    healer: {
 	        versions: {
+	            boost: {
+	                critical: true,
+	                quota: 'heal',
+	                boost: { XLHO2: 4 },
+	                parts: { tough: 4, move: 8, heal: 4 },
+	                actions: { boost: {} }
+	            },
 	            pico: {
 	                quota: 'heal',
 	                max: 2,
-	                parts: {tough: 4, move: 8, heal: 4}
+	                parts: { tough: 4, move: 8, heal: 4 }
 	            },
 	        },
 	        rules: { heal: {}, idle: { type: 'heal' } }
 	    },
 	    fighter: {
 	        versions: {
+	            boostmelee: {
+	                critical: true,
+	                quota: 'keep',
+	                allocation: 15,
+	                boost: { XUH2O: 5 },
+	                parts: { tough: 24, move: 16, attack: 5, heal: 3 },
+	                actions: { boost: {}, selfheal: {} }
+	            },
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
@@ -738,14 +785,21 @@ module.exports =
 	    static creepAction(creep, actions, catalog){
 	        var block = _.reduce(creep.memory.actions, (result, opts, type) => {
 	            actions[type].preWork(creep, opts);
-	            return actions[type].shouldBlock(creep, opts) || result;
+	            if(result){
+	                return result;
+	            }
+	            var blocking = actions[type].shouldBlock(creep, opts);
+	            if(blocking){
+	                return { type, data: blocking };
+	            }
+	            return result;
 	        }, false);
 	        creep.memory.block = !!block;
 	        return block;
 	    }
 
 	    static bidCreep(creep, workers, catalog, startTime){
-	        if(!creep.memory.jobType){
+	        if(!creep.memory.jobType && !creep.memory.block){
 	            if(Game.cpu.bucket < 5000 && Game.cpu.getUsed() - startTime > 10){
 	                return;
 	            }
@@ -779,7 +833,11 @@ module.exports =
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
 	            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
 	        }
-	        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action, block));
+	        if(block){
+	            actions[block.type].blocked(creep, creep.memory.actions[block.type], block.data);
+	        }else{
+	            _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
+	        }
 	    }
 	}
 
@@ -792,6 +850,7 @@ module.exports =
 	"use strict";
 
 	var Avoid = __webpack_require__(6);
+	var Boost = __webpack_require__(52);
 	var MinecartAction = __webpack_require__(8);
 	var Repair = __webpack_require__(9);
 	var SelfHeal = __webpack_require__(10);
@@ -799,6 +858,7 @@ module.exports =
 	module.exports = function(catalog){
 	    return {
 	        avoid: new Avoid(catalog),
+	        boost: new Boost(catalog),
 	        minecart: new MinecartAction(catalog),
 	        repair: new Repair(catalog),
 	        selfheal: new SelfHeal(catalog)
@@ -826,14 +886,26 @@ module.exports =
 	            var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) < this.range);
 	            if(positions.length > 0){
 	                return _.map(positions, position => {
+	                    if(target && target.pos.getRangeTo(position) < this.range && creep.pos.getRangeTo(position) == this.range - 1){
+	                        creep.memory.blockedUntil = Game.time + 5;
+	                    }
 	                    return { pos: position, range: this.range };
 	                });
+	            }else if(creep.memory.blockedUntil > Game.time){
+	                return true;
+	            }else{
+	                creep.memory.blockedUntil = 0;
 	            }
+	        }else{
+	            creep.memory.blockedUntil = 0;
 	        }
 	        return false;
 	    }
 
-	    postWork(creep, opts, action, block){
+	    blocked(creep, opts, block){
+	        if(block === true && creep.memory.blockedUntil > Game.time){
+	            return;
+	        }
 	        if(block){
 	            creep.memory.avoidUntil = Game.time + 10;
 	            delete creep.memory._move;
@@ -864,7 +936,9 @@ module.exports =
 	        return false;
 	    }
 
-	    postWork(creep, opts, action, block){}
+	    postWork(creep, opts, action){}
+
+	    blocked(creep, opts, block){}
 
 	    hasJob(creep){
 	        return creep.memory.jobId && creep.memory.jobType;
@@ -1210,6 +1284,12 @@ module.exports =
 	        return 1 - this.catalog.getStoragePercent(creep);
 	    }
 
+	    calculateBoostedTotal(creep, part, boost, effect){
+	        var partCount = creep.getActiveBodyparts(part);
+	        var boosted = _.get(creep.memory.boosted, boost, 0);
+	        return partCount - boosted + boosted * _.get(BOOSTS, [part, boost, effect], 0);
+	    }
+
 	    move(creep, target){
 	        if(this.moveOpts){
 	            return creep.moveTo(target, this.moveOpts);
@@ -1228,7 +1308,11 @@ module.exports =
 	                    var maxY = Math.min(49, avoid.y + range);
 	                    for(var iy = minY; iy < maxY; iy++){
 	                        for(var ix = minX; ix < maxX; ix++){
-	                            costMatrix.set(ix, iy, 256);
+	                            if(ix == minX || ix == maxX || iy == minY || iy == maxY){
+	                                costMatrix.set(ix, iy, 10);
+	                            }else{
+	                                costMatrix.set(ix, iy, 256);
+	                            }
 	                        }
 	                    }
 	                }
@@ -1564,6 +1648,9 @@ module.exports =
 	    }
 
 	    calculateAllocation(creep, opts){
+	        if(creep.memory.boosted && creep.memory.boosted.XUH2O > 0){
+	            return this.calculateBoostedTotal(creep, 'attack', 'XUH2O', 'attack')  + creep.getActiveBodyparts(RANGED_ATTACK);
+	        }
 	        return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
 	    }
 
@@ -1623,8 +1710,8 @@ module.exports =
 	    }
 
 	    calculateAllocation(creep, opts){
-	        if(creep.ticksToLive < 100){
-	            return Math.ceil(creep.getActiveBodyparts(WORK) / 2);
+	        if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
+	            return 7;
 	        }
 	        return creep.getActiveBodyparts(WORK);
 	    }
@@ -1635,9 +1722,6 @@ module.exports =
 
 	    processStep(creep, job, target, opts){
 	        this.orMove(creep, target, creep.harvest(target));
-	        if(creep.ticksToLive == 100){
-	            creep.memory.jobAllocation = Math.ceil(creep.memory.jobAllocation / 2);
-	        }
 	    }
 
 	}
@@ -2561,7 +2645,10 @@ module.exports =
 	        return this.type;
 	    }
 
-	    generateId(entity){
+	    generateId(entity, subtype){
+	        if(subtype){
+	            return this.type+'-'+subtype+'-'+(entity.id || entity.name);
+	        }
 	        return this.type+'-'+(entity.id || entity.name);
 	    }
 
@@ -2995,6 +3082,24 @@ module.exports =
 	        }, []);
 	        return result;
 	    }
+
+	    postGenerate(jobs){
+	        var storage = _.first(_.sortBy(this.catalog.buildings.storage, storage => -storage.store[RESOURCE_ENERGY]));
+	        if(storage){
+	            var id = this.generateId(storage, 'level');
+	            var levelJob = {
+	                allocated: 0,
+	                capacity: storage.store[RESOURCE_ENERGY],
+	                id,
+	                target: storage,
+	                dropped: false,
+	                resource: RESOURCE_ENERGY,
+	                subtype: 'level'
+	            };
+	            jobs[id] = levelJob;
+	        }
+	        return jobs;
+	    }
 	}
 
 	module.exports = PickupJob;
@@ -3341,8 +3446,11 @@ module.exports =
 
 	        var roomCount = this.catalog.rooms.length;
 
-	        this.quota.spawnhauler = roomCount * 3;
-	        // console.log(_.size(this.catalog.creeps.type['spawnhauler']), this.quota.spawnhauler);
+	        this.quota.spawnhauler = roomCount * 2;
+	        // console.log(_.size(this.catalog.creeps.type['transferhauler']), this.quota.transfer);
+
+	        //TEST REMOVE ME
+	        this.quota.boostmine = 7;
 
 	        //spread the wealth
 	        if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.8){
@@ -3359,7 +3467,7 @@ module.exports =
 	        this.catalog.profile('pickup-remote', this.quota['pickup-remote']);
 
 	        
-	        // console.log(this.quota['idle-defend']);
+	        // console.log(this.quota['pickup']);
 	        // _.forEach(this.quota, (quota, type)=> console.log(type, quota) );
 	    }
 
@@ -3451,10 +3559,7 @@ module.exports =
 	            totalEnergy: _.sum(energyList),
 	            energySpread: _.min(energyList) / _.max(energyList),
 	            build: totalBuild,
-	            repair: totalRepair,
-	            upgrade: {
-	                XUHO2: 50
-	            }
+	            repair: totalRepair
 	        }
 	        Memory.stats = stats;
 	    }
@@ -3475,6 +3580,10 @@ module.exports =
 	            Memory.transfer = {
 	                lab: {},
 	                energy: {}
+	            };
+	            Memory.boost = {
+	                labs: {},
+	                stored: {}
 	            };
 	        }
 	    }
@@ -3500,7 +3609,6 @@ module.exports =
 	    static mourn(){
 	        for(var name in Memory.creeps) {
 	            if(!Game.creeps[name]) {
-	                console.log('RIP', name);
 	                delete Memory.creeps[name];
 	            }
 	        }
@@ -3620,6 +3728,69 @@ module.exports =
 	}
 
 	module.exports = Production;
+
+/***/ },
+/* 52 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(7);
+
+	class BoostAction extends BaseAction {
+	    constructor(catalog){
+	        super(catalog, 'boost');
+	    }
+
+	    shouldBlock(creep, opts){
+	        if(creep.memory.calculateBoost){
+	            creep.memory.boosted = _.countBy(_.filter(creep.body, 'boost'), 'boost');
+	            delete creep.memory.calculateBoost;
+	        }
+	        return creep.memory.boost;
+	    }
+
+	    blocked(creep, opts, block){
+	        var mineral = _.isString(block) ? block : _.first(block);
+	        var labId = Memory.boost.labs[mineral];
+	        if(labId){
+	            var lab = Game.getObjectById(labId);
+	            // console.log('boost', creep, mineral, lab);
+	            if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
+	                console.log(creep, 'not enough to boost', mineral, lab);
+	                delete creep.memory.boost;
+	                return;
+	            }
+	            if(creep.pos.getRangeTo(lab) > 1){
+	                creep.moveTo(lab, { reusePath: 15 });
+	            }else if(lab.boostCreep(creep) == OK){
+	                this.boosted(creep, mineral);
+	            }
+	        }else{
+	            console.log(creep, 'no lab allocated to boost', mineral);
+	            delete creep.memory.boost;
+	            return;
+	        }
+	    }
+
+	    boosted(creep, mineral){
+	        if(_.isString(creep.memory.boost)){
+	            delete creep.memory.boost;
+	        }else if(_.isArray(creep.memory.boost)){
+	            if(creep.memory.boost.length > 1){
+	                creep.memory.boost = _.without(creep.memory.boost, mineral);
+	            }else{
+	                delete creep.memory.boost;
+	            }
+	        }else{
+	            console.log('boosted err', creep.memory.boost);
+	        }
+	        creep.memory.calculateBoost = true;
+	    }
+	}
+
+
+	module.exports = BoostAction;
 
 /***/ }
 /******/ ]);

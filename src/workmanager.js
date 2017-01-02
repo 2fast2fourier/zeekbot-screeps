@@ -46,14 +46,21 @@ class WorkManager {
     static creepAction(creep, actions, catalog){
         var block = _.reduce(creep.memory.actions, (result, opts, type) => {
             actions[type].preWork(creep, opts);
-            return actions[type].shouldBlock(creep, opts) || result;
+            if(result){
+                return result;
+            }
+            var blocking = actions[type].shouldBlock(creep, opts);
+            if(blocking){
+                return { type, data: blocking };
+            }
+            return result;
         }, false);
         creep.memory.block = !!block;
         return block;
     }
 
     static bidCreep(creep, workers, catalog, startTime){
-        if(!creep.memory.jobType){
+        if(!creep.memory.jobType && !creep.memory.block){
             if(Game.cpu.bucket < 5000 && Game.cpu.getUsed() - startTime > 10){
                 return;
             }
@@ -87,7 +94,11 @@ class WorkManager {
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
             catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
         }
-        _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action, block));
+        if(block){
+            actions[block.type].blocked(creep, creep.memory.actions[block.type], block.data);
+        }else{
+            _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
+        }
     }
 }
 

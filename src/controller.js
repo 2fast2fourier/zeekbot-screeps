@@ -14,6 +14,7 @@ class Controller {
 
         _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
         _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+        _.forEach(Memory.boost.labs, (labId, type) => Controller.boost(catalog, type, labId));
     }
 
     static towerDefend(tower, catalog) {
@@ -90,6 +91,26 @@ class Controller {
             return;
         }
         targetLab.runReaction(labs[0], labs[1]);
+    }
+
+    static boost(catalog, type, labId){
+        var lab = Game.getObjectById(labId);
+        if(!lab){
+            console.log('invalid lab');
+            return;
+        }
+        if(lab.mineralType != type){
+            // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
+            Memory.boost.stored[type] = 0;
+            return;
+        }
+        if(lab.mineralAmount < 50 || lab.energy < 50){
+            // console.log('missing resources', lab, lab.energy, lab.mineralAmount);
+            Memory.boost.stored[type] = 0;
+            return;
+        }
+        Memory.boost.stored[type] = lab.mineralAmount;
+        
     }
 }
 

@@ -3,12 +3,13 @@
 module.exports = {
     miner: {
         versions: {
-            // boost: {
-            //     allocation: 7,
-            //     critical: 500,
-            //     parts: { move: 4, carry: 2, work: 2},
-            //     boost: { XUHO2: 2 }
-            // },
+            boost: {
+                allocation: 7,
+                critical: true,
+                parts: { move: 3, carry: 2, work: 1},
+                boost: { XUHO2: 1 },
+                actions: { boost: {}, avoid: {}, minecart: {} }
+            },
             milli: {
                 allocation: 7,
                 critical: true,
@@ -54,8 +55,8 @@ module.exports = {
                 critical: true,
                 parts: {carry: 10, move: 10},
                 rules: {
-                    pickup: { subtype: false },
-                    deliver: { subtype: 'spawn' },
+                    pickup: { subtype: false, local: true },
+                    deliver: { subtype: 'spawn', local: true },
                     idle: { type: 'spawn' }
                 }
             },
@@ -80,20 +81,20 @@ module.exports = {
                 quota: 'levelerhauler',
                 max: 8,
                 rules: {
-                    pickup: { types: [ STRUCTURE_STORAGE ], distanceWeight: 150, min: 100000 },
+                    pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
                 },
                 parts: { carry: 20, move: 10 }
             },
             long: {
                 quota: 'pickup-remote',
-                allocation: 500,
-                max: 10,
+                allocation: 1000,
+                max: 12,
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
                 },
-                parts: { carry: 30, move: 15 }
+                parts: { carry: 32, move: 16 }
             },
             mineral: {
                 quota: 'pickup-mineral',
@@ -151,8 +152,8 @@ module.exports = {
             },
             upgrade: {
                 quota: 'upgrade',
-                allocation: 5,
-                parts: {work: 5, carry: 2, move: 7},
+                allocation: 10,
+                parts: { work: 10, carry: 2, move: 6 },
                 rules: { pickup: {}, upgrade: {} }
             },
             repair: {
@@ -191,16 +192,31 @@ module.exports = {
     },
     healer: {
         versions: {
+            boost: {
+                critical: true,
+                quota: 'heal',
+                boost: { XLHO2: 4 },
+                parts: { tough: 4, move: 8, heal: 4 },
+                actions: { boost: {} }
+            },
             pico: {
                 quota: 'heal',
                 max: 2,
-                parts: {tough: 4, move: 8, heal: 4}
+                parts: { tough: 4, move: 8, heal: 4 }
             },
         },
         rules: { heal: {}, idle: { type: 'heal' } }
     },
     fighter: {
         versions: {
+            boostmelee: {
+                critical: true,
+                quota: 'keep',
+                allocation: 15,
+                boost: { XUH2O: 5 },
+                parts: { tough: 24, move: 16, attack: 5, heal: 3 },
+                actions: { boost: {}, selfheal: {} }
+            },
             melee: {
                 critical: true,
                 quota: 'keep',

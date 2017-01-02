@@ -13,7 +13,10 @@ class BaseJob {
         return this.type;
     }
 
-    generateId(entity){
+    generateId(entity, subtype){
+        if(subtype){
+            return this.type+'-'+subtype+'-'+(entity.id || entity.name);
+        }
         return this.type+'-'+(entity.id || entity.name);
     }
 

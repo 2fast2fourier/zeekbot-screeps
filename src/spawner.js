@@ -91,12 +91,18 @@ class Spawner {
     }
 
     static calculateSpawnLimit(catalog, type, version, config){
-        if(version.disable){
-            if(version.disable.maxSpawn > 0 && Memory.stats.global.maxSpawn >= version.disable.maxSpawn){
-                return 0;
-            }
+        var limit = Infinity;
+        if(version.boost){
+            //TODO account for in-progress boosts
+            _.forEach(version.boost, (parts, type) =>{
+                if(!Memory.boost.labs[type]){
+                    limit = 0;
+                }
+                limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
+            });
+            // console.log(type, limit);
         }
-        return Infinity;
+        return limit;
     }
 
     static spawner(spawn, catalog, spawnlist){
@@ -122,7 +128,7 @@ class Spawner {
             var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(config, version, spawnType, className, versionName));
             Memory.uid++;
             var current = _.size(catalog.creeps.type[spawnType]);
-            console.log(spawn, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
+            console.log(spawn.name, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
             return spawned;
         }
         return false;
@@ -143,6 +149,10 @@ class Spawner {
             rules: version.rules || config.rules,
             actions: version.actions || config.actions
         };
+
+        if(version.boost){
+            memory.boost = _.keys(version.boost);
+        }
 
         var optMemory = version.memory || config.memory;
         if(optMemory){

@@ -11,8 +11,11 @@ class QuotaManager {
 
         var roomCount = this.catalog.rooms.length;
 
-        this.quota.spawnhauler = roomCount * 3;
-        // console.log(_.size(this.catalog.creeps.type['spawnhauler']), this.quota.spawnhauler);
+        this.quota.spawnhauler = roomCount * 2;
+        // console.log(_.size(this.catalog.creeps.type['transferhauler']), this.quota.transfer);
+
+        //TEST REMOVE ME
+        this.quota.boostmine = 7;
 
         //spread the wealth
         if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.8){
@@ -29,7 +32,7 @@ class QuotaManager {
         this.catalog.profile('pickup-remote', this.quota['pickup-remote']);
 
         
-        // console.log(this.quota['idle-defend']);
+        // console.log(this.quota['pickup']);
         // _.forEach(this.quota, (quota, type)=> console.log(type, quota) );
     }
 

@@ -15,14 +15,26 @@ class AvoidAction extends BaseAction {
             var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) < this.range);
             if(positions.length > 0){
                 return _.map(positions, position => {
+                    if(target && target.pos.getRangeTo(position) < this.range && creep.pos.getRangeTo(position) == this.range - 1){
+                        creep.memory.blockedUntil = Game.time + 5;
+                    }
                     return { pos: position, range: this.range };
                 });
+            }else if(creep.memory.blockedUntil > Game.time){
+                return true;
+            }else{
+                creep.memory.blockedUntil = 0;
             }
+        }else{
+            creep.memory.blockedUntil = 0;
         }
         return false;
     }
 
-    postWork(creep, opts, action, block){
+    blocked(creep, opts, block){
+        if(block === true && creep.memory.blockedUntil > Game.time){
+            return;
+        }
         if(block){
             creep.memory.avoidUntil = Game.time + 10;
             delete creep.memory._move;
