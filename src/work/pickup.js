@@ -2,6 +2,11 @@
 
 var BaseWorker = require('./base');
 
+var offset = {
+    link: 0,
+    container: 0.05
+}
+
 class PickupWorker extends BaseWorker {
     constructor(catalog){ super(catalog, 'pickup'); }
 
@@ -31,7 +36,7 @@ class PickupWorker extends BaseWorker {
         if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
             return false;
         }
-        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation);
+        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation) + _.get(offset, job.target.structureType, 0);
     }
 
     processStep(creep, job, target, opts){

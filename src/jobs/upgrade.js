@@ -8,7 +8,12 @@ class UpgradeJob extends BaseJob {
     calculateCapacity(room, target, flag){
         var capacity = Memory.settings.upgradeCapacity || 10;
         if(flag){
-            return capacity * 2;
+            var flagparts = flag.name.split('-');
+            if(flagparts.length > 2){
+                return _.parseInt(flagparts[1]);
+            }else{
+                return capacity * 2;
+            }
         }
         return capacity;
     }

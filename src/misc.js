@@ -9,18 +9,11 @@ class Misc {
         }else if(Memory.debugMisc){
             console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
         }
-        if(Memory.debugProfile && Memory.stats && Memory.stats.profile.count > 10){
-            console.log('CPU (- a + b):', Memory.stats.profile.min, Memory.stats.profile.avg, Memory.stats.profile.max, Game.cpu.bucket);
-        }
         var stats = {
             rooms: {},
             profile: {
                 misc: {},
-                miscCount: {},
-                avg: 0,
-                count: 0,
-                max: 0,
-                min: Infinity
+                miscCount: {}
             }
         };
         var totalBuild = 0;
@@ -55,13 +48,13 @@ class Misc {
                 mineralType: _.get(mineral, 'mineralType', false),
                 mineralAmount: _.get(mineral, 'mineralAmount', 0),
                 energy: catalog.getResource(room.storage, RESOURCE_ENERGY),
-                terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
-                upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
+                // terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
+                // upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
             };
             totalRepair += repairHits;
             totalBuild += buildHits;
         });
-        var energyList = _.map(stats.rooms, 'energy');
+        var energyList = _.map(catalog.buildings.storage, 'store.energy');
         stats.global = {
             maxSpawn: _.max(_.map(stats.rooms, 'spawn')),
             totalEnergy: _.sum(energyList),

@@ -28,7 +28,7 @@ class PickupJob extends BaseJob {
                     target: entity,
                     dropped: !!entity.resourceType,
                     resource: type,
-                    subtype: !!flag ? 'remote' : type != RESOURCE_ENERGY ? 'mineral' : false
+                    subtype: type != RESOURCE_ENERGY ? 'mineral' : !!flag ? 'remote' : false
                 });
             });
         }, []);

@@ -11,7 +11,6 @@ class Spawner {
         }
 
         var spawnlist = Spawner.generateSpawnList(catalog);
-        Memory.spawnlist = spawnlist;
 
         if(spawnlist.totalCost == 0){
             return;

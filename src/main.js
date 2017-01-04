@@ -62,16 +62,6 @@ module.exports.loop = function () {
     Controller.control(catalog);
     catalog.profile('controller', Game.cpu.getUsed() - spawner);
 
-    var usage = Game.cpu.getUsed();
-    var profile = Memory.stats.profile;
-    profile.avg = (profile.avg*profile.count + usage)/(profile.count+1);
-    profile.count++;
-    if(profile.max < usage){
-        profile.max = usage;
-    }
-    if(profile.min > usage){
-        profile.min = usage;
-    }
-
     catalog.finishProfile();
+    catalog.profile('cpu', Game.cpu.getUsed());
 }

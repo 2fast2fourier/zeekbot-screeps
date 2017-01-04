@@ -12,6 +12,9 @@ class BoostAction extends BaseAction {
             creep.memory.boosted = _.countBy(_.filter(creep.body, 'boost'), 'boost');
             delete creep.memory.calculateBoost;
         }
+        if(!creep.memory.boost && creep.memory.actions.boost){
+            delete creep.memory.actions.boost;
+        }
         return creep.memory.boost;
     }
 

@@ -23,7 +23,7 @@ class TransferWorker extends BaseWorker {
 
     calculateBid(creep, opts, job, allocation, distance){
         var holding = this.catalog.getResource(creep, job.resource);
-        if(this.catalog.getStoragePercent(creep) > 0.5 && holding == 0){
+        if(this.catalog.getStoragePercent(creep) > 0 && holding == 0){
             return false;
         }
         if(!job.pickup || this.catalog.getResource(job.pickup, job.resource) == 0){

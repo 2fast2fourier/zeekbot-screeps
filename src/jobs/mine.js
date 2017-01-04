@@ -31,6 +31,16 @@ class MineJob extends BaseJob {
         }
         return targets;
     }
+
+    generateJobForTarget(room, target, flag){
+        var job = super.generateJobForTarget(room, target, flag);
+        if(job.target.mineralAmount > 0){
+            job.subtype = 'mineral';
+        }else{
+            job.subtype = 'energy';
+        }
+        return job;
+    }
 }
 
 module.exports = MineJob;

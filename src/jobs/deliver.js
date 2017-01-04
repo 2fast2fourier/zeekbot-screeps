@@ -28,7 +28,7 @@ class DeliverJob extends BaseJob {
 
     generateJobs(room){
         var energyNeeds = _.filter(this.catalog.getStructuresByType(room, types), structure => this.catalog.getAvailableCapacity(structure) > 0);
-        return _.map(energyNeeds, entity => {
+        var result = _.map(energyNeeds, entity => {
             return {
                 allocated: 0,
                 capacity: this.catalog.getAvailableCapacity(entity),
@@ -40,6 +40,30 @@ class DeliverJob extends BaseJob {
                 subtype: (entity.structureType == STRUCTURE_EXTENSION || entity.structureType == STRUCTURE_SPAWN || entity.structureType == STRUCTURE_TOWER) ? 'spawn' : false
             }
         });
+
+        _.forEach(Memory.stockpile, id =>{
+            var stockpile = Game.getObjectById(id);
+            if(!stockpile){
+                console.log('stockpile missing', id, stockpile);
+                return;
+            }
+            var capacity = this.catalog.getAvailableCapacity(stockpile);
+            if(capacity < 100){
+                return;
+            }
+            result.push({
+                allocated: 0,
+                capacity: capacity,
+                id: this.generateId(stockpile, 'stockpile'),
+                target: stockpile,
+                creep: false,
+                offset: 0,
+                minerals: false,
+                subtype: 'stockpile'
+            });
+        });
+
+        return result;
     }
 
     getOffset(type, entity){

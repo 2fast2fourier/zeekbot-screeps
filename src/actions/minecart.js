@@ -14,7 +14,7 @@ class MinecartAction extends BaseAction {
     }
 
     postWork(creep, opts, action){
-        if(_.sum(creep.carry) > creep.carryCapacity * 0.8){
+        if(_.sum(creep.carry) >= creep.carryCapacity * 0.7){
             var containers = this.catalog.lookForArea(creep.room, creep.pos, LOOK_STRUCTURES, 2);
             var targets = _.filter(containers, struct => (struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_LINK) && this.catalog.notFull(struct));
             var nearby = _.sortBy(targets, target => offsets[target.structureType]);

@@ -14,12 +14,9 @@ class QuotaManager {
         this.quota.spawnhauler = roomCount * 2;
         // console.log(_.size(this.catalog.creeps.type['transferhauler']), this.quota.transfer);
 
-        //TEST REMOVE ME
-        this.quota.boostmine = 7;
-
         //spread the wealth
-        if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.8){
-            this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 50000));
+        if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.9){
+            this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 100000));
         }else{
             this.quota.levelerhauler = 0;
         }

@@ -6,14 +6,28 @@ module.exports = {
             boost: {
                 allocation: 7,
                 critical: true,
-                parts: { move: 3, carry: 2, work: 1},
+                parts: { move: 1, carry: 2, work: 1},
                 boost: { XUHO2: 1 },
                 actions: { boost: {}, avoid: {}, minecart: {} }
             },
             milli: {
                 allocation: 7,
                 critical: true,
-                parts: { move: 5, carry: 2, work: 8 }
+                parts: { move: 4, carry: 2, work: 8 }
+            },
+            boostmineral: {
+                allocation: 5,
+                quota: 'mine-mineral',
+                parts: { move: 4, carry: 2, work: 4},
+                boost: { XUHO2: 4 },
+                actions: { boost: {}, avoid: {}, minecart: {} },
+                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
+            },
+            mineral: {
+                allocation: 5,
+                quota: 'mine-mineral',
+                parts: { move: 4, carry: 2, work: 8 },
+                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
             },
             // micro: {
             //     allocation: 6,
@@ -41,9 +55,9 @@ module.exports = {
             //     }
             // }
         },
-        quota: 'mine',
+        quota: 'mine-energy',
         rules: {
-            mine: {},
+            mine: { subtype: 'energy' },
             drop: { priority: 5 }
         },
         actions: { avoid: {}, minecart: {} }
@@ -77,6 +91,16 @@ module.exports = {
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
+            stockpile: {
+                quota: 'deliver-stockpile',
+                allocation: 2000,
+                max: 2,
+                rules: {
+                    pickup: { subtype: false, types: [ STRUCTURE_STORAGE ] },
+                    deliver: { subtype: 'stockpile' }
+                },
+                parts: { carry: 20, move: 10 }
+            },
             leveler: {
                 quota: 'levelerhauler',
                 max: 8,
@@ -99,11 +123,11 @@ module.exports = {
             mineral: {
                 quota: 'pickup-mineral',
                 allocation: 1000,
-                max: 1,
-                parts: { carry: 6, move: 6 },
+                max: 4,
+                parts: { carry: 20, move: 10 },
                 rules: {
                     pickup: { subtype: 'mineral', minerals: true, types: [ STRUCTURE_CONTAINER ] },
-                    deliver: {}
+                    deliver: { subtype: false }
                 }
             },
             // nano: {
@@ -212,7 +236,7 @@ module.exports = {
             boostmelee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 15,
+                allocation: 20,
                 boost: { XUH2O: 5 },
                 parts: { tough: 24, move: 16, attack: 5, heal: 3 },
                 actions: { boost: {}, selfheal: {} }
@@ -233,7 +257,7 @@ module.exports = {
             },
             assault: {
                 quota: 'idle-staging',
-                max: 5,
+                max: 1,
                 allocation: 1,
                 parts: { tough: 17, move: 16, attack: 15 },
                 rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
