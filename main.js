@@ -111,6 +111,11 @@ module.exports =
 
 	    catalog.finishProfile();
 	    catalog.profile('cpu', Game.cpu.getUsed());
+
+	    if(Game.cpu.bucket < 5000 && Memory.cpuWarningTriggered < Game.time){
+	        Game.notify('CPU bucket under limit!');
+	        Memory.cpuWarningTriggered = Game.time + 5000;
+	    }
 	}
 
 /***/ },
@@ -194,12 +199,9 @@ module.exports =
 	            console.log('missing labs for reaction', labs, type, data.lab);
 	            return;
 	        }
-	        if(targetLab.mineralType == type){
-	            Memory.transfer.lab[targetLab.id] = 'store';
-	        }else if(targetLab.mineralType){
-	            Memory.transfer.lab[targetLab.id] = false;
-	            return;
-	        }
+
+	        Memory.transfer.lab[targetLab.id] = type;
+
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
@@ -218,6 +220,7 @@ module.exports =
 	            console.log('invalid lab');
 	            return;
 	        }
+	        Memory.transfer.lab[lab.id] = type;
 	        if(lab.mineralType != type){
 	            // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
 	            Memory.boost.stored[type] = 0;
@@ -565,8 +568,8 @@ module.exports =
 	            // },
 	            transfer: {
 	                quota: 'transfer',
-	                allocation: 500,
-	                max: 2,
+	                allocation: 2000,
+	                max: 4,
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
 	            },
@@ -1869,19 +1872,17 @@ module.exports =
 
 	    calculateBid(creep, opts, job, allocation, distance){
 	        var distanceWeight = opts.distanceWeight || this.distanceWeight;
-	        if(opts.resource && job.resource != opts.resource){
-	            return false;
-	        }
 	        if(!opts.minerals && job.resource != RESOURCE_ENERGY){
 	            return false;
 	        }
 	        if(opts.types && !job.dropped && !_.includes(opts.types, job.target.structureType)){
 	            return false;
 	        }
-	        if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
-	            return false;
+	        var offset = _.get(offset, job.target.structureType, 0);
+	        if(job.resource != RESOURCE_ENERGY && job.dropped){
+	            offset = -1;
 	        }
-	        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation) + _.get(offset, job.target.structureType, 0);
+	        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation) + offset;
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -2090,10 +2091,10 @@ module.exports =
 	        if(this.catalog.getStoragePercent(creep) > 0 && holding == 0){
 	            return false;
 	        }
-	        if(!job.pickup || this.catalog.getResource(job.pickup, job.resource) == 0){
+	        if(!job.pickup && holding == 0){
 	            return false;
 	        }
-	        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity);
+	        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity) + job.priority;
 	    }
 
 	    processStep(creep, job, target, opts){
@@ -2170,16 +2171,6 @@ module.exports =
 	            creeps: {}
 	        };
 
-	        this.roomData = {};
-	        // roomData: {
-	        //     energy,
-	        //     minerals,
-	        //     mineralAmount,
-	        //     mineralType,
-	        //     sources,
-	        //     sourceEnergy
-	        // }
-
 	        this.droppedResources = {};
 	        this.storedResources = {};
 	        this.labResources = {};
@@ -2192,10 +2183,7 @@ module.exports =
 	            room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
 	        };
 
-	        // console.log(this.creeps.type.meleefighter);
-
 	        this.buildings = _.groupBy(Game.structures, structure => structure.structureType);
-	        // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
 
 	        this.rooms = _.filter(Game.rooms, 'controller.my');
 	        this.avoid = {};
@@ -2206,25 +2194,28 @@ module.exports =
 
 	        this.profileData = {};
 
+	        this.storage = {};
+	        this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
+	            return { total: 0, sources: [], storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } }
+	        }));
+	        _.forEach(this.buildings.storage, (storage)=>this.processStorage(storage));
+	        _.forEach(this.buildings.terminal, (storage)=>this.processStorage(storage));
 	    }
 
-	    getRoomData(room){
-	        if(!room.name){
-	            return false;
-	        }
-	        if(!this.roomData[room.name]){
-	            var minerals = room.find(FIND_MINERALS);
-	            var sources = room.find(FIND_SOURCES);
-	            this.roomData[room.name] = {
-	                energy: _.reduce(this.getResourceContainers(room, this.types.energyContainers, RESOURCE_ENERGY), (result, structure) => result += this.getResource(structure, RESOURCE_ENERGY), 0),
-	                minerals,
-	                mineralAmount: _.reduce(minerals, (result, mineral) => result += mineral.mineralAmount, 0),
-	                mineralType: _.get(minerals, '[0].mineralType', false),
-	                sources,
-	                sourceEnergy: _.reduce(sources, (result, source) => result += source.energy, 0)
-	            };
-	        }
-	        return this.roomData[room.name];
+	    processStorage(storage){
+	        var resources = this.getResourceList(storage);
+	        this.storage[storage.id] = resources;
+	        _.forEach(resources, (amount, type)=>{
+	            // if(!this.resources[type]){
+	            //     this.resources[type] = { total: 0, storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } };
+	            // }
+	            this.resources[type].total += amount;
+	            this.resources[type].totals[storage.structureType] += amount;
+	            if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
+	                this.resources[type].sources.push(storage);
+	            }
+	            this.resources[type][storage.structureType][storage.id] = amount;
+	        });
 	    }
 
 	    getFlagsByPrefix(prefix){
@@ -2437,6 +2428,14 @@ module.exports =
 
 	    getResourcePercent(entity, type){
 	        return this.getResource(entity, type) / this.getCapacity(entity);
+	    }
+
+	    isResourceInRange(entity, type, min, max){
+	        if(!entity){
+	            return false;
+	        }
+	        var amount = this.catalog.getResource(entity, type);
+	        return amount > min && amount < max;
 	    }
 
 	    isCreep(entity){
@@ -3418,78 +3417,83 @@ module.exports =
 	class TransferJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'transfer'); }
 
-	    generate(){
-	        var energyStorage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getResource(storage, RESOURCE_ENERGY) > 0);
-	        var jobs = _.reduce(Memory.transfer.energy, (result, need, id)=>{
-	            var target = Game.getObjectById(id);
-	            if(!target){
-	                return result;
-	            }
-	            var amount = need - this.catalog.getResource(target, RESOURCE_ENERGY);
-	            var pickup = _.first(this.catalog.sortByDistance(target, energyStorage));
-	            if(amount > 0 && pickup){
-	                var job = this.createJob(target, pickup, amount, RESOURCE_ENERGY);
-	                result[job.id] = job;
-	            }
-	            return result;
-	        }, {});
-	        
-	        var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) > 0);
-	        jobs = _.reduce(Memory.transfer.lab, (result, resource, id)=>{
-	            var target = Game.getObjectById(id);
-	            if(!target){
-	                return result;
-	            }
-	            if(resource === 'store'){
-	                if(target.mineralAmount > Memory.settings.transferStoreThreshold){
-	                    var dropoff = _.first(this.catalog.sortByDistance(target, storage));
-	                    var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
-	                    result[job.id] = job;
-	                }
-	            }else if(target.mineralAmount > 0 && resource != target.mineralType){
-	                var dropoff = _.first(this.catalog.sortByDistance(target, storage));
-	                var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
-	                result[job.id] = job;
-	            }else if(resource){
-	                var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-	                if(amount >= Memory.settings.transferRefillThreshold){
-	                    var sources = this.catalog.getStorageContainers(resource);
-	                    var pickup = _.first(_.sortBy(sources, source => -this.catalog.getResource(source, resource)));
-	                    var job = this.createJob(target, pickup, amount, resource);
-	                    result[job.id] = job;
-	                }
-	            }
-	            return result;
-	        }, jobs);
-
-	        jobs = _.reduce(this.catalog.buildings.terminal, (result, terminal)=>{
-	            _.forEach(this.catalog.getResourceList(terminal), (amount, type)=>{
-	                if(amount > Memory.settings.terminalMaxResources){
-	                    var dropoff = _.first(this.catalog.sortByDistance(terminal, storage));
-	                    var job = this.createJob(dropoff, terminal, amount - Memory.settings.terminalMaxResources, type);
-	                    result[job.id] = job;
-	                }
-	            });
-	            return result;
-	        }, jobs);
-
-	        return this.postGenerate(jobs);
+	    generateEnergyTransfers(type, need){
+	        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need), building => {
+	            return {
+	                target: building,
+	                resource: RESOURCE_ENERGY,
+	                amount: need - this.catalog.getResource(building, RESOURCE_ENERGY),
+	                subtype: 'deliver'
+	            };
+	        });
 	    }
 
-	    finalizeJob(room, target, job){
+	    generateLabTransfers(){
+	        var min = Memory.settings.labIdealMinerals - Memory.settings.transferRefillThreshold;
+	        var max = Memory.settings.labIdealMinerals + Memory.settings.transferStoreThreshold;
+	        return _.reduce(Memory.transfer.lab, (result, resource, labId) => {
+	            var target = Game.structures[labId];
+	            if(!target){
+	                console.log('invalid lab', labId);
+	                return result;
+	            }
+	            if(resource && target.mineralType != resource){
+	                result.push({
+	                    pickup: target,
+	                    resource: target.mineralType,
+	                    amount: target.mineralAmount,
+	                    subtype: 'store'
+	                });
+	                return result;
+	            }
+	            var amount = this.catalog.getResource(target, resource);
+	            if(amount < min){
+	                result.push({
+	                    target,
+	                    resource,
+	                    amount: Memory.settings.labIdealMinerals - amount,
+	                    subtype: 'deliver'
+	                });
+	            }
+	            if(amount > max){
+	                result.push({
+	                    pickup: target,
+	                    resource,
+	                    amount: amount - Memory.settings.labIdealMinerals,
+	                    subtype: 'store'
+	                });
+	            }
+	            return result;
+	        }, []);
+	    }
+
+	    generateSecondaryTarget(job){
+	        if(job.subtype == 'store'){
+	            var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) >= Memory.settings.transferStoreThreshold);
+	            job.target = _.first(_.sortBy(storage, store => store.pos.getRangeTo(job.pickup)));
+	            job.id = this.generateId(job.pickup, job.subtype+'-'+job.resource);
+	            job.priority = 1 + Math.max(0, 1 - job.amount / Memory.settings.transferStoreThreshold);
+	        }
+	        if(job.subtype == 'deliver'){
+	            job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
+	            job.id = this.generateId(job.target, job.subtype+'-'+job.resource);
+	            job.priority = Math.max(0, 1 - job.amount / Memory.settings.transferRefillThreshold);
+	        }
+	        job.capacity = job.amount;
+	        job.allocated = 0;
 	        return job;
 	    }
 
-	    createJob(target, pickup, amount, resource){
-	        return {
-	            allocated: 0,
-	            amount,
-	            capacity: amount,
-	            id: this.generateId(target)+'-'+resource,
-	            target,
-	            pickup,
-	            resource
-	        };
+	    generate(){
+	        var targetLists = [];
+
+	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
+	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
+	        targetLists.push(this.generateLabTransfers());
+
+	        var jobs = _.map(_.flatten(targetLists), job => this.generateSecondaryTarget(job));
+	        // _.forEach(_.zipObject(_.map(jobs, 'id'), jobs), job => console.log(job.id, job.target, job.pickup, job.subtype, job.resource, job.amount));
+	        return this.postGenerate(_.zipObject(_.map(jobs, 'id'), jobs));
 	    }
 
 	}
@@ -3717,8 +3721,10 @@ module.exports =
 	            transferStoreThreshold: 500,
 	            transferRefillThreshold: 500,
 	            repairTarget: 250000,
-	            upgradeCapacity: 15,
-	            terminalMaxResources: 100000
+	            upgradeCapacity: 10,
+	            labIdealMinerals: 1500,
+	            terminalMaxResources: 100000,
+	            terminalIdealResources: 10000
 	        };
 	    }
 

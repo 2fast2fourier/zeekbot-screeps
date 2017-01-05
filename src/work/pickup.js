@@ -24,19 +24,17 @@ class PickupWorker extends BaseWorker {
 
     calculateBid(creep, opts, job, allocation, distance){
         var distanceWeight = opts.distanceWeight || this.distanceWeight;
-        if(opts.resource && job.resource != opts.resource){
-            return false;
-        }
         if(!opts.minerals && job.resource != RESOURCE_ENERGY){
             return false;
         }
         if(opts.types && !job.dropped && !_.includes(opts.types, job.target.structureType)){
             return false;
         }
-        if(opts.min > 0 && this.catalog.getResource(job.target, job.resource) < opts.min){
-            return false;
+        var offset = _.get(offset, job.target.structureType, 0);
+        if(job.resource != RESOURCE_ENERGY && job.dropped){
+            offset = -1;
         }
-        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation) + _.get(offset, job.target.structureType, 0);
+        return 1 + this.getStorageOffset(creep) + distance / distanceWeight + this.calcAvailRatio(job, allocation) + offset;
     }
 
     processStep(creep, job, target, opts){

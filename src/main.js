@@ -64,4 +64,9 @@ module.exports.loop = function () {
 
     catalog.finishProfile();
     catalog.profile('cpu', Game.cpu.getUsed());
+
+    if(Game.cpu.bucket < 5000 && Memory.cpuWarningTriggered < Game.time){
+        Game.notify('CPU bucket under limit!');
+        Memory.cpuWarningTriggered = Game.time + 5000;
+    }
 }

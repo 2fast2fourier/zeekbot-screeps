@@ -26,16 +26,6 @@ class Catalog {
             creeps: {}
         };
 
-        this.roomData = {};
-        // roomData: {
-        //     energy,
-        //     minerals,
-        //     mineralAmount,
-        //     mineralType,
-        //     sources,
-        //     sourceEnergy
-        // }
-
         this.droppedResources = {};
         this.storedResources = {};
         this.labResources = {};
@@ -48,10 +38,7 @@ class Catalog {
             room: _.groupBy(Game.creeps, creep => creep.pos.roomName)
         };
 
-        // console.log(this.creeps.type.meleefighter);
-
         this.buildings = _.groupBy(Game.structures, structure => structure.structureType);
-        // _.forEach(this.buildings, (list, type)=>console.log(type, list.length));
 
         this.rooms = _.filter(Game.rooms, 'controller.my');
         this.avoid = {};
@@ -62,25 +49,28 @@ class Catalog {
 
         this.profileData = {};
 
+        this.storage = {};
+        this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
+            return { total: 0, sources: [], storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } }
+        }));
+        _.forEach(this.buildings.storage, (storage)=>this.processStorage(storage));
+        _.forEach(this.buildings.terminal, (storage)=>this.processStorage(storage));
     }
 
-    getRoomData(room){
-        if(!room.name){
-            return false;
-        }
-        if(!this.roomData[room.name]){
-            var minerals = room.find(FIND_MINERALS);
-            var sources = room.find(FIND_SOURCES);
-            this.roomData[room.name] = {
-                energy: _.reduce(this.getResourceContainers(room, this.types.energyContainers, RESOURCE_ENERGY), (result, structure) => result += this.getResource(structure, RESOURCE_ENERGY), 0),
-                minerals,
-                mineralAmount: _.reduce(minerals, (result, mineral) => result += mineral.mineralAmount, 0),
-                mineralType: _.get(minerals, '[0].mineralType', false),
-                sources,
-                sourceEnergy: _.reduce(sources, (result, source) => result += source.energy, 0)
-            };
-        }
-        return this.roomData[room.name];
+    processStorage(storage){
+        var resources = this.getResourceList(storage);
+        this.storage[storage.id] = resources;
+        _.forEach(resources, (amount, type)=>{
+            // if(!this.resources[type]){
+            //     this.resources[type] = { total: 0, storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } };
+            // }
+            this.resources[type].total += amount;
+            this.resources[type].totals[storage.structureType] += amount;
+            if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
+                this.resources[type].sources.push(storage);
+            }
+            this.resources[type][storage.structureType][storage.id] = amount;
+        });
     }
 
     getFlagsByPrefix(prefix){
@@ -293,6 +283,14 @@ class Catalog {
 
     getResourcePercent(entity, type){
         return this.getResource(entity, type) / this.getCapacity(entity);
+    }
+
+    isResourceInRange(entity, type, min, max){
+        if(!entity){
+            return false;
+        }
+        var amount = this.catalog.getResource(entity, type);
+        return amount > min && amount < max;
     }
 
     isCreep(entity){

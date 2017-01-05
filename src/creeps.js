@@ -86,8 +86,8 @@ module.exports = {
             // },
             transfer: {
                 quota: 'transfer',
-                allocation: 500,
-                max: 2,
+                allocation: 2000,
+                max: 4,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },

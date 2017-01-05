@@ -102,8 +102,10 @@ class Misc {
             transferStoreThreshold: 500,
             transferRefillThreshold: 500,
             repairTarget: 250000,
-            upgradeCapacity: 15,
-            terminalMaxResources: 100000
+            upgradeCapacity: 10,
+            labIdealMinerals: 1500,
+            terminalMaxResources: 100000,
+            terminalIdealResources: 10000
         };
     }
 

@@ -5,78 +5,83 @@ var BaseJob = require('./base');
 class TransferJob extends BaseJob {
     constructor(catalog){ super(catalog, 'transfer'); }
 
-    generate(){
-        var energyStorage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getResource(storage, RESOURCE_ENERGY) > 0);
-        var jobs = _.reduce(Memory.transfer.energy, (result, need, id)=>{
-            var target = Game.getObjectById(id);
-            if(!target){
-                return result;
-            }
-            var amount = need - this.catalog.getResource(target, RESOURCE_ENERGY);
-            var pickup = _.first(this.catalog.sortByDistance(target, energyStorage));
-            if(amount > 0 && pickup){
-                var job = this.createJob(target, pickup, amount, RESOURCE_ENERGY);
-                result[job.id] = job;
-            }
-            return result;
-        }, {});
-        
-        var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) > 0);
-        jobs = _.reduce(Memory.transfer.lab, (result, resource, id)=>{
-            var target = Game.getObjectById(id);
-            if(!target){
-                return result;
-            }
-            if(resource === 'store'){
-                if(target.mineralAmount > Memory.settings.transferStoreThreshold){
-                    var dropoff = _.first(this.catalog.sortByDistance(target, storage));
-                    var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
-                    result[job.id] = job;
-                }
-            }else if(target.mineralAmount > 0 && resource != target.mineralType){
-                var dropoff = _.first(this.catalog.sortByDistance(target, storage));
-                var job = this.createJob(dropoff, target, target.mineralAmount, target.mineralType);
-                result[job.id] = job;
-            }else if(resource){
-                var amount = this.catalog.getCapacity(target) - this.catalog.getResource(target, resource);
-                if(amount >= Memory.settings.transferRefillThreshold){
-                    var sources = this.catalog.getStorageContainers(resource);
-                    var pickup = _.first(_.sortBy(sources, source => -this.catalog.getResource(source, resource)));
-                    var job = this.createJob(target, pickup, amount, resource);
-                    result[job.id] = job;
-                }
-            }
-            return result;
-        }, jobs);
-
-        jobs = _.reduce(this.catalog.buildings.terminal, (result, terminal)=>{
-            _.forEach(this.catalog.getResourceList(terminal), (amount, type)=>{
-                if(amount > Memory.settings.terminalMaxResources){
-                    var dropoff = _.first(this.catalog.sortByDistance(terminal, storage));
-                    var job = this.createJob(dropoff, terminal, amount - Memory.settings.terminalMaxResources, type);
-                    result[job.id] = job;
-                }
-            });
-            return result;
-        }, jobs);
-
-        return this.postGenerate(jobs);
+    generateEnergyTransfers(type, need){
+        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need), building => {
+            return {
+                target: building,
+                resource: RESOURCE_ENERGY,
+                amount: need - this.catalog.getResource(building, RESOURCE_ENERGY),
+                subtype: 'deliver'
+            };
+        });
     }
 
-    finalizeJob(room, target, job){
+    generateLabTransfers(){
+        var min = Memory.settings.labIdealMinerals - Memory.settings.transferRefillThreshold;
+        var max = Memory.settings.labIdealMinerals + Memory.settings.transferStoreThreshold;
+        return _.reduce(Memory.transfer.lab, (result, resource, labId) => {
+            var target = Game.structures[labId];
+            if(!target){
+                console.log('invalid lab', labId);
+                return result;
+            }
+            if(resource && target.mineralType != resource){
+                result.push({
+                    pickup: target,
+                    resource: target.mineralType,
+                    amount: target.mineralAmount,
+                    subtype: 'store'
+                });
+                return result;
+            }
+            var amount = this.catalog.getResource(target, resource);
+            if(amount < min){
+                result.push({
+                    target,
+                    resource,
+                    amount: Memory.settings.labIdealMinerals - amount,
+                    subtype: 'deliver'
+                });
+            }
+            if(amount > max){
+                result.push({
+                    pickup: target,
+                    resource,
+                    amount: amount - Memory.settings.labIdealMinerals,
+                    subtype: 'store'
+                });
+            }
+            return result;
+        }, []);
+    }
+
+    generateSecondaryTarget(job){
+        if(job.subtype == 'store'){
+            var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) >= Memory.settings.transferStoreThreshold);
+            job.target = _.first(_.sortBy(storage, store => store.pos.getRangeTo(job.pickup)));
+            job.id = this.generateId(job.pickup, job.subtype+'-'+job.resource);
+            job.priority = 1 + Math.max(0, 1 - job.amount / Memory.settings.transferStoreThreshold);
+        }
+        if(job.subtype == 'deliver'){
+            job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
+            job.id = this.generateId(job.target, job.subtype+'-'+job.resource);
+            job.priority = Math.max(0, 1 - job.amount / Memory.settings.transferRefillThreshold);
+        }
+        job.capacity = job.amount;
+        job.allocated = 0;
         return job;
     }
 
-    createJob(target, pickup, amount, resource){
-        return {
-            allocated: 0,
-            amount,
-            capacity: amount,
-            id: this.generateId(target)+'-'+resource,
-            target,
-            pickup,
-            resource
-        };
+    generate(){
+        var targetLists = [];
+
+        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
+        targetLists.push(this.generateEnergyTransfers('lab', 2000));
+        targetLists.push(this.generateLabTransfers());
+
+        var jobs = _.map(_.flatten(targetLists), job => this.generateSecondaryTarget(job));
+        // _.forEach(_.zipObject(_.map(jobs, 'id'), jobs), job => console.log(job.id, job.target, job.pickup, job.subtype, job.resource, job.amount));
+        return this.postGenerate(_.zipObject(_.map(jobs, 'id'), jobs));
     }
 
 }

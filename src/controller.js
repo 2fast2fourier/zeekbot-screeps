@@ -75,12 +75,9 @@ class Controller {
             console.log('missing labs for reaction', labs, type, data.lab);
             return;
         }
-        if(targetLab.mineralType == type){
-            Memory.transfer.lab[targetLab.id] = 'store';
-        }else if(targetLab.mineralType){
-            Memory.transfer.lab[targetLab.id] = false;
-            return;
-        }
+
+        Memory.transfer.lab[targetLab.id] = type;
+
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }
@@ -99,6 +96,7 @@ class Controller {
             console.log('invalid lab');
             return;
         }
+        Memory.transfer.lab[lab.id] = type;
         if(lab.mineralType != type){
             // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
             Memory.boost.stored[type] = 0;
