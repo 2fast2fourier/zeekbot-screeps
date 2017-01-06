@@ -72,7 +72,8 @@ module.exports = {
                     pickup: { subtype: false, local: true },
                     deliver: { subtype: 'spawn', local: true },
                     idle: { type: 'spawn' }
-                }
+                },
+                actions: { assignRoom: {} }
             },
             // picospawn: {
             //     bootstrap: 1,
@@ -103,12 +104,12 @@ module.exports = {
             },
             leveler: {
                 quota: 'levelerhauler',
-                max: 8,
+                max: 10,
                 rules: {
                     pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
                 },
-                parts: { carry: 20, move: 10 }
+                parts: { carry: 30, move: 15 }
             },
             long: {
                 quota: 'pickup-remote',

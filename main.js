@@ -310,10 +310,17 @@ module.exports =
 	        _.forEach(classConfig, (config, className)=>{
 	            _.forEach(config.versions, (version, versionName)=>{
 	                var type = versionName+className;
+	                var spawntime = _.sum(version.parts) * 3;
 	                var quota = version.quota || config.quota;
-	                if(quota){
+	                if(quota && _.has(catalog.creeps.type, type)){
 	                    var allocate = _.get(version, 'allocation', 1);
-	                    _.set(allocation, quota, _.get(allocation, quota, 0) + (_.get(catalog.creeps.type, [type, 'length'], 0) * allocate));
+	                    var count = 0;
+	                    _.forEach(catalog.creeps.type[type], creep => {
+	                        if(creep.ticksToLive >= spawntime || creep.spawning){
+	                            count++;
+	                        }
+	                    });
+	                    _.set(allocation, quota, _.get(allocation, quota, 0) + (count * allocate));
 	                }
 
 	            });
@@ -554,7 +561,8 @@ module.exports =
 	                    pickup: { subtype: false, local: true },
 	                    deliver: { subtype: 'spawn', local: true },
 	                    idle: { type: 'spawn' }
-	                }
+	                },
+	                actions: { assignRoom: {} }
 	            },
 	            // picospawn: {
 	            //     bootstrap: 1,
@@ -585,12 +593,12 @@ module.exports =
 	            },
 	            leveler: {
 	                quota: 'levelerhauler',
-	                max: 8,
+	                max: 10,
 	                rules: {
 	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
 	                },
-	                parts: { carry: 20, move: 10 }
+	                parts: { carry: 30, move: 15 }
 	            },
 	            long: {
 	                quota: 'pickup-remote',
@@ -865,6 +873,7 @@ module.exports =
 
 	"use strict";
 
+	var AssignRoomAction = __webpack_require__(53);
 	var Avoid = __webpack_require__(6);
 	var Boost = __webpack_require__(8);
 	var MinecartAction = __webpack_require__(9);
@@ -873,6 +882,7 @@ module.exports =
 
 	module.exports = function(catalog){
 	    return {
+	        assignRoom: new AssignRoomAction(catalog),
 	        avoid: new Avoid(catalog),
 	        boost: new Boost(catalog),
 	        minecart: new MinecartAction(catalog),
@@ -892,7 +902,7 @@ module.exports =
 	class AvoidAction extends BaseAction {
 	    constructor(catalog){
 	        super(catalog, 'avoid');
-	        this.range = 5;
+	        this.range = 6;
 	    }
 
 	    shouldBlock(creep, opts){
@@ -1299,7 +1309,7 @@ module.exports =
 	            if(opts.maxRange > 0 && distance > opts.maxRange){
 	                return result;
 	            }
-	            if(opts.local && creep.pos.roomName != _.get(job, 'target.pos.roomName')){
+	            if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
 	                return result;
 	            }
 	            var bid = this.calculateBid(creep, opts, job, allocation, distance);
@@ -1377,7 +1387,7 @@ module.exports =
 	            return creep.moveTo(target, this.moveOpts);
 	        }
 	        if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
-	            var range = 5;
+	            var range = 6;
 	            return creep.moveTo(target, { reusePath: 15, costCallback: (roomName, costMatrix) => {
 	                var avoidList = this.catalog.getAvoid({ roomName });
 	                if(!avoidList){
@@ -2206,9 +2216,6 @@ module.exports =
 	        var resources = this.getResourceList(storage);
 	        this.storage[storage.id] = resources;
 	        _.forEach(resources, (amount, type)=>{
-	            // if(!this.resources[type]){
-	            //     this.resources[type] = { total: 0, storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } };
-	            // }
 	            this.resources[type].total += amount;
 	            this.resources[type].totals[storage.structureType] += amount;
 	            if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
@@ -2619,8 +2626,8 @@ module.exports =
 	        if(jobId && type && _.has(this.jobs, [type, jobId])){
 	            var recalc = this.categories[type].removeAllocation(this.jobs[type], jobId, allocation);
 	            this.allocation[type] -= allocation;
-	            if(recalc && !_.has(this.openJobs, [type, jobId])){
-	                this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
+	            if(recalc){
+	                _.set(this.openJobs, [type, jobId], this.jobs[type][jobId]);
 	            }
 	        }
 	    }
@@ -3428,6 +3435,25 @@ module.exports =
 	        });
 	    }
 
+	    generateTerminalTransfers(){
+	        return _.reduce(this.catalog.resources, (result, data, type)=>{
+	            if(data.totals.terminal < Memory.settings.terminalIdealResources){
+	                var target = _.first(this.catalog.buildings.terminal);
+	                var storage = _.first(_.sortBy(_.filter(data.sources, source => source.structureType != STRUCTURE_TERMINAL), source => source.pos.getRangeTo(target)));
+	                result.push({
+	                    pickup: storage || false,
+	                    target,
+	                    resource: type,
+	                    amount: Memory.settings.terminalIdealResources - data.totals.terminal,
+	                    subtype: 'terminal',
+	                    id: 'transfer-terminal-'+type,
+	                    priority: 1
+	                });
+	            }
+	            return result;
+	        }, []);
+	    }
+
 	    generateLabTransfers(){
 	        var min = Memory.settings.labIdealMinerals - Memory.settings.transferRefillThreshold;
 	        var max = Memory.settings.labIdealMinerals + Memory.settings.transferStoreThreshold;
@@ -3437,7 +3463,7 @@ module.exports =
 	                console.log('invalid lab', labId);
 	                return result;
 	            }
-	            if(resource && target.mineralType != resource){
+	            if(target.mineralType && resource && target.mineralType != resource){
 	                result.push({
 	                    pickup: target,
 	                    resource: target.mineralType,
@@ -3468,14 +3494,18 @@ module.exports =
 	    }
 
 	    generateSecondaryTarget(job){
-	        if(job.subtype == 'store'){
+	        if(!job.target){
 	            var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) >= Memory.settings.transferStoreThreshold);
 	            job.target = _.first(_.sortBy(storage, store => store.pos.getRangeTo(job.pickup)));
+	        }
+	        if(!job.pickup && job.pickup !== false){
+	            job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
+	        }
+	        if(job.subtype == 'store'){
 	            job.id = this.generateId(job.pickup, job.subtype+'-'+job.resource);
 	            job.priority = 1 + Math.max(0, 1 - job.amount / Memory.settings.transferStoreThreshold);
 	        }
 	        if(job.subtype == 'deliver'){
-	            job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
 	            job.id = this.generateId(job.target, job.subtype+'-'+job.resource);
 	            job.priority = Math.max(0, 1 - job.amount / Memory.settings.transferRefillThreshold);
 	        }
@@ -3490,6 +3520,7 @@ module.exports =
 	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
 	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
 	        targetLists.push(this.generateLabTransfers());
+	        targetLists.push(this.generateTerminalTransfers());
 
 	        var jobs = _.map(_.flatten(targetLists), job => this.generateSecondaryTarget(job));
 	        // _.forEach(_.zipObject(_.map(jobs, 'id'), jobs), job => console.log(job.id, job.target, job.pickup, job.subtype, job.resource, job.amount));
@@ -3850,6 +3881,50 @@ module.exports =
 	}
 
 	module.exports = Production;
+
+/***/ },
+/* 53 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(7);
+
+	class AssignRoomAction extends BaseAction {
+	    constructor(catalog){
+	        super(catalog, 'assignRoom');
+	    }
+
+	    preWork(creep, opts){
+	        var assignments = this.generateAssignedList(creep.memory.type);
+	        var least = Infinity;
+	        var targetRoom = false;
+	        _.forEach(this.catalog.rooms, room => {
+	            var assigned = _.get(assignments, room.name, 0);
+	            if(assigned < least){
+	                least = assigned;
+	                targetRoom = room.name;
+	            }
+	        });
+	        if(targetRoom){
+	            creep.memory.room = targetRoom;
+	            console.log('assigned', creep, 'to room', targetRoom);
+	        }
+	        delete creep.memory.actions.assignRoom;
+	    }
+
+	    generateAssignedList(type){
+	        return _.reduce(Game.creeps, (result, creep)=>{
+	            if(creep.memory.type == type && creep.memory.room){
+	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + 1);
+	            }
+	            return result;
+	        }, {});
+	    }
+	}
+
+
+	module.exports = AssignRoomAction;
 
 /***/ }
 /******/ ]);

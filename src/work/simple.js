@@ -37,7 +37,7 @@ class SimpleWorker {
             return creep.moveTo(target, this.moveOpts);
         }
         if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
-            var range = 5;
+            var range = 6;
             return creep.moveTo(target, { reusePath: 15, costCallback: (roomName, costMatrix) => {
                 var avoidList = this.catalog.getAvoid({ roomName });
                 if(!avoidList){

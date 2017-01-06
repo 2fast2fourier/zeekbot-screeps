@@ -66,10 +66,17 @@ class Spawner {
         _.forEach(classConfig, (config, className)=>{
             _.forEach(config.versions, (version, versionName)=>{
                 var type = versionName+className;
+                var spawntime = _.sum(version.parts) * 3;
                 var quota = version.quota || config.quota;
-                if(quota){
+                if(quota && _.has(catalog.creeps.type, type)){
                     var allocate = _.get(version, 'allocation', 1);
-                    _.set(allocation, quota, _.get(allocation, quota, 0) + (_.get(catalog.creeps.type, [type, 'length'], 0) * allocate));
+                    var count = 0;
+                    _.forEach(catalog.creeps.type[type], creep => {
+                        if(creep.ticksToLive >= spawntime || creep.spawning){
+                            count++;
+                        }
+                    });
+                    _.set(allocation, quota, _.get(allocation, quota, 0) + (count * allocate));
                 }
 
             });

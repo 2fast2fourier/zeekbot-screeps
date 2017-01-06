@@ -84,8 +84,8 @@ class JobManager {
         if(jobId && type && _.has(this.jobs, [type, jobId])){
             var recalc = this.categories[type].removeAllocation(this.jobs[type], jobId, allocation);
             this.allocation[type] -= allocation;
-            if(recalc && !_.has(this.openJobs, [type, jobId])){
-                this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
+            if(recalc){
+                _.set(this.openJobs, [type, jobId], this.jobs[type][jobId]);
             }
         }
     }

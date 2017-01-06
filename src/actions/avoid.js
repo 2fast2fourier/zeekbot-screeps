@@ -5,7 +5,7 @@ var BaseAction = require('./base');
 class AvoidAction extends BaseAction {
     constructor(catalog){
         super(catalog, 'avoid');
-        this.range = 5;
+        this.range = 6;
     }
 
     shouldBlock(creep, opts){

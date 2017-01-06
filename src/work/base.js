@@ -71,7 +71,7 @@ class BaseWorker extends SimpleWorker {
             if(opts.maxRange > 0 && distance > opts.maxRange){
                 return result;
             }
-            if(opts.local && creep.pos.roomName != _.get(job, 'target.pos.roomName')){
+            if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
                 return result;
             }
             var bid = this.calculateBid(creep, opts, job, allocation, distance);

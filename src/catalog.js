@@ -61,9 +61,6 @@ class Catalog {
         var resources = this.getResourceList(storage);
         this.storage[storage.id] = resources;
         _.forEach(resources, (amount, type)=>{
-            // if(!this.resources[type]){
-            //     this.resources[type] = { total: 0, storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } };
-            // }
             this.resources[type].total += amount;
             this.resources[type].totals[storage.structureType] += amount;
             if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
