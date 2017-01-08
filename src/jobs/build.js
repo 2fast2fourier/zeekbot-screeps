@@ -9,7 +9,9 @@ var offsets = {
     road: 0.5,
     constructedWall: 1,
     rampart: 1,
-    spawn: -1
+    spawn: -1,
+    lab: 1.5,
+    terminal: 1.5
 }
 
 class BuildJob extends BaseJob {

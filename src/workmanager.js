@@ -11,6 +11,7 @@ class WorkManager {
         var creeps = _.filter(Game.creeps, creep => !creep.spawning);
 
         _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
+        catalog.jobs.postValidate();
 
 
         var validate = Game.cpu.getUsed();

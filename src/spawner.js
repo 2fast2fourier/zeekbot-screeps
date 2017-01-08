@@ -11,6 +11,9 @@ class Spawner {
         }
 
         var spawnlist = Spawner.generateSpawnList(catalog);
+        // if(spawnlist.spawn.upgradeworker){
+        //     console.log('upgrade', spawnlist.spawn.upgradeworker, _.size(catalog.creeps.type['upgradeworker']));
+        // }
 
         if(spawnlist.totalCost == 0){
             return;
@@ -43,6 +46,9 @@ class Spawner {
                 var type = versionName+className;
                 var limit = Spawner.calculateSpawnLimit(catalog, type, version, config);
                 var quota = Spawner.calculateRemainingQuota(catalog, type, version, config, allocation);
+                // if(type == 'upgradeworker'){
+                //     console.log(type, quota, limit);
+                // }
                 var need = Math.min(limit, quota);
                 if(need > 0){
                     spawnlist.costs[type] = Spawner.calculateCost(version.parts || config.parts);
@@ -72,7 +78,7 @@ class Spawner {
                     var allocate = _.get(version, 'allocation', 1);
                     var count = 0;
                     _.forEach(catalog.creeps.type[type], creep => {
-                        if(creep.ticksToLive >= spawntime || creep.spawning){
+                        if(creep.ticksToLive >= spawntime || creep.spawning || !creep.ticksToLive){
                             count++;
                         }
                     });
@@ -153,7 +159,8 @@ class Spawner {
             jobType: false,
             jobAllocation: 0,
             rules: version.rules || config.rules,
-            actions: version.actions || config.actions
+            actions: version.actions || config.actions,
+            moveTicks: 0
         };
 
         if(version.boost){
@@ -226,6 +233,7 @@ class Spawner {
             creep.memory.jobId = false;
             creep.memory.jobType = false;
             creep.memory.jobAllocation = 0;
+            creep.memory.moveTicks = 0;
             var optMemory = version.memory || config.memory;
             if(optMemory){
                 _.assign(creep.memory, optMemory);

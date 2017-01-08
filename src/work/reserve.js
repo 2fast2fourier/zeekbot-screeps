@@ -22,7 +22,9 @@ class ReserveWorker extends BaseWorker {
         }else if(job.downgrade && opts.downgrade){
             this.orMove(creep, target, creep.attackController(target));
         }else if(job.claim){
-            this.orMove(creep, target, creep.claimController(target));
+            if(this.orMove(creep, target, creep.claimController(target)) == OK){
+                job.flag.remove();
+            }
         }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
             this.move(creep, target);
         }

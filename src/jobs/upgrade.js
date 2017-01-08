@@ -18,9 +18,28 @@ class UpgradeJob extends BaseJob {
         return capacity;
     }
 
-    generateTargets(room, flag){
-        return [room.controller];
+    generate(){
+        var jobs = {};
+        var jobRooms = {};
+        _.forEach(this.catalog.rooms, room => {
+            var job = this.generateJobForTarget(room, room.controller);
+            jobs[job.id] = job;
+            jobRooms[room.name] = job;
+        });
+        if(this.flagPrefix){
+            _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => {
+                jobRooms[flag.pos.roomName].capacity = this.calculateCapacity(flag.room, jobRooms[flag.pos.roomName].target, flag);
+            });
+        }
+        // _.forEach(jobs, job=>console.log(job.target, job.capacity));
+        
+        return this.postGenerate(jobs);
     }
+
+    // addAllocation(jobs, jobId, allocation){
+    //     super.addAllocation(jobs, jobId, allocation);
+    //     // console.log(jobs[jobId].target.pos.roomName, jobs[jobId].allocated, allocation);
+    // }
 }
 
 module.exports = UpgradeJob;

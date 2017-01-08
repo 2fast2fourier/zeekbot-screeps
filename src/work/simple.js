@@ -60,8 +60,18 @@ class SimpleWorker {
                 }
             }});
         }
+
+        if(creep.memory.lastX != creep.pos.x || creep.memory.lastY != creep.pos.y){
+            creep.memory.lastX = creep.pos.x;
+            creep.memory.lastY = creep.pos.y;
+            creep.memory.moveTicks = 0;
+        }else if(creep.memory.moveTicks >= 3){
+            delete creep.memory._move;
+        }else{
+            creep.memory.moveTicks++;
+        }
         
-        return creep.moveTo(target, { reusePath: 15 });
+        return creep.moveTo(target, { reusePath: 20 });
     }
 
     orMove(creep, target, result){

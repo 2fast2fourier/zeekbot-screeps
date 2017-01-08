@@ -2,23 +2,13 @@
 
 var JobManager = require('./jobmanager');
 var QuotaManager = require('./quota');
+var Util = require('./util');
 
 var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 class Catalog {
     constructor(){
-        //DEPRECATED
-        //TODO remove
-        this.types = {
-            collect: [ STRUCTURE_CONTAINER ],
-            dropoff: [ STRUCTURE_STORAGE ],
-            energy: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK ],
-            allResources: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_TERMINAL, STRUCTURE_LAB, STRUCTURE_LINK ],
-            spawn: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ],
-            energyNeeds: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_STORAGE ],
-            storage: [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ],
-            walls: [ STRUCTURE_WALL, STRUCTURE_RAMPART ]
-        };
+        _.assign(this, Util);
 
         this.structures = {};
         this.hostile = {
@@ -51,7 +41,7 @@ class Catalog {
 
         this.storage = {};
         this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
-            return { total: 0, sources: [], storage: {}, terminal: {}, totals: { storage: 0,  terminal: 0 } }
+            return { total: 0, sources: [], storage: [], terminal: [], totals: { storage: 0,  terminal: 0 } }
         }));
         _.forEach(this.buildings.storage, (storage)=>this.processStorage(storage));
         _.forEach(this.buildings.terminal, (storage)=>this.processStorage(storage));
@@ -66,7 +56,7 @@ class Catalog {
             if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
                 this.resources[type].sources.push(storage);
             }
-            this.resources[type][storage.structureType][storage.id] = amount;
+            this.resources[type][storage.structureType].push(storage);
         });
     }
 
@@ -120,11 +110,12 @@ class Catalog {
     }
 
     getResourceContainers(room, containerTypes, resourceType){
+        //DEPRECATED?? its not used anywhere
         if(!room.name){ return []; }
         if(!resourceType){
             resourceType = RESOURCE_ENERGY;
         }
-        var containers = _.filter(this.getStructuresByType(room, containerTypes || this.types.storage), structure => this.getResource(structure, resourceType) > 0);
+        var containers = _.filter(this.getStructuresByType(room, containerTypes || [ STRUCTURE_STORAGE, STRUCTURE_CONTAINER ]), structure => this.getResource(structure, resourceType) > 0);
         return containers.concat(_.filter(this.getDroppedResources(room), { resourceType }));
     }
 
@@ -184,82 +175,6 @@ class Catalog {
 
     lookForArea(room, pos, type, radius){
         return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
-    }
-
-    getResource(entity, type){
-        if(!entity){
-            return 0;
-        }
-        if(!type){
-            type = RESOURCE_ENERGY;
-        }
-        if(entity.carryCapacity > 0){
-            return _.get(entity.carry, type, 0);
-        }else if(entity.storeCapacity > 0){
-            return _.get(entity.store, type, 0);
-        }else if(entity.mineralCapacity > 0 && type === entity.mineralType){
-            return entity.mineralAmount;
-        }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
-            return entity.energy;
-        }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
-            return entity.amount;
-        }
-        return 0;
-    }
-
-    getResourceList(entity){
-        var result = {};
-        if(!entity){
-            return result;
-        }
-        if(entity.carryCapacity > 0){
-            return _.pick(entity.carry, amount => amount > 0);
-        }else if(entity.storeCapacity > 0){
-            return _.pick(entity.store, amount => amount > 0);
-        }else if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
-            result[entity.mineralType] = entity.mineralAmount;
-        }else if(entity.energyCapacity > 0 && entity.energy > 0){
-            result[RESOURCE_ENERGY] = entity.energy;
-        }else if(entity.resourceType && entity.amount > 0){
-            result[entity.resourceType] = entity.amount;
-        }
-        return result;
-    }
-
-    getCapacity(entity){
-        if(!entity){
-            return 0;
-        }
-        if(entity.carryCapacity > 0){
-            return entity.carryCapacity;
-        }else if(entity.storeCapacity > 0){
-            return entity.storeCapacity;
-        }else if(entity.mineralCapacity > 0){
-            return entity.mineralCapacity;
-        }else if(entity.energyCapacity > 0){
-            return entity.energyCapacity;
-        }else if(entity.resourceType && entity.amount > 0){
-            return entity.amount;
-        }
-        return 0;
-    }
-    
-    getStorage(entity){
-        if(!entity){
-            return 0;
-        }
-        if(entity.carryCapacity > 0){
-            return _.sum(entity.carry);
-        }else if(entity.storeCapacity > 0){
-            return _.sum(entity.store);
-        }else if(entity.mineralCapacity > 0){
-            return entity.mineralAmount;
-        }else if(entity.energyCapacity > 0){
-            return entity.energy;
-        }else if(entity.resourceType && entity.amount > 0){
-            return entity.amount;
-        }
-        return 0;
     }
 
     isFull(entity){

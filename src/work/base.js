@@ -84,7 +84,6 @@ class BaseWorker extends SimpleWorker {
             }
             return result;
         }, false);
-        // console.log(this.type, Game.cpu.getUsed() - start);
         return result;
     }
 

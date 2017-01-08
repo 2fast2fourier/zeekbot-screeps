@@ -13,6 +13,7 @@ class JobManager {
         this.allocation = {};
         this.staticAllocation = {};
         this.categories = Jobs(catalog);
+        this.dirty = [];
     }
 
     generate(){
@@ -75,6 +76,10 @@ class JobManager {
             var full = this.categories[type].addAllocation(this.jobs[type], jobId, allocation);
             this.allocation[type] += allocation;
             if(full && _.has(this.openJobs, [type, jobId])){
+                // if(type == 'upgrade'){
+                //     var job = this.openJobs[type][jobId];
+                //     console.log(jobId, job.capacity, job.target.pos, job.allocated)
+                // }
                 delete this.openJobs[type][jobId];
             }
         }
@@ -82,12 +87,18 @@ class JobManager {
 
     removeAllocation(type, jobId, allocation){
         if(jobId && type && _.has(this.jobs, [type, jobId])){
-            var recalc = this.categories[type].removeAllocation(this.jobs[type], jobId, allocation);
+            var dirty = this.categories[type].removeAllocation(this.jobs[type], jobId, allocation);
             this.allocation[type] -= allocation;
-            if(recalc){
-                _.set(this.openJobs, [type, jobId], this.jobs[type][jobId]);
+            if(dirty){
+                this.dirty.push(type);
             }
         }
+    }
+
+    postValidate(){
+        _.forEach(this.dirty, (type) =>{
+            this.openJobs[type] = _.pick(this.jobs[type], job => job.allocated < job.capacity);
+        });
     }
 }
 

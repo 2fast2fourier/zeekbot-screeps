@@ -41,7 +41,7 @@ class StaticWorker extends SimpleWorker {
                 job: { id: finalTarget.id, target: finalTarget },
                 type: this.type,
                 allocation: 1,
-                bid: this.calculateBid(creep, opts, finalTarget)
+                bid: this.calculateBid(creep, opts, finalTarget) + _.get(opts, 'priority', 0)
             }
         }
         return false;

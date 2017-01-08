@@ -78,6 +78,7 @@ class Misc {
                 labs: [],
                 quota: {}
             };
+            Memory.react = {};
             Memory.transfer = {
                 lab: {},
                 energy: {}
@@ -105,7 +106,7 @@ class Misc {
             upgradeCapacity: 10,
             labIdealMinerals: 1500,
             terminalMaxResources: 100000,
-            terminalIdealResources: 10000
+            terminalIdealResources: 5000
         };
     }
 

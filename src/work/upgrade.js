@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class UpgradeWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true, idleTimer: 50 }); }
+    constructor(catalog){ super(catalog, 'upgrade', { requiresEnergy: true, chatty: true }); }
 
     calculateAllocation(creep, opts){
         return creep.getActiveBodyparts(WORK);

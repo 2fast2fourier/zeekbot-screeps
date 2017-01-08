@@ -94,7 +94,7 @@ module.exports = {
             },
             stockpile: {
                 quota: 'deliver-stockpile',
-                allocation: 2000,
+                allocation: 1500,
                 max: 2,
                 rules: {
                     pickup: { subtype: false, types: [ STRUCTURE_STORAGE ] },
@@ -167,13 +167,13 @@ module.exports = {
             builder: {
                 quota: 'build',
                 allocation: 3,
-                max: 4,
+                max: 8,
                 rules: {
                     pickup: {},
                     build: {},
                     repair: { priority: 99 }
                 },
-                parts: { work: 4, carry: 4, move: 8 }
+                parts: { work: 4, carry: 6, move: 10 }
             },
             upgrade: {
                 quota: 'upgrade',
@@ -211,7 +211,7 @@ module.exports = {
                 parts: { claim: 2, move: 2 },
                 quota: 'reserve-reserve',
                 allocation: 2,
-                rules: { reserve: { subtype: 'reserve'} }
+                rules: { reserve: { subtype: 'reserve' } }
             }
         },
     },
@@ -246,7 +246,7 @@ module.exports = {
                 critical: true,
                 quota: 'keep',
                 allocation: 15,
-                parts: { tough: 15, move: 16, attack: 15, heal: 2 },
+                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
                 actions: { selfheal: {} }
             },
             ranged: {

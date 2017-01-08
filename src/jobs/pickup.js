@@ -24,7 +24,7 @@ class PickupJob extends BaseJob {
                 result.push({
                     allocated: 0,
                     capacity: amount,
-                    id: this.generateId(entity),
+                    id: this.generateId(entity)+'-'+type,
                     target: entity,
                     dropped: !!entity.resourceType,
                     resource: type,
@@ -50,6 +50,7 @@ class PickupJob extends BaseJob {
             };
             jobs[id] = levelJob;
         }
+
         return jobs;
     }
 }

@@ -57,7 +57,7 @@ module.exports.loop = function () {
     catalog.profile('worker', worker - jobs);
 
     Spawner.spawn(catalog);
-
+    
     var spawner = Game.cpu.getUsed();
     Controller.control(catalog);
     catalog.profile('controller', Game.cpu.getUsed() - spawner);

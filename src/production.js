@@ -51,7 +51,7 @@ class Production {
                 };
                 var labs = Memory.production.labs[labNum];
                 _.forEach(reaction.components, (component, ix) => Memory.transfer.lab[labs[ix]] = component);
-                Memory.transfer.lab[labs[2]] = 'store';
+                Memory.transfer.lab[labs[2]] = type;
             }
         });
     }

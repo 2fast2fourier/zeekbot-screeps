@@ -34,7 +34,15 @@ class ReserveJob extends BaseJob {
             id: this.type+"-"+flag.name,
             target: _.get(flag.room, 'controller', flag)
         };
-        if(subtype){
+        if(subtype == 'claim'){
+            if(flag.room && flag.room.controller.my){
+                flag.remove();
+            }
+            job[subtype] = true;
+            job.subtype = 'reserve';
+            job.id = this.type+"-reserve-"+flag.name;
+            job.flag = flag;
+        }else if(subtype){
             job[subtype] = true;
             job.subtype = subtype;
             job.id = this.type+"-"+subtype+"-"+flag.name;
