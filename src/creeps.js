@@ -87,15 +87,14 @@ module.exports = {
             // },
             transfer: {
                 quota: 'transfer',
-                allocation: 2000,
+                allocation: 2,
                 max: 4,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
             stockpile: {
                 quota: 'deliver-stockpile',
-                allocation: 1500,
-                max: 2,
+                allocation: 1600,
                 rules: {
                     pickup: { subtype: false, types: [ STRUCTURE_STORAGE ] },
                     deliver: { subtype: 'stockpile' }
@@ -258,7 +257,7 @@ module.exports = {
             },
             assault: {
                 quota: 'idle-staging',
-                max: 1,
+                max: 3,
                 allocation: 1,
                 parts: { tough: 17, move: 16, attack: 15 },
                 rules: { attack: {}, defend: {}, idle: { type: 'staging' } }

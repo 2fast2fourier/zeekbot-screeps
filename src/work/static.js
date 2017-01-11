@@ -6,14 +6,16 @@ class StaticWorker extends SimpleWorker {
     constructor(catalog, type, opts){
         super(catalog, type, opts);
         this.capacity = this.capacity || 1;
+        this.allocation = this.allocation || 1;
+        this.getTargetData = this.getTargetData.bind(this);
     }
 
     stillValid(creep, opts){
-        var target = Game.getObjectById(creep.memory.jobId);
-        return target && super.stillValid(creep, opts) && this.isValid(creep, opts, target);
+        var job = this.getTargetData(creep.memory.jobId);
+        return job.target && super.stillValid(creep, opts) && this.isValid(creep, opts, job.target, job);
     }
 
-    isValid(creep, opts, target){
+    isValid(creep, opts, target, job){
         return true;
     }
 
@@ -25,23 +27,41 @@ class StaticWorker extends SimpleWorker {
         return [];
     }
 
+    getTargetData(jobId){
+        if(this.multipart){
+            var result =  _.zipObject(this.multipart, jobId.split('-'));
+            result.targetId = result.id;
+            result.target = Game.getObjectById(result.targetId);
+            result.id = jobId;
+            return result;
+        }
+        return {
+            id: jobId,
+            target: Game.getObjectById(jobId),
+            targetId: jobId
+        };
+    }
+
     bid(creep, opts){
         if(!this.shouldBid(creep, opts)){
             return false;
         }
         var targetId = _.find(this.getTargets(), jobId => {
-            var target = Game.getObjectById(jobId);
+            var job = this.getTargetData(jobId);
             var allocated = _.get(this.catalog.jobs.staticAllocation, [this.type, jobId], 0);
-            return target && allocated < this.capacity && this.canBid(creep, opts, target);
+            return job.target && allocated < this.capacity && this.canBid(creep, opts, job.target, job);
         });
-        var finalTarget = Game.getObjectById(targetId);
-        // console.log(creep, 'bid for', finalTarget, _.get(this.catalog.jobs.staticAllocation, [this.type, targetId], 0), targetId);
-        if(finalTarget){
+        if(!targetId){
+            return false;
+        }
+        var job = this.getTargetData(targetId);
+        // console.log(creep, 'bid for', job.target, _.get(this.catalog.jobs.staticAllocation, [this.type, targetId], 0), targetId);
+        if(job.target){
             return {
-                job: { id: finalTarget.id, target: finalTarget },
+                job,
                 type: this.type,
-                allocation: 1,
-                bid: this.calculateBid(creep, opts, finalTarget) + _.get(opts, 'priority', 0)
+                allocation: this.allocation,
+                bid: this.calculateBid(creep, opts, job.target, job) + _.get(opts, 'priority', 0)
             }
         }
         return false;
@@ -59,7 +79,7 @@ class StaticWorker extends SimpleWorker {
         }
     }
 
-    calculateBid(creep, opts, target){
+    calculateBid(creep, opts, target, job){
         var distance = this.catalog.getRealDistance(creep, target) / this.distanceWeight;
         if(this.requiresEnergy){
             return (1 - creep.carry.energy / creep.carryCapacity) / 5 + distance;
@@ -69,14 +89,14 @@ class StaticWorker extends SimpleWorker {
     }
 
     process(creep, opts){
-        var target = Game.getObjectById(creep.memory.jobId);
-        if(!target){
+        var job = this.getTargetData(creep.memory.jobId);
+        if(!job.target){
             return false;
         }
-        return this.processStep(creep, target, opts);
+        return this.processStep(creep, job.target, opts, job);
     }
 
-    processStep(creep, target, opts){
+    processStep(creep, target, opts, job){
         return false;
     }
 

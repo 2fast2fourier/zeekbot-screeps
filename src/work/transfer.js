@@ -1,45 +1,154 @@
 "use strict";
 
-var BaseWorker = require('./base');
+var StaticWorker = require('./static');
+var Util = require('../util');
 
-class TransferWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'transfer', { chatty: true }); }
+class TransferWorker extends StaticWorker {
+    constructor(catalog){ super(catalog, 'transfer', { chatty: true, multipart: ['subtype', 'resource', 'amount', 'id'] }); }
 
-    isValid(creep, opts, job, target){
-        var resources = this.catalog.getResource(creep, job.resource);
-        if(resources == 0){
-            return this.catalog.getResource(job.pickup, job.resource) > 0;
-        }else{
-            if(job.resource == RESOURCE_ENERGY && target.energyCapacity > 0){
-                return (target.energyCapacity - target.energy) > 0;
+    isValid(creep, opts, target, job){
+        return this.canBid(creep, opts, target, job);
+    }
+
+    canBid(creep, opts, target, job){
+        var resources = Util.getResource(creep, job.resource);
+        if(Util.getStorage(creep) > 0 && resources == 0){
+            return false;
+        }
+        var targetResources = Util.getResource(job.target, job.resource);
+        var data = this.catalog.resources[job.resource];
+        var stored = data.totals.storage;
+        var terminalStored = data.totals.terminal;
+        if(job.subtype == 'store'){
+            if(resources > 0){
+                return true;
+            }else{
+                return targetResources > job.amount;
             }
-            return this.catalog.getAvailableCapacity(target) > 0;
+        }else if(job.subtype == 'deliver'){
+            if(resources > 0){
+                return targetResources < job.amount;
+            }else{
+                return targetResources < job.amount && stored > 0;
+            }
+        }else if(job.subtype == 'terminal'){
+            if(resources > 0){
+                return terminalStored < job.amount;
+            }else{
+                return terminalStored < job.amount && stored > 0;
+            }
         }
+        console.log('invalid type', job.id, creep, job.subtype);
+        return false;
     }
 
-    calculateAllocation(creep, opts){
-        return this.catalog.getCapacity(creep);
-    }
-
-    calculateBid(creep, opts, job, allocation, distance){
-        var holding = this.catalog.getResource(creep, job.resource);
-        if(this.catalog.getStoragePercent(creep) > 0 && holding == 0){
-            return false;
-        }
-        if(!job.pickup && holding == 0){
-            return false;
-        }
-        return distance / this.distanceWeight + (1 - job.amount / creep.carryCapacity) + job.priority;
-    }
-
-    processStep(creep, job, target, opts){
-        var resources = this.catalog.getResource(creep, job.resource);
+    processStep(creep, target, opts, job){
+        var deliver = false;
+        var pickup = false;
+        var resources = Util.getResource(creep, job.resource);
         if(resources > 0){
-            creep.memory.jobAllocation = resources;
-            this.orMove(creep, target, creep.transfer(target, job.resource, Math.min(resources, job.amount)));
+            creep.memory.transferPickup = false;
+            deliver = this.getDeliver(creep, job, resources);
         }else{
-            var amount = Math.min(this.catalog.getAvailableCapacity(creep), Math.min(this.catalog.getResource(job.pickup, job.resource), job.amount));
-            this.orMove(creep, job.pickup, creep.withdraw(job.pickup, job.resource, amount));
+            creep.memory.transferDeliver = false;
+            pickup = this.getPickup(creep, job);
+        }
+        if(deliver){
+            this.orMove(creep, deliver.target, creep.transfer(deliver.target, job.resource, deliver.amount));
+        }else if(pickup){
+            this.orMove(creep, pickup.target, creep.withdraw(pickup.target, job.resource, Math.min(Util.getCapacity(creep) - Util.getStorage(creep), pickup.amount)));
+        }
+    }
+
+    getTargetNeed(job){
+        var targetResources = Util.getResource(job.target, job.resource);
+        return Math.max(0, job.amount - targetResources);
+    }
+
+    getDeliverAmount(job, resources){
+        if(job.subtype == 'store'){
+            return resources;
+        }
+        return Math.min(resources, this.getTargetNeed(job));
+    }
+
+    getDeliver(creep, job, resources){
+        var deliverAmount = this.getDeliverAmount(job, resources);
+        if(creep.memory.transferDeliver){
+            var target = Game.getObjectById(creep.memory.transferDeliver);
+            if(target){
+                return {
+                    target,
+                    amount: deliverAmount
+                };
+            }
+        }
+        var target;
+        if(job.subtype == 'store'){
+            target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));
+        }else if(job.subtype == 'terminal'){
+            target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
+        }else{
+            target = job.target;
+        }
+        if(target){
+            creep.memory.transferDeliver = target.id;
+            return {
+                target,
+                amount: deliverAmount
+            };
+        }
+        //DEBUG
+        console.log('could not generate delivery target', creep, job.id, resources);
+        return false;
+    }
+
+    getPickup(creep, job){
+        if(creep.memory.transferPickup){
+            var target = Game.getObjectById(creep.memory.transferPickup);
+            var targetResources = Util.getResource(target, job.resource);
+            if(target && targetResources > 0){
+                return {
+                    target,
+                    amount: Math.min(targetResources, this.getTargetNeed(job))
+                };
+            }
+        }
+        var data = this.catalog.resources[job.resource];
+        var target;
+        if(job.subtype == 'store'){
+            target = job.target;
+        }else if(job.subtype == 'terminal'){
+            target = _.first(Util.sort.closest(creep, data.storage));
+        }else if(job.subtype == 'deliver'){
+            target = _.first(Util.sort.closest(creep, data.sources));
+        }
+        var targetResources = Util.getResource(target, job.resource);
+        if(target && targetResources > 0){
+            creep.memory.transferPickup = target.id;
+            return {
+                target,
+                amount: Math.min(targetResources, this.getTargetNeed(job))
+            };
+        }
+        //DEBUG
+        console.log('could not generate pickup target', creep, job.id, resources);
+        return false;
+    }
+
+    start(creep, bid, opts){
+        super.start(creep, bid, opts);
+        creep.memory.transferPickup = false;
+        creep.memory.transferDeliver = false;
+    }
+
+    stop(creep, opts){
+        super.stop(creep, opts);
+        if(creep.memory.transferPickup){
+            delete creep.memory.transferPickup;
+        }
+        if(creep.memory.transferDeliver){
+            delete creep.memory.transferDeliver;
         }
     }
 

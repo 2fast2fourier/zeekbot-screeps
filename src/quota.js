@@ -13,7 +13,9 @@ class QuotaManager {
 
         this.quota.spawnhauler = roomCount * 2;
 
-        this.quota.transfer = _.get(this.quota, 'transfer-deliver', 0) + _.get(this.quota, 'transfer-store', 0);
+        // console.log(this.quota.transfer);
+
+        // this.quota.transfer = _.get(this.quota, 'transfer-deliver', 0) + _.get(this.quota, 'transfer-store', 0);
         // console.log(_.size(this.catalog.creeps.type['upgradeworker']), this.quota.upgrade);
 
         //spread the wealth

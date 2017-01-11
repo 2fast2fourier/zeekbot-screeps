@@ -20,7 +20,7 @@ class AssignRoomAction extends BaseAction {
         });
         if(targetRoom){
             creep.memory.room = targetRoom;
-            console.log('assigned', creep, 'to room', targetRoom);
+            console.log('assigned', creep.name, 'to room', targetRoom);
         }
         delete creep.memory.actions.assignRoom;
     }

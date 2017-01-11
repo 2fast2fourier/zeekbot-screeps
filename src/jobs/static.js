@@ -22,13 +22,17 @@ class StaticJob {
     }
 
     generate(){
-        if(this.refresh > 0){
-            if(_.get(Memory.jobUpdateTime, this.type, 0) > Game.time){
-                return {};
-            }
-            Memory.jobUpdateTime[this.type] = Game.time + this.refresh;
+        if(this.refresh > 0 && !this.catalog.interval(this.refresh)){
+            return {};
         }
 
+        var finalTargets = this.finalizeTargetList(this.generateAllTargets());
+
+        Memory.jobs[this.type] = this.generateJobs(finalTargets);
+        return {};
+    }
+
+    generateAllTargets(){
         var targetLists = _.map(this.catalog.rooms, room => this.generateTargets(room));
         if(this.flagPrefix){
             var flagTargetLists = _.map(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => this.generateTargetsForFlag(flag));
@@ -36,26 +40,7 @@ class StaticJob {
                 targetLists = targetLists.concat(flagTargetLists);
             }
         }
-        var finalTargets = this.finalizeTargetList(_.flatten(targetLists));
-
-        Memory.jobs[this.type] = this.generateJobs(finalTargets);
-        return {};
-    }
-
-    generateJobs(targets){
-        return _.map(targets, this.generateJob);
-    }
-
-    generateJob(target){
-        return target.id;
-    }
-
-    calculatePriority(target){
-        return 0;
-    }
-
-    finalizeTargetList(targets){
-        return targets;
+        return _.flatten(targetLists);
     }
 
     generateTargets(room, flag){
@@ -71,6 +56,18 @@ class StaticJob {
             return this.generateTargets(flag.room, flag);
         }
         return this.generateTargetsForUnknownRoom(flag.pos.roomName, flag);
+    }
+
+    finalizeTargetList(targets){
+        return targets;
+    }
+
+    generateJobs(targets){
+        return _.map(targets, this.generateJob);
+    }
+
+    generateJob(target){
+        return target.id;
     }
 
     addAllocation(jobs, jobId, allocation){

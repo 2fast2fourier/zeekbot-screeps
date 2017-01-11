@@ -1,5 +1,11 @@
 "use strict";
 
+var Util = require('./util');
+
+var prices = {
+    X: 0.45
+}
+
 class Controller {
 
     static control(catalog){
@@ -15,6 +21,13 @@ class Controller {
         _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
         _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
         _.forEach(Memory.boost.labs, (labId, type) => Controller.boost(catalog, type, labId));
+        
+
+        if(Util.interval(20)){
+            if(!Controller.levelTerminals(catalog)){
+                Controller.sellOverage(catalog);
+            }
+        }
     }
 
     static towerDefend(tower, catalog) {
@@ -109,6 +122,79 @@ class Controller {
         }
         Memory.boost.stored[type] = lab.mineralAmount;
         
+    }
+
+    static levelTerminals(catalog){
+        var transferred = false;
+        var ideal = Memory.settings.terminalIdealResources;
+        var terminalCount = _.size(catalog.buildings.terminal);
+        _.forEach(catalog.resources, (data, type)=>{
+            if(type == RESOURCE_ENERGY){
+                return;
+            }
+            if(!transferred && data.totals.terminal > ideal){
+                var terminal = _.last(Util.sort.resource(_.filter(data.terminal, terminal => Util.getResource(terminal, type) > ideal + 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 40000), type));
+                var target = _.last(Util.sort.resource(_.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100), type));
+                if(terminal && target){
+                    var source = Util.getResource(terminal, type);
+                    var dest = Util.getResource(target, type);
+                    var sending = Math.min(source - ideal, ideal - dest);
+                    if(sending >= 100){
+                        console.log('transfer', type, terminal, source, 'to', target, dest, sending);
+                        transferred = terminal.send(type, sending, target.pos.roomName) == OK;
+                    }
+                }
+            }
+        });
+        return transferred;
+    }
+
+// {
+// 	id : "55c34a6b5be41a0a6e80c68b", 
+// 	created : 13131117, 
+// 	active: true,
+// 	type : "sell"    
+// 	resourceType : "OH", 
+// 	roomName : "W1N1", 
+// 	amount : 15821, 
+// 	remainingAmount : 30000,
+// 	totalAmount : 50000,
+// 	price : 2.95    
+// }
+    static sellOverage(catalog){
+        var sold = false;
+        var terminalCount = _.size(catalog.buildings.terminal);
+        var ideal = Memory.settings.terminalIdealResources;
+        var max = terminalCount * ideal;
+        var orders = {};
+        _.forEach(Game.market.orders, order =>{
+            if(order.active && order.type == ORDER_SELL){
+                orders[order.resourceType] = order;
+            }
+        });
+        _.forEach(catalog.resources, (data, type)=>{
+            var overage = data.totals.terminal - max;
+            if(!sold && type != RESOURCE_ENERGY && overage > 1000 && Game.market.credits > 10000){
+                if(!_.has(prices, type)){
+                    console.log('want to sell', type, 'but no price');
+                    return;
+                }
+                var existing = orders[type];
+                if(!existing){
+                    var source = _.first(_.sortBy(data.terminal, terminal => -Util.getResource(terminal, type)));
+                    var holding = Util.getResource(source, type);
+                    console.log('selling from', source.pos.roomName, overage, holding, prices[type]);
+                    sold = Game.market.createOrder(ORDER_SELL, type, prices[type], Math.min(overage, holding), source.pos.roomName) == OK;
+                    if(sold){
+                        console.log('created order', type, Math.min(overage, holding));
+                    }
+                }else if(existing && existing.remainingAmount < 250){
+                    console.log('cancelling order', existing.orderId, existing.remainingAmount, overage);
+                    sold = Game.market.cancelOrder(existing.orderId) == OK;
+                }
+
+            }
+        });
     }
 }
 

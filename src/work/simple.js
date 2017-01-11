@@ -113,9 +113,9 @@ class SimpleWorker {
     
     process(creep, opts){ return false; }
     
-    stop(creep, bid, opts){
+    stop(creep, opts){
         if(this.debug){
-            console.log('stop',this.type)
+            console.log('stop', this.type)
         }
         if(this.idleTimer > 0){
             delete creep.memory.idleCheck;

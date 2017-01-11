@@ -145,9 +145,14 @@ class Sorting {
     static resource(entities, type){
         return _.sortBy(entities, SortPredicates.resource(type));
     }
+    
+    static closest(entity, entities){
+        return _.sortBy(entities, SortPredicates.distance(entity));
+    }
 }
 
 class Helpers {
+
     static closestNotFull(entity, entities){
         return _.sortBy(_.filter(entities, FilterPredicates.notFull), SortPredicates.distance(entity));
     }
