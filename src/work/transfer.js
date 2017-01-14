@@ -6,17 +6,11 @@ var Util = require('../util');
 class TransferWorker extends StaticWorker {
     constructor(catalog){ super(catalog, 'transfer', { chatty: true, multipart: ['subtype', 'resource', 'amount', 'id'] }); }
 
-    isValid(creep, opts, target, job){
-        return this.canBid(creep, opts, target, job);
-    }
-
-    canBid(creep, opts, target, job){
+    validate(creep, opts, target, job){
         var resources = Util.getResource(creep, job.resource);
-        if(Util.getStorage(creep) > 0 && resources == 0){
-            return false;
-        }
         var targetResources = Util.getResource(job.target, job.resource);
         var data = this.catalog.resources[job.resource];
+        var allStored = data.total;
         var stored = data.totals.storage;
         var terminalStored = data.totals.terminal;
         if(job.subtype == 'store'){
@@ -29,7 +23,7 @@ class TransferWorker extends StaticWorker {
             if(resources > 0){
                 return targetResources < job.amount;
             }else{
-                return targetResources < job.amount && stored > 0;
+                return targetResources < job.amount && allStored > 0;
             }
         }else if(job.subtype == 'terminal'){
             if(resources > 0){
@@ -40,6 +34,25 @@ class TransferWorker extends StaticWorker {
         }
         console.log('invalid type', job.id, creep, job.subtype);
         return false;
+    }
+
+    isValid(creep, opts, target, job){
+        var valid = this.validate(creep, opts, target, job);
+        if(valid && Util.getResource(creep, job.resource) == 0 && !this.jobExists(job.id)){
+            return false;
+        }
+        return valid;
+    }
+
+    canBid(creep, opts, target, job){
+        if(creep.ticksToLive < 100){
+            return false;
+        }
+        var resources = Util.getResource(creep, job.resource);
+        if(Util.getStorage(creep) > 0 && resources == 0){
+            return false;
+        }
+        return this.validate(creep, opts, target, job);
     }
 
     processStep(creep, target, opts, job){
@@ -85,7 +98,12 @@ class TransferWorker extends StaticWorker {
         }
         var target;
         if(job.subtype == 'store'){
-            target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));
+            var terminalIdeal = Memory.settings.terminalIdealResources * _.size(this.catalog.buildings.terminal);
+            if(this.catalog.resources[job.resource].totals.terminal + resources <= terminalIdeal){
+                target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
+            }else{
+                target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));
+            }
         }else if(job.subtype == 'terminal'){
             target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
         }else{

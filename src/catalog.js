@@ -4,8 +4,6 @@ var JobManager = require('./jobmanager');
 var QuotaManager = require('./quota');
 var Util = require('./util');
 
-var roomRegex = /([WE])(\d+)([NS])(\d+)/;
-
 class Catalog {
     constructor(){
         _.assign(this, Util);
@@ -211,53 +209,6 @@ class Catalog {
 
     hasMinerals(entity){
         return this.getStorage(entity) > this.getResource(entity, RESOURCE_ENERGY);
-    }
-
-    cacheRoomPos(pos){
-        console.log('cacheRoomPos', pos.roomName);
-        var roomParts = roomRegex.exec(pos.roomName);
-        if(!roomParts){
-            console.log('could not parse room', pos.roomName);
-            return false;
-        }
-        var north = roomParts[3] == 'N';
-        var east = roomParts[1] == 'E';
-        //     1    2    3     4
-        // /([WE])(\d+)([NS])(\d+)/
-        var xSign = east ? 1 : -1;
-        var ySign = north ? 1 : -1;
-        var xOffset = east ? 0 : 50;
-        var yOffset = north ? 50 : 0;
-        Memory.cache.roompos[pos.roomName] = {
-            x: _.parseInt(roomParts[2]) * 50 * xSign + xSign * xOffset,
-            y: _.parseInt(roomParts[4]) * 50 * ySign + yOffset,
-            ySign
-        };
-        return Memory.cache.roompos[pos.roomName];
-    }
-
-    calculateRealPosition(pos){
-        if(!Memory.cache){
-            Memory.cache = { roompos: {} };
-        }
-        var roompos = Memory.cache.roompos[pos.roomName];
-        if(!roompos){
-            roompos = this.cacheRoomPos(pos);
-        }
-        return {
-            x: roompos.x + pos.x,
-            y: roompos.y + pos.y * -roompos.ySign
-        };
-    }
-
-    getRealDistance(entityA, entityB){
-        if(!entityA.pos || !entityB.pos){
-            console.log('invalid positions', entityA, entityB);
-            return Infinity;
-        }
-        var posA = this.calculateRealPosition(entityA.pos);
-        var posB = this.calculateRealPosition(entityB.pos);
-        return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
     }
 
     sortByDistance(entity, targets){

@@ -104,10 +104,10 @@ class Spawner {
 
     static calculateSpawnLimit(catalog, type, version, config){
         var limit = Infinity;
-        if(version.boost){
+        if(version.boost && !version.boostOptional){
             //TODO account for in-progress boosts
             _.forEach(version.boost, (parts, type) =>{
-                if(!Memory.boost.labs[type]){
+                if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
                     limit = 0;
                 }
                 limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));

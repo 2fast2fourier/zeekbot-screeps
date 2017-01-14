@@ -1,6 +1,7 @@
 "use strict";
 
 var BaseAction = require('./base');
+var Util = require('../util');
 
 class BoostAction extends BaseAction {
     constructor(catalog){
@@ -20,9 +21,14 @@ class BoostAction extends BaseAction {
 
     blocked(creep, opts, block){
         var mineral = _.isString(block) ? block : _.first(block);
-        var labId = Memory.boost.labs[mineral];
-        if(labId){
-            var lab = Game.getObjectById(labId);
+        var labs = Memory.boost.labs[mineral];
+        if(!labs){
+            console.log(creep, 'no lab allocated to boost', mineral);
+            delete creep.memory.boost;
+            return;
+        }
+        var lab = _.first(Util.sort.closestReal(creep, Util.getObjects(labs)));
+        if(lab){
             // console.log('boost', creep, mineral, lab);
             if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
                 console.log(creep, 'not enough to boost', mineral, lab);
@@ -42,6 +48,7 @@ class BoostAction extends BaseAction {
     }
 
     boosted(creep, mineral){
+        Memory.boost.update = true;
         if(_.isString(creep.memory.boost)){
             delete creep.memory.boost;
         }else if(_.isArray(creep.memory.boost)){

@@ -13,7 +13,7 @@ module.exports.loop = function () {
     if(!Memory.settings){
         Misc.setSettings();
     }
-
+    
     Misc.mourn();
 
     var catalog = new Catalog();

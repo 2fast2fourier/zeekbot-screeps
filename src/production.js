@@ -1,12 +1,14 @@
 "use strict";
 
+var Util = require('./util');
+
 class Production {
     constructor(catalog){
         this.catalog = catalog;
     }
 
 //production{
-//     labs: [[3 labs]],
+//     labs: [[labs]],
 //     quota: {resource: count}
 // }
 // react{
@@ -17,15 +19,19 @@ class Production {
 //      }
 // }
     process(){
-        if(Game.time < (Memory.productionTime || 0)){
+        if(!Util.interval(25)){
             return;
         }
-        Memory.productionTime = Game.time + 25;
         var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
         var reactions = {};
         _.forEach(needs, (amount, type) => {
-            this.generateReactions(type, amount - this.catalog.getTotalStored(type), reactions);
+            var temp = {};
+            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp);
+            reactions[type] = temp[type];
         });
+        // var components = _.uniq(_.flatten(_.map(reactions, 'allComponents')));
+        // var topReactions = _.pick(reactions, (data, type)=>!_.includes(components, type));
+        // _.forEach(topReactions, (reaction, type)=>console.log(type, reaction.size));
         _.forEach(Memory.react, (data, type)=>{
             if(!reactions[type]){
                 var labs = Memory.production.labs[data.lab];
@@ -39,49 +45,66 @@ class Production {
             if(Memory.react[type]){
                 Memory.react[type].deficit = reaction.deficit;
             }else if(_.size(Memory.react) < _.size(Memory.production.labs)){
-                var labNum = this.findFreeLab();
+                var labNum = this.findFreeLab(reaction.size);
+                var fullReaction = true;
                 if(labNum < 0){
-                    console.log('lab react mismatch!');
+                    labNum = this.findFreeLab(3);
+                    fullReaction = false;
+                }
+                if(labNum < 0){
                     return;
+                }
+                var labs = Memory.production.labs[labNum];
+                var assignments = {};
+                _.forEach(labs, (labId, ix) => Memory.transfer.lab[labs[ix]] = false);
+                Memory.transfer.lab[labs[0]] = type;
+                assignments[type] = 0;
+                if(fullReaction){
+                    _.forEach(reaction.allComponents, (component, ix) => {
+                        Memory.transfer.lab[labs[ix+1]] = component;
+                        assignments[component] = ix+1;
+                    });
+                }else{
+                    _.forEach(reaction.components, (component, ix) => {
+                        Memory.transfer.lab[labs[ix+1]] = component;
+                        assignments[component] = ix+1;
+                    });
                 }
                 Memory.react[type] = {
                     lab: labNum,
                     deficit: reaction.deficit,
-                    components: reaction.components
+                    components: reaction.components,
+                    children: reaction.children,
+                    size: reaction.size,
+                    allComponents: reaction.allComponents,
+                    full: fullReaction,
+                    assignments
                 };
-                var labs = Memory.production.labs[labNum];
-                _.forEach(reaction.components, (component, ix) => Memory.transfer.lab[labs[ix]] = component);
-                Memory.transfer.lab[labs[2]] = type;
             }
         });
     }
 
-    findFreeLab(){
-        return _.findIndex(Memory.production.labs, (labList, ix) => !_.any(Memory.react, (data) => data.lab == ix));
+    findFreeLab(count){
+        return _.findIndex(Memory.production.labs, (labList, ix) => labList.length >= count && !_.any(Memory.react, (data) => data.lab == ix));
     }
 
     generateReactions(type, deficit, output){
         if(type.length == 1){
-            console.log('missing base component', type, deficit);
             return;
         }
         var components = this.findReaction(type);
         var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
-        var canReact = _.every(inventory, (amount, ix) => {
-            if(deficit - amount > 0){
-                //generate child reactions
-                this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output);
-            }
-            return amount > 0;
-        });
+        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output));
 
-        if(canReact){
-            if(output[type]){
-                output[type].deficit += deficit;
-            }else{
-                output[type] = { components, deficit };
-            }
+        if(output[type]){
+            output[type].deficit += deficit;
+        }else{
+            output[type] = { type, components, deficit };
         }
+        var children = _.compact(_.map(components, comp => output[comp]));
+        output[type].children = _.zipObject(_.map(children, 'type'), children);
+        output[type].allComponents = _.union(components, _.flatten(_.map(output[type].children, 'allComponents')));
+        output[type].size = output[type].allComponents.length + 1;
     }
 
     findReaction(type){

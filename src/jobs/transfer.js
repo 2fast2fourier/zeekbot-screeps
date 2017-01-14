@@ -41,6 +41,7 @@ class TransferJob extends StaticJob {
             var target = Game.structures[labId];
             if(!target){
                 console.log('invalid lab', labId);
+                delete Memory.transfer.lab[labId];
                 return result;
             }
             if(target.mineralType && target.mineralType != resource){
@@ -52,8 +53,11 @@ class TransferJob extends StaticJob {
                 });
                 return result;
             }
+            if(!resource){
+                return result;
+            }
             var amount = this.catalog.getResource(target, resource);
-            if(amount < min && this.catalog.resources[resource].totals.storage > 0){
+            if(amount < min && this.catalog.resources[resource].total > 0){
                 result.push({
                     target,
                     resource,
@@ -73,46 +77,18 @@ class TransferJob extends StaticJob {
         }, []);
     }
 
-    // generateSecondaryTarget(job){
-    //     if(!job.target){
-    //         var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) >= Memory.settings.transferStoreThreshold);
-    //         job.target = _.first(_.sortBy(storage, store => store.pos.getRangeTo(job.pickup)));
-    //     }
-    //     if(!job.pickup && job.pickup !== false){
-    //         job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
-    //     }
-    //     if(job.subtype == 'store'){
-    //         job.id = this.generateId(job.pickup, job.subtype+'-'+job.resource);
-    //         job.priority = 1 + Math.max(0, 1 - job.amount / Memory.settings.transferStoreThreshold);
-    //     }
-    //     if(job.subtype == 'deliver'){
-    //         job.id = this.generateId(job.target, job.subtype+'-'+job.resource);
-    //         job.priority = Math.max(0, 1 - job.amount / Memory.settings.transferRefillThreshold);
-    //     }
-    //     job.capacity = job.amount;
-    //     job.allocated = 0;
-    //     return job;
-    // }
-
     generateAllTargets(){
         var targetLists = [];
 
+        targetLists.push(this.generateLabTransfers());
         targetLists.push(this.generateEnergyTransfers('terminal', 50000));
         targetLists.push(this.generateEnergyTransfers('lab', 2000));
-        targetLists.push(this.generateLabTransfers());
         targetLists.push(this.generateTerminalTransfers());
 
         return _.flatten(targetLists);
     }
 
     generateJob(target){
-        // {
-        //     target,
-        //     resource,
-        //     amount: Memory.settings.labIdealMinerals,
-        //     subtype: 'store' | 'deliver' | 'terminal'
-        // }
-        // result: 'deliver-H-1000-123456abcdef123456'
         return target.subtype + '-' + target.resource + '-' + target.amount + '-' + target.target.id;
     }
 

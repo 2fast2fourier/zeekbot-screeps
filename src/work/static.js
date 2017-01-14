@@ -42,6 +42,10 @@ class StaticWorker extends SimpleWorker {
         };
     }
 
+    jobExists(jobId){
+        return _.includes(this.getTargets(), jobId);
+    }
+
     bid(creep, opts){
         if(!this.shouldBid(creep, opts)){
             return false;

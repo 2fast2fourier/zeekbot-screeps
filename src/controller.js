@@ -9,18 +9,27 @@ var prices = {
 class Controller {
 
     static control(catalog){
-        var towers = _.filter(Game.structures, {structureType: STRUCTURE_TOWER});
+        var towers = catalog.buildings.tower;
+        var targets = _.map(catalog.jobs.jobs['defend'], 'target');
+        var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
         towers.forEach((tower, ix) => {
-            if(!Memory.standDown && !Controller.towerDefend(tower, catalog)){
-                if(!Controller.towerHeal(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
+            if(!Controller.towerDefend(tower, catalog, targets)){
+                if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
                     Controller.towerRepair(tower, catalog, ix);
                 }
             }
         });
 
-        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-        _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
-        _.forEach(Memory.boost.labs, (labId, type) => Controller.boost(catalog, type, labId));
+
+        if(Util.interval(10)){
+            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
+            _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+        }
+
+        if(Util.interval(10) || Memory.boost.update){
+            Controller.boost(catalog, catalog.buildings.lab);
+            Memory.boost.update = false;
+        }
         
 
         if(Util.interval(20)){
@@ -30,8 +39,11 @@ class Controller {
         }
     }
 
-    static towerDefend(tower, catalog) {
-        var hostiles = catalog.getHostileCreeps(tower.room);
+    static towerDefend(tower, catalog, targets) {
+        var hostiles = _.filter(targets, target => tower.pos.roomName == target.pos.roomName);
+        if(hostiles.length == 0){
+            return false;
+        }
         var healer = _.find(hostiles, creep => creep.getActiveBodyparts(HEAL) > 0);
         if(healer){
             return tower.attack(healer) == OK;
@@ -43,8 +55,8 @@ class Controller {
         return false;
     }
 
-    static towerHeal(tower, catalog) {
-        var injuredCreeps = _.filter(catalog.getCreeps(tower.room), creep => creep.hits < creep.hitsMax);
+    static towerHeal(tower, catalog, creeps) {
+        var injuredCreeps = _.filter(creeps, target => tower.pos.roomName == target.pos.roomName);
         if(injuredCreeps.length > 0) {
             var injuries = _.sortBy(injuredCreeps, creep => creep.hits / creep.hitsMax);
             return tower.heal(injuries[0]) == OK;
@@ -53,11 +65,11 @@ class Controller {
     }
 
     static towerRepair(tower, catalog, ix) {
-        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-        if(damagedBuildings.length > ix) {
-            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-            tower.repair(damaged[ix]);
-        }
+        // var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
+        // if(damagedBuildings.length > ix) {
+        //     var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
+        //     tower.repair(damaged[ix]);
+        // }
     }
 
     static linkTransfer(sourceId, targetId, catalog){
@@ -81,47 +93,62 @@ class Controller {
         }
     }
 
+    // Memory.react[type] = {
+    //     lab: labNum,
+    //     deficit: reaction.deficit,
+    //     components: reaction.components,
+    //     children: reaction.children,
+    //     size: reaction.size,
+    //     allComponents: reaction.allComponents,
+    //     full: fullReaction,
+    //     assignments
+    // };
+
     static runReaction(type, data, catalog){
-        var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
-        var targetLab = labs[2];
-        if(!_.every(labs) || !targetLab){
-            console.log('missing labs for reaction', labs, type, data.lab);
-            return;
+        var labs = Util.getObjects(Memory.production.labs[data.lab]);
+        Controller.react(type, labs[data.assignments[type]], labs[data.assignments[data.components[0]]], labs[data.assignments[data.components[1]]], data.components);
+        if(data.full){
+            _.forEach(data.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
         }
+    }
 
-        Memory.transfer.lab[targetLab.id] = type;
+    static runChildReaction(component, parent, child, labs){
+        // console.log('running reactions for child', component);
+        Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
+        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
+    }
 
+    static react(type, targetLab, labA, labB, components){
+        if(!targetLab || !labA || !labB){
+            Util.notify('labnotify', 'invalid lab for reaction' + type);
+            return false;
+        }
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }
-        if(labs[0].mineralType != data.components[0] || labs[1].mineralType != data.components[1]){
+        if(labA.mineralType != components[0] || labB.mineralType != components[1]){
             return;
         }
-        if(labs[0].mineralAmount == 0 || labs[1].mineralAmount == 0){
+        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
             return;
         }
-        targetLab.runReaction(labs[0], labs[1]);
+        // console.log('running reactions for', type, targetLab.pos.roomName);
+        targetLab.runReaction(labA, labB);
     }
 
-    static boost(catalog, type, labId){
-        var lab = Game.getObjectById(labId);
-        if(!lab){
-            console.log('invalid lab');
-            return;
-        }
-        Memory.transfer.lab[lab.id] = type;
-        if(lab.mineralType != type){
-            // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
-            Memory.boost.stored[type] = 0;
-            return;
-        }
-        if(lab.mineralAmount < 50 || lab.energy < 50){
-            // console.log('missing resources', lab, lab.energy, lab.mineralAmount);
-            Memory.boost.stored[type] = 0;
-            return;
-        }
-        Memory.boost.stored[type] = lab.mineralAmount;
-        
+    static boost(catalog, labs){
+        Memory.boost.stored = {};
+        Memory.boost.labs = {};
+        _.forEach(labs, lab => {
+            var type = lab.mineralType;
+            if(type && type.startsWith('X') && type.length > 1 && lab.mineralAmount > 50 && lab.energy > 50){
+                if(!Memory.boost.labs[type]){
+                    Memory.boost.labs[type] = [];
+                }
+                Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
+                Memory.boost.labs[type].push(lab.id);
+            }
+        });
     }
 
     static levelTerminals(catalog){

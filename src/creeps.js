@@ -67,11 +67,11 @@ module.exports = {
             spawn: {
                 quota: 'spawnhauler',
                 critical: true,
-                parts: {carry: 10, move: 10},
+                parts: {carry: 20, move: 10},
                 rules: {
                     pickup: { subtype: false, local: true },
                     deliver: { subtype: 'spawn', local: true },
-                    idle: { type: 'spawn' }
+                    idle: { type: 'spawn', local: true }
                 },
                 actions: { assignRoom: {} }
             },
@@ -87,7 +87,7 @@ module.exports = {
             // },
             transfer: {
                 quota: 'transfer',
-                allocation: 2,
+                allocation: 1,
                 max: 4,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
@@ -103,7 +103,7 @@ module.exports = {
             },
             leveler: {
                 quota: 'levelerhauler',
-                max: 10,
+                max: 12,
                 rules: {
                     pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -112,7 +112,7 @@ module.exports = {
             },
             long: {
                 quota: 'pickup-remote',
-                allocation: 1000,
+                allocation: 800,
                 max: 12,
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
@@ -167,12 +167,15 @@ module.exports = {
                 quota: 'build',
                 allocation: 3,
                 max: 8,
+                boostOptional: true,
+                boost: { XLH2O: 4 },
                 rules: {
                     pickup: {},
                     build: {},
                     repair: { priority: 99 }
                 },
-                parts: { work: 4, carry: 6, move: 10 }
+                parts: { work: 4, carry: 6, move: 10 },
+                actions: { boost: {}, avoid: {} }
             },
             upgrade: {
                 quota: 'upgrade',
@@ -182,7 +185,7 @@ module.exports = {
             },
             repair: {
                 quota: 'repair',
-                max: 10,
+                max: 12,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 5, move: 10 }

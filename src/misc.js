@@ -63,6 +63,15 @@ class Misc {
             repair: totalRepair
         }
         Memory.stats = stats;
+        Misc.updateSettings(catalog);
+    }
+
+    static updateSettings(catalog){
+        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.5){
+            Memory.settings.upgradeCapacity = 20;
+        }else{
+            Memory.settings.upgradeCapacity = 10;
+        }
     }
 
     static initMemory(){

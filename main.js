@@ -60,7 +60,7 @@ module.exports =
 	    if(!Memory.settings){
 	        Misc.setSettings();
 	    }
-
+	    
 	    Misc.mourn();
 
 	    var catalog = new Catalog();
@@ -133,18 +133,27 @@ module.exports =
 	class Controller {
 
 	    static control(catalog){
-	        var towers = _.filter(Game.structures, {structureType: STRUCTURE_TOWER});
+	        var towers = catalog.buildings.tower;
+	        var targets = _.map(catalog.jobs.jobs['defend'], 'target');
+	        var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
 	        towers.forEach((tower, ix) => {
-	            if(!Memory.standDown && !Controller.towerDefend(tower, catalog)){
-	                if(!Controller.towerHeal(tower, catalog) && tower.energy > tower.energyCapacity * 0.75){
+	            if(!Controller.towerDefend(tower, catalog, targets)){
+	                if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
 	                    Controller.towerRepair(tower, catalog, ix);
 	                }
 	            }
 	        });
 
-	        _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-	        _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
-	        _.forEach(Memory.boost.labs, (labId, type) => Controller.boost(catalog, type, labId));
+
+	        if(Util.interval(10)){
+	            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
+	            _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+	        }
+
+	        if(Util.interval(10) || Memory.boost.update){
+	            Controller.boost(catalog, catalog.buildings.lab);
+	            Memory.boost.update = false;
+	        }
 	        
 
 	        if(Util.interval(20)){
@@ -154,8 +163,11 @@ module.exports =
 	        }
 	    }
 
-	    static towerDefend(tower, catalog) {
-	        var hostiles = catalog.getHostileCreeps(tower.room);
+	    static towerDefend(tower, catalog, targets) {
+	        var hostiles = _.filter(targets, target => tower.pos.roomName == target.pos.roomName);
+	        if(hostiles.length == 0){
+	            return false;
+	        }
 	        var healer = _.find(hostiles, creep => creep.getActiveBodyparts(HEAL) > 0);
 	        if(healer){
 	            return tower.attack(healer) == OK;
@@ -167,8 +179,8 @@ module.exports =
 	        return false;
 	    }
 
-	    static towerHeal(tower, catalog) {
-	        var injuredCreeps = _.filter(catalog.getCreeps(tower.room), creep => creep.hits < creep.hitsMax);
+	    static towerHeal(tower, catalog, creeps) {
+	        var injuredCreeps = _.filter(creeps, target => tower.pos.roomName == target.pos.roomName);
 	        if(injuredCreeps.length > 0) {
 	            var injuries = _.sortBy(injuredCreeps, creep => creep.hits / creep.hitsMax);
 	            return tower.heal(injuries[0]) == OK;
@@ -177,11 +189,11 @@ module.exports =
 	    }
 
 	    static towerRepair(tower, catalog, ix) {
-	        var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-	        if(damagedBuildings.length > ix) {
-	            var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-	            tower.repair(damaged[ix]);
-	        }
+	        // var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
+	        // if(damagedBuildings.length > ix) {
+	        //     var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
+	        //     tower.repair(damaged[ix]);
+	        // }
 	    }
 
 	    static linkTransfer(sourceId, targetId, catalog){
@@ -205,47 +217,62 @@ module.exports =
 	        }
 	    }
 
+	    // Memory.react[type] = {
+	    //     lab: labNum,
+	    //     deficit: reaction.deficit,
+	    //     components: reaction.components,
+	    //     children: reaction.children,
+	    //     size: reaction.size,
+	    //     allComponents: reaction.allComponents,
+	    //     full: fullReaction,
+	    //     assignments
+	    // };
+
 	    static runReaction(type, data, catalog){
-	        var labs = _.map(Memory.production.labs[data.lab], labId => Game.getObjectById(labId));
-	        var targetLab = labs[2];
-	        if(!_.every(labs) || !targetLab){
-	            console.log('missing labs for reaction', labs, type, data.lab);
-	            return;
+	        var labs = Util.getObjects(Memory.production.labs[data.lab]);
+	        Controller.react(type, labs[data.assignments[type]], labs[data.assignments[data.components[0]]], labs[data.assignments[data.components[1]]], data.components);
+	        if(data.full){
+	            _.forEach(data.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
 	        }
+	    }
 
-	        Memory.transfer.lab[targetLab.id] = type;
+	    static runChildReaction(component, parent, child, labs){
+	        // console.log('running reactions for child', component);
+	        Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
+	        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
+	    }
 
+	    static react(type, targetLab, labA, labB, components){
+	        if(!targetLab || !labA || !labB){
+	            Util.notify('labnotify', 'invalid lab for reaction' + type);
+	            return false;
+	        }
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
-	        if(labs[0].mineralType != data.components[0] || labs[1].mineralType != data.components[1]){
+	        if(labA.mineralType != components[0] || labB.mineralType != components[1]){
 	            return;
 	        }
-	        if(labs[0].mineralAmount == 0 || labs[1].mineralAmount == 0){
+	        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
 	            return;
 	        }
-	        targetLab.runReaction(labs[0], labs[1]);
+	        // console.log('running reactions for', type, targetLab.pos.roomName);
+	        targetLab.runReaction(labA, labB);
 	    }
 
-	    static boost(catalog, type, labId){
-	        var lab = Game.getObjectById(labId);
-	        if(!lab){
-	            console.log('invalid lab');
-	            return;
-	        }
-	        Memory.transfer.lab[lab.id] = type;
-	        if(lab.mineralType != type){
-	            // console.log('wrong resources', lab, lab.mineralType, ' != ', type);
-	            Memory.boost.stored[type] = 0;
-	            return;
-	        }
-	        if(lab.mineralAmount < 50 || lab.energy < 50){
-	            // console.log('missing resources', lab, lab.energy, lab.mineralAmount);
-	            Memory.boost.stored[type] = 0;
-	            return;
-	        }
-	        Memory.boost.stored[type] = lab.mineralAmount;
-	        
+	    static boost(catalog, labs){
+	        Memory.boost.stored = {};
+	        Memory.boost.labs = {};
+	        _.forEach(labs, lab => {
+	            var type = lab.mineralType;
+	            if(type && type.startsWith('X') && type.length > 1 && lab.mineralAmount > 50 && lab.energy > 50){
+	                if(!Memory.boost.labs[type]){
+	                    Memory.boost.labs[type] = [];
+	                }
+	                Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
+	                Memory.boost.labs[type].push(lab.id);
+	            }
+	        });
 	    }
 
 	    static levelTerminals(catalog){
@@ -330,6 +357,8 @@ module.exports =
 
 	"use strict";
 
+	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
+
 	function getCapacity(entity){
 	    if(!entity){
 	        return 0;
@@ -410,6 +439,64 @@ module.exports =
 	    return Game.time % num == 0;
 	}
 
+	function getObjects(idList){
+	    return _.map(idList, entity => Game.getObjectById(entity));
+	}
+
+	function cacheRoomPos(pos){
+	    console.log('cacheRoomPos', pos.roomName);
+	    var roomParts = roomRegex.exec(pos.roomName);
+	    if(!roomParts){
+	        console.log('could not parse room', pos.roomName);
+	        return false;
+	    }
+	    var north = roomParts[3] == 'N';
+	    var east = roomParts[1] == 'E';
+	    //     1    2    3     4
+	    // /([WE])(\d+)([NS])(\d+)/
+	    var xSign = east ? 1 : -1;
+	    var ySign = north ? 1 : -1;
+	    var xOffset = east ? 0 : 50;
+	    var yOffset = north ? 50 : 0;
+	    Memory.cache.roompos[pos.roomName] = {
+	        x: _.parseInt(roomParts[2]) * 50 * xSign + xSign * xOffset,
+	        y: _.parseInt(roomParts[4]) * 50 * ySign + yOffset,
+	        ySign
+	    };
+	    return Memory.cache.roompos[pos.roomName];
+	}
+
+	function calculateRealPosition(pos){
+	    if(!Memory.cache){
+	        Memory.cache = { roompos: {} };
+	    }
+	    var roompos = Memory.cache.roompos[pos.roomName];
+	    if(!roompos){
+	        roompos = cacheRoomPos(pos);
+	    }
+	    return {
+	        x: roompos.x + pos.x,
+	        y: roompos.y + pos.y * -roompos.ySign
+	    };
+	}
+
+	function getRealDistance(entityA, entityB){
+	    if(!entityA.pos || !entityB.pos){
+	        console.log('invalid positions', entityA, entityB);
+	        return Infinity;
+	    }
+	    var posA = calculateRealPosition(entityA.pos);
+	    var posB = calculateRealPosition(entityB.pos);
+	    return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+	}
+
+	function notify(type, message){
+	    if(_.get(Memory, ['notify', type], 0) < Game.time){
+	        Game.notify(message);
+	        _.set(Memory, ['notify', type], Game.time + 5000);
+	    }
+	}
+
 	class FilterPredicates {
 
 	    static empty(entity){
@@ -450,6 +537,12 @@ module.exports =
 	        }
 	    }
 
+	    static distanceReal(entityA){
+	        return function(entityB){
+	            return getRealDistance(entityA, entityB);
+	        }
+	    }
+
 	    static storage(entity){
 	        return getStorage(entity);
 	    }
@@ -479,6 +572,10 @@ module.exports =
 	    static closest(entity, entities){
 	        return _.sortBy(entities, SortPredicates.distance(entity));
 	    }
+	    
+	    static closestReal(entity, entities){
+	        return _.sortBy(entities, SortPredicates.distanceReal(entity));
+	    }
 	}
 
 	class Helpers {
@@ -504,7 +601,12 @@ module.exports =
 	    getStorage,
 	    getResource,
 	    getResourceList,
-	    interval
+	    getObjects,
+	    interval,
+	    cacheRoomPos,
+	    calculateRealPosition,
+	    getRealDistance,
+	    notify
 	};
 
 /***/ },
@@ -617,10 +719,10 @@ module.exports =
 
 	    static calculateSpawnLimit(catalog, type, version, config){
 	        var limit = Infinity;
-	        if(version.boost){
+	        if(version.boost && !version.boostOptional){
 	            //TODO account for in-progress boosts
 	            _.forEach(version.boost, (parts, type) =>{
-	                if(!Memory.boost.labs[type]){
+	                if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
 	                    limit = 0;
 	                }
 	                limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
@@ -833,11 +935,11 @@ module.exports =
 	            spawn: {
 	                quota: 'spawnhauler',
 	                critical: true,
-	                parts: {carry: 10, move: 10},
+	                parts: {carry: 20, move: 10},
 	                rules: {
 	                    pickup: { subtype: false, local: true },
 	                    deliver: { subtype: 'spawn', local: true },
-	                    idle: { type: 'spawn' }
+	                    idle: { type: 'spawn', local: true }
 	                },
 	                actions: { assignRoom: {} }
 	            },
@@ -853,7 +955,7 @@ module.exports =
 	            // },
 	            transfer: {
 	                quota: 'transfer',
-	                allocation: 2,
+	                allocation: 1,
 	                max: 4,
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
@@ -869,7 +971,7 @@ module.exports =
 	            },
 	            leveler: {
 	                quota: 'levelerhauler',
-	                max: 10,
+	                max: 12,
 	                rules: {
 	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -878,7 +980,7 @@ module.exports =
 	            },
 	            long: {
 	                quota: 'pickup-remote',
-	                allocation: 1000,
+	                allocation: 800,
 	                max: 12,
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
@@ -933,12 +1035,15 @@ module.exports =
 	                quota: 'build',
 	                allocation: 3,
 	                max: 8,
+	                boostOptional: true,
+	                boost: { XLH2O: 4 },
 	                rules: {
 	                    pickup: {},
 	                    build: {},
 	                    repair: { priority: 99 }
 	                },
-	                parts: { work: 4, carry: 6, move: 10 }
+	                parts: { work: 4, carry: 6, move: 10 },
+	                actions: { boost: {}, avoid: {} }
 	            },
 	            upgrade: {
 	                quota: 'upgrade',
@@ -948,7 +1053,7 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 10,
+	                max: 12,
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 5, move: 10 }
@@ -1194,7 +1299,7 @@ module.exports =
 	        });
 	        if(targetRoom){
 	            creep.memory.room = targetRoom;
-	            console.log('assigned', creep.name, 'to room', targetRoom);
+	            console.log('assigned', creep.name, 'to room', targetRoom, least);
 	        }
 	        delete creep.memory.actions.assignRoom;
 	    }
@@ -1202,7 +1307,7 @@ module.exports =
 	    generateAssignedList(type){
 	        return _.reduce(Game.creeps, (result, creep)=>{
 	            if(creep.memory.type == type && creep.memory.room){
-	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + 1);
+	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
 	            }
 	            return result;
 	        }, {});
@@ -1313,6 +1418,7 @@ module.exports =
 	"use strict";
 
 	var BaseAction = __webpack_require__(8);
+	var Util = __webpack_require__(2);
 
 	class BoostAction extends BaseAction {
 	    constructor(catalog){
@@ -1332,9 +1438,14 @@ module.exports =
 
 	    blocked(creep, opts, block){
 	        var mineral = _.isString(block) ? block : _.first(block);
-	        var labId = Memory.boost.labs[mineral];
-	        if(labId){
-	            var lab = Game.getObjectById(labId);
+	        var labs = Memory.boost.labs[mineral];
+	        if(!labs){
+	            console.log(creep, 'no lab allocated to boost', mineral);
+	            delete creep.memory.boost;
+	            return;
+	        }
+	        var lab = _.first(Util.sort.closestReal(creep, Util.getObjects(labs)));
+	        if(lab){
 	            // console.log('boost', creep, mineral, lab);
 	            if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
 	                console.log(creep, 'not enough to boost', mineral, lab);
@@ -1354,6 +1465,7 @@ module.exports =
 	    }
 
 	    boosted(creep, mineral){
+	        Memory.boost.update = true;
 	        if(_.isString(creep.memory.boost)){
 	            delete creep.memory.boost;
 	        }else if(_.isArray(creep.memory.boost)){
@@ -2319,6 +2431,10 @@ module.exports =
 	        };
 	    }
 
+	    jobExists(jobId){
+	        return _.includes(this.getTargets(), jobId);
+	    }
+
 	    bid(creep, opts){
 	        if(!this.shouldBid(creep, opts)){
 	            return false;
@@ -2433,17 +2549,11 @@ module.exports =
 	class TransferWorker extends StaticWorker {
 	    constructor(catalog){ super(catalog, 'transfer', { chatty: true, multipart: ['subtype', 'resource', 'amount', 'id'] }); }
 
-	    isValid(creep, opts, target, job){
-	        return this.canBid(creep, opts, target, job);
-	    }
-
-	    canBid(creep, opts, target, job){
+	    validate(creep, opts, target, job){
 	        var resources = Util.getResource(creep, job.resource);
-	        if(Util.getStorage(creep) > 0 && resources == 0){
-	            return false;
-	        }
 	        var targetResources = Util.getResource(job.target, job.resource);
 	        var data = this.catalog.resources[job.resource];
+	        var allStored = data.total;
 	        var stored = data.totals.storage;
 	        var terminalStored = data.totals.terminal;
 	        if(job.subtype == 'store'){
@@ -2456,7 +2566,7 @@ module.exports =
 	            if(resources > 0){
 	                return targetResources < job.amount;
 	            }else{
-	                return targetResources < job.amount && stored > 0;
+	                return targetResources < job.amount && allStored > 0;
 	            }
 	        }else if(job.subtype == 'terminal'){
 	            if(resources > 0){
@@ -2467,6 +2577,25 @@ module.exports =
 	        }
 	        console.log('invalid type', job.id, creep, job.subtype);
 	        return false;
+	    }
+
+	    isValid(creep, opts, target, job){
+	        var valid = this.validate(creep, opts, target, job);
+	        if(valid && Util.getResource(creep, job.resource) == 0 && !this.jobExists(job.id)){
+	            return false;
+	        }
+	        return valid;
+	    }
+
+	    canBid(creep, opts, target, job){
+	        if(creep.ticksToLive < 100){
+	            return false;
+	        }
+	        var resources = Util.getResource(creep, job.resource);
+	        if(Util.getStorage(creep) > 0 && resources == 0){
+	            return false;
+	        }
+	        return this.validate(creep, opts, target, job);
 	    }
 
 	    processStep(creep, target, opts, job){
@@ -2512,7 +2641,12 @@ module.exports =
 	        }
 	        var target;
 	        if(job.subtype == 'store'){
-	            target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));
+	            var terminalIdeal = Memory.settings.terminalIdealResources * _.size(this.catalog.buildings.terminal);
+	            if(this.catalog.resources[job.resource].totals.terminal + resources <= terminalIdeal){
+	                target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
+	            }else{
+	                target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));
+	            }
 	        }else if(job.subtype == 'terminal'){
 	            target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
 	        }else{
@@ -2619,8 +2753,6 @@ module.exports =
 	var JobManager = __webpack_require__(34);
 	var QuotaManager = __webpack_require__(52);
 	var Util = __webpack_require__(2);
-
-	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 	class Catalog {
 	    constructor(){
@@ -2827,53 +2959,6 @@ module.exports =
 
 	    hasMinerals(entity){
 	        return this.getStorage(entity) > this.getResource(entity, RESOURCE_ENERGY);
-	    }
-
-	    cacheRoomPos(pos){
-	        console.log('cacheRoomPos', pos.roomName);
-	        var roomParts = roomRegex.exec(pos.roomName);
-	        if(!roomParts){
-	            console.log('could not parse room', pos.roomName);
-	            return false;
-	        }
-	        var north = roomParts[3] == 'N';
-	        var east = roomParts[1] == 'E';
-	        //     1    2    3     4
-	        // /([WE])(\d+)([NS])(\d+)/
-	        var xSign = east ? 1 : -1;
-	        var ySign = north ? 1 : -1;
-	        var xOffset = east ? 0 : 50;
-	        var yOffset = north ? 50 : 0;
-	        Memory.cache.roompos[pos.roomName] = {
-	            x: _.parseInt(roomParts[2]) * 50 * xSign + xSign * xOffset,
-	            y: _.parseInt(roomParts[4]) * 50 * ySign + yOffset,
-	            ySign
-	        };
-	        return Memory.cache.roompos[pos.roomName];
-	    }
-
-	    calculateRealPosition(pos){
-	        if(!Memory.cache){
-	            Memory.cache = { roompos: {} };
-	        }
-	        var roompos = Memory.cache.roompos[pos.roomName];
-	        if(!roompos){
-	            roompos = this.cacheRoomPos(pos);
-	        }
-	        return {
-	            x: roompos.x + pos.x,
-	            y: roompos.y + pos.y * -roompos.ySign
-	        };
-	    }
-
-	    getRealDistance(entityA, entityB){
-	        if(!entityA.pos || !entityB.pos){
-	            console.log('invalid positions', entityA, entityB);
-	            return Infinity;
-	        }
-	        var posA = this.calculateRealPosition(entityA.pos);
-	        var posB = this.calculateRealPosition(entityB.pos);
-	        return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
 	    }
 
 	    sortByDistance(entity, targets){
@@ -3857,6 +3942,7 @@ module.exports =
 	            var target = Game.structures[labId];
 	            if(!target){
 	                console.log('invalid lab', labId);
+	                delete Memory.transfer.lab[labId];
 	                return result;
 	            }
 	            if(target.mineralType && target.mineralType != resource){
@@ -3868,8 +3954,11 @@ module.exports =
 	                });
 	                return result;
 	            }
+	            if(!resource){
+	                return result;
+	            }
 	            var amount = this.catalog.getResource(target, resource);
-	            if(amount < min && this.catalog.resources[resource].totals.storage > 0){
+	            if(amount < min && this.catalog.resources[resource].total > 0){
 	                result.push({
 	                    target,
 	                    resource,
@@ -3889,46 +3978,18 @@ module.exports =
 	        }, []);
 	    }
 
-	    // generateSecondaryTarget(job){
-	    //     if(!job.target){
-	    //         var storage = _.filter(this.catalog.buildings.storage, storage => this.catalog.getAvailableCapacity(storage) >= Memory.settings.transferStoreThreshold);
-	    //         job.target = _.first(_.sortBy(storage, store => store.pos.getRangeTo(job.pickup)));
-	    //     }
-	    //     if(!job.pickup && job.pickup !== false){
-	    //         job.pickup = _.first(_.sortBy(this.catalog.resources[job.resource].sources, source => source.pos.getRangeTo(job.target)));
-	    //     }
-	    //     if(job.subtype == 'store'){
-	    //         job.id = this.generateId(job.pickup, job.subtype+'-'+job.resource);
-	    //         job.priority = 1 + Math.max(0, 1 - job.amount / Memory.settings.transferStoreThreshold);
-	    //     }
-	    //     if(job.subtype == 'deliver'){
-	    //         job.id = this.generateId(job.target, job.subtype+'-'+job.resource);
-	    //         job.priority = Math.max(0, 1 - job.amount / Memory.settings.transferRefillThreshold);
-	    //     }
-	    //     job.capacity = job.amount;
-	    //     job.allocated = 0;
-	    //     return job;
-	    // }
-
 	    generateAllTargets(){
 	        var targetLists = [];
 
+	        targetLists.push(this.generateLabTransfers());
 	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
 	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
-	        targetLists.push(this.generateLabTransfers());
 	        targetLists.push(this.generateTerminalTransfers());
 
 	        return _.flatten(targetLists);
 	    }
 
 	    generateJob(target){
-	        // {
-	        //     target,
-	        //     resource,
-	        //     amount: Memory.settings.labIdealMinerals,
-	        //     subtype: 'store' | 'deliver' | 'terminal'
-	        // }
-	        // result: 'deliver-H-1000-123456abcdef123456'
 	        return target.subtype + '-' + target.resource + '-' + target.amount + '-' + target.target.id;
 	    }
 
@@ -4031,19 +4092,19 @@ module.exports =
 
 	        var roomCount = this.catalog.rooms.length;
 
-	        this.quota.spawnhauler = roomCount * 2;
+	        this.quota.spawnhauler = roomCount + 2;
 
 	        // console.log(this.quota.transfer);
 
 	        // this.quota.transfer = _.get(this.quota, 'transfer-deliver', 0) + _.get(this.quota, 'transfer-store', 0);
-	        // console.log(_.size(this.catalog.creeps.type['upgradeworker']), this.quota.upgrade);
 
 	        //spread the wealth
 	        if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.9){
-	            this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 100000));
+	            this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 80000));
 	        }else{
 	            this.quota.levelerhauler = 0;
 	        }
+	        // console.log(_.size(this.catalog.creeps.type['levelerhauler']), this.quota['levelerhauler']);
 
 	        if(Memory.stats.global.maxSpawn < 1200){
 	            this.quota.hauler = this.catalog.rooms.length * 4;
@@ -4141,6 +4202,15 @@ module.exports =
 	            repair: totalRepair
 	        }
 	        Memory.stats = stats;
+	        Misc.updateSettings(catalog);
+	    }
+
+	    static updateSettings(catalog){
+	        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.5){
+	            Memory.settings.upgradeCapacity = 20;
+	        }else{
+	            Memory.settings.upgradeCapacity = 10;
+	        }
 	    }
 
 	    static initMemory(){
@@ -4201,9 +4271,11 @@ module.exports =
 
 /***/ },
 /* 54 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
+
+	var Util = __webpack_require__(2);
 
 	class Production {
 	    constructor(catalog){
@@ -4211,7 +4283,7 @@ module.exports =
 	    }
 
 	//production{
-	//     labs: [[3 labs]],
+	//     labs: [[labs]],
 	//     quota: {resource: count}
 	// }
 	// react{
@@ -4222,15 +4294,19 @@ module.exports =
 	//      }
 	// }
 	    process(){
-	        if(Game.time < (Memory.productionTime || 0)){
+	        if(!Util.interval(25)){
 	            return;
 	        }
-	        Memory.productionTime = Game.time + 25;
 	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
 	        var reactions = {};
 	        _.forEach(needs, (amount, type) => {
-	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), reactions);
+	            var temp = {};
+	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp);
+	            reactions[type] = temp[type];
 	        });
+	        // var components = _.uniq(_.flatten(_.map(reactions, 'allComponents')));
+	        // var topReactions = _.pick(reactions, (data, type)=>!_.includes(components, type));
+	        // _.forEach(topReactions, (reaction, type)=>console.log(type, reaction.size));
 	        _.forEach(Memory.react, (data, type)=>{
 	            if(!reactions[type]){
 	                var labs = Memory.production.labs[data.lab];
@@ -4244,49 +4320,66 @@ module.exports =
 	            if(Memory.react[type]){
 	                Memory.react[type].deficit = reaction.deficit;
 	            }else if(_.size(Memory.react) < _.size(Memory.production.labs)){
-	                var labNum = this.findFreeLab();
+	                var labNum = this.findFreeLab(reaction.size);
+	                var fullReaction = true;
 	                if(labNum < 0){
-	                    console.log('lab react mismatch!');
+	                    labNum = this.findFreeLab(3);
+	                    fullReaction = false;
+	                }
+	                if(labNum < 0){
 	                    return;
+	                }
+	                var labs = Memory.production.labs[labNum];
+	                var assignments = {};
+	                _.forEach(labs, (labId, ix) => Memory.transfer.lab[labs[ix]] = false);
+	                Memory.transfer.lab[labs[0]] = type;
+	                assignments[type] = 0;
+	                if(fullReaction){
+	                    _.forEach(reaction.allComponents, (component, ix) => {
+	                        Memory.transfer.lab[labs[ix+1]] = component;
+	                        assignments[component] = ix+1;
+	                    });
+	                }else{
+	                    _.forEach(reaction.components, (component, ix) => {
+	                        Memory.transfer.lab[labs[ix+1]] = component;
+	                        assignments[component] = ix+1;
+	                    });
 	                }
 	                Memory.react[type] = {
 	                    lab: labNum,
 	                    deficit: reaction.deficit,
-	                    components: reaction.components
+	                    components: reaction.components,
+	                    children: reaction.children,
+	                    size: reaction.size,
+	                    allComponents: reaction.allComponents,
+	                    full: fullReaction,
+	                    assignments
 	                };
-	                var labs = Memory.production.labs[labNum];
-	                _.forEach(reaction.components, (component, ix) => Memory.transfer.lab[labs[ix]] = component);
-	                Memory.transfer.lab[labs[2]] = type;
 	            }
 	        });
 	    }
 
-	    findFreeLab(){
-	        return _.findIndex(Memory.production.labs, (labList, ix) => !_.any(Memory.react, (data) => data.lab == ix));
+	    findFreeLab(count){
+	        return _.findIndex(Memory.production.labs, (labList, ix) => labList.length >= count && !_.any(Memory.react, (data) => data.lab == ix));
 	    }
 
 	    generateReactions(type, deficit, output){
 	        if(type.length == 1){
-	            console.log('missing base component', type, deficit);
 	            return;
 	        }
 	        var components = this.findReaction(type);
 	        var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
-	        var canReact = _.every(inventory, (amount, ix) => {
-	            if(deficit - amount > 0){
-	                //generate child reactions
-	                this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output);
-	            }
-	            return amount > 0;
-	        });
+	        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output));
 
-	        if(canReact){
-	            if(output[type]){
-	                output[type].deficit += deficit;
-	            }else{
-	                output[type] = { components, deficit };
-	            }
+	        if(output[type]){
+	            output[type].deficit += deficit;
+	        }else{
+	            output[type] = { type, components, deficit };
 	        }
+	        var children = _.compact(_.map(components, comp => output[comp]));
+	        output[type].children = _.zipObject(_.map(children, 'type'), children);
+	        output[type].allComponents = _.union(components, _.flatten(_.map(output[type].children, 'allComponents')));
+	        output[type].size = output[type].allComponents.length + 1;
 	    }
 
 	    findReaction(type){

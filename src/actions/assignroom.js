@@ -20,7 +20,7 @@ class AssignRoomAction extends BaseAction {
         });
         if(targetRoom){
             creep.memory.room = targetRoom;
-            console.log('assigned', creep.name, 'to room', targetRoom);
+            console.log('assigned', creep.name, 'to room', targetRoom, least);
         }
         delete creep.memory.actions.assignRoom;
     }
@@ -28,7 +28,7 @@ class AssignRoomAction extends BaseAction {
     generateAssignedList(type){
         return _.reduce(Game.creeps, (result, creep)=>{
             if(creep.memory.type == type && creep.memory.room){
-                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + 1);
+                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
             }
             return result;
         }, {});
