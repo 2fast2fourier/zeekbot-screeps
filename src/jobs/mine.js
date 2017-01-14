@@ -18,7 +18,7 @@ class MineJob extends BaseJob {
         //TODO check ownership/reservation
         var targets = room.find(FIND_SOURCES);
         var roomStats = Memory.stats.rooms[room.name];
-        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){
+        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0 && !_.includes(Memory.limits.mineral, roomStats.mineralType)){
             var mineral = Game.getObjectById(roomStats.mineralId);
             if(mineral && mineral.mineralAmount > 0){
                 targets.push(mineral);

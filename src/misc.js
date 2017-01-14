@@ -72,6 +72,14 @@ class Misc {
         }else{
             Memory.settings.upgradeCapacity = 10;
         }
+        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 20000 * _.size(catalog.buildings.storage) + 100000;
+        Memory.limits.mineral = _.filter(Memory.limits.mineral, mineral => catalog.resources[mineral].total > Memory.settings.mineralLimit - 20000);
+        _.forEach(catalog.resources, (data, type)=>{
+            if(type != RESOURCE_ENERGY && data.total > Memory.settings.mineralLimit && !_.includes(Memory.limits.mineral, type)){
+                Memory.limits.mineral.push(type);
+                console.log('banning', type, '-', Memory.limits.mineral, data.total);
+            }
+        });
     }
 
     static initMemory(){
@@ -81,6 +89,9 @@ class Misc {
             Memory.accessibility = {};
             Memory.jobs = {};
             Memory.jobUpdateTime = {};
+            Memory.limits = {
+                mineral: []
+            };
             Memory.uid = 1;
             Memory.updateTime = 0;
             Memory.production = {

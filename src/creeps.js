@@ -18,8 +18,8 @@ module.exports = {
             boostmineral: {
                 allocation: 5,
                 quota: 'mine-mineral',
-                parts: { move: 4, carry: 2, work: 4},
-                boost: { XUHO2: 4 },
+                parts: { move: 4, carry: 2, work: 1},
+                boost: { XUHO2: 1 },
                 actions: { boost: {}, avoid: {}, minecart: {} },
                 rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
             },

@@ -53,6 +53,7 @@ module.exports =
 	var Catalog = __webpack_require__(33);
 	var Misc = __webpack_require__(53);
 	var Production = __webpack_require__(54);
+	var Util = __webpack_require__(2);
 
 	module.exports.loop = function () {
 	    PathFinder.use(true);
@@ -66,21 +67,8 @@ module.exports =
 	    var catalog = new Catalog();
 	    var production = new Production(catalog);
 
-	    if(Memory.refreshTransfer){
-	        _.forEach(catalog.buildings.lab, lab => {
-	            Memory.transfer.lab[lab.id] = false;
-	            Memory.transfer.energy[lab.id] = lab.energyCapacity;
-	        });
-	        _.forEach(catalog.buildings.terminal, terminal => {
-	            Memory.transfer.energy[terminal.id] = 50000;
-	        });
-	        console.log('refreshed transfer settings');
-	        Memory.refreshTransfer = false;
-	    }
-
-	    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
+	    if(Util.interval(Memory.settings.updateDelta) || !Memory.stats){
 	        Misc.updateStats(catalog);
-	        Memory.updateTime = Game.time + Memory.settings.updateDelta;
 	    }
 
 	    var startup = Game.cpu.getUsed();
@@ -91,9 +79,6 @@ module.exports =
 	    catalog.jobs.generate();
 	    catalog.jobs.allocate();
 	    catalog.quota.process();
-
-	    // console.log(_.size(catalog.jobs.jobs.keep), catalog.jobs.capacity.keep);
-	    // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
 	    var jobs = Game.cpu.getUsed();
 	    catalog.profile('jobs', jobs - startup);
@@ -112,9 +97,8 @@ module.exports =
 	    catalog.finishProfile();
 	    catalog.profile('cpu', Game.cpu.getUsed());
 
-	    if(Game.cpu.bucket < 5000 && Memory.cpuWarningTriggered < Game.time){
-	        Game.notify('CPU bucket under limit!');
-	        Memory.cpuWarningTriggered = Game.time + 5000;
+	    if(Game.cpu.bucket < 5000){
+	        Util.notify('cpubucket', 'CPU bucket under limit!');
 	    }
 	}
 
@@ -146,6 +130,7 @@ module.exports =
 
 
 	        if(Util.interval(10)){
+	            Memory.transfer.reactions = {};
 	            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
 	            _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
 	        }
@@ -242,11 +227,22 @@ module.exports =
 	        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
 	    }
 
+	    static registerReaction(type, roomName){
+	        if(!Memory.transfer.reactions[type]){
+	            Memory.transfer.reactions[type] = [];
+	        }
+	        if(!_.includes(Memory.transfer.reactions[type], roomName)){
+	            Memory.transfer.reactions[type].push(roomName);
+	        }
+	    }
+
 	    static react(type, targetLab, labA, labB, components){
 	        if(!targetLab || !labA || !labB){
 	            Util.notify('labnotify', 'invalid lab for reaction' + type);
 	            return false;
 	        }
+	        var roomName = targetLab.pos.roomName;
+	        _.forEach(components, component => Controller.registerReaction(component, roomName));
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
@@ -280,12 +276,37 @@ module.exports =
 	        var ideal = Memory.settings.terminalIdealResources;
 	        var terminalCount = _.size(catalog.buildings.terminal);
 	        _.forEach(catalog.resources, (data, type)=>{
-	            if(type == RESOURCE_ENERGY){
+	            if(type == RESOURCE_ENERGY || transferred){
 	                return;
 	            }
+	            var reactions = Memory.transfer.reactions[type];
+	            if(data.totals.terminal > 100 && data.totals.terminal < ideal * terminalCount){
+	                _.forEach(reactions, roomName=>{
+	                    if(transferred){
+	                        return;
+	                    }
+	                    var room = Game.rooms[roomName];
+	                    var targetTerminal = room.terminal;
+	                    var resources = Util.getResource(targetTerminal, type);
+	                    if(targetTerminal && resources < ideal - 100 && resources < data.totals.terminal - 100){
+	                        var source = _.last(Util.sort.resource(_.filter(data.terminal, terminal => !_.includes(reactions, terminal.pos.roomName) && Util.getResource(terminal, type) > 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 20000), type));
+	                        if(source){
+	                            var src = Util.getResource(source, type);
+	                            var dest = Util.getResource(targetTerminal, type);
+	                            var sending = Math.min(src, ideal - dest);
+	                            if(sending > 100){
+	                                console.log('transfer need', type, sending, source, 'to', targetTerminal);
+	                                transferred = source.send(type, sending, targetTerminal.pos.roomName) == OK;
+	                            }
+	                        }
+	                    }
+	                });
+	            }
+
 	            if(!transferred && data.totals.terminal > ideal){
 	                var terminal = _.last(Util.sort.resource(_.filter(data.terminal, terminal => Util.getResource(terminal, type) > ideal + 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 40000), type));
-	                var target = _.last(Util.sort.resource(_.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100), type));
+	                var targets = _.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100);
+	                var target = _.first(Util.sort.resource(targets, type));
 	                if(terminal && target){
 	                    var source = Util.getResource(terminal, type);
 	                    var dest = Util.getResource(target, type);
@@ -293,6 +314,7 @@ module.exports =
 	                    if(sending >= 100){
 	                        console.log('transfer', type, terminal, source, 'to', target, dest, sending);
 	                        transferred = terminal.send(type, sending, target.pos.roomName) == OK;
+	                        return;
 	                    }
 	                }
 	            }
@@ -325,7 +347,7 @@ module.exports =
 	        });
 	        _.forEach(catalog.resources, (data, type)=>{
 	            var overage = data.totals.terminal - max;
-	            if(!sold && type != RESOURCE_ENERGY && overage > 1000 && Game.market.credits > 10000){
+	            if(!sold && type != RESOURCE_ENERGY && overage > 10000 && Game.market.credits > 10000){
 	                if(!_.has(prices, type)){
 	                    console.log('want to sell', type, 'but no price');
 	                    return;
@@ -886,8 +908,8 @@ module.exports =
 	            boostmineral: {
 	                allocation: 5,
 	                quota: 'mine-mineral',
-	                parts: { move: 4, carry: 2, work: 4},
-	                boost: { XUHO2: 4 },
+	                parts: { move: 4, carry: 2, work: 1},
+	                boost: { XUHO2: 1 },
 	                actions: { boost: {}, avoid: {}, minecart: {} },
 	                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
 	            },
@@ -3470,7 +3492,7 @@ module.exports =
 	        //TODO check ownership/reservation
 	        var targets = room.find(FIND_SOURCES);
 	        var roomStats = Memory.stats.rooms[room.name];
-	        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0){
+	        if(roomStats && roomStats.extractor && roomStats.mineralAmount > 0 && !_.includes(Memory.limits.mineral, roomStats.mineralType)){
 	            var mineral = Game.getObjectById(roomStats.mineralId);
 	            if(mineral && mineral.mineralAmount > 0){
 	                targets.push(mineral);
@@ -4211,6 +4233,14 @@ module.exports =
 	        }else{
 	            Memory.settings.upgradeCapacity = 10;
 	        }
+	        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 20000 * _.size(catalog.buildings.storage) + 100000;
+	        Memory.limits.mineral = _.filter(Memory.limits.mineral, mineral => catalog.resources[mineral].total > Memory.settings.mineralLimit - 20000);
+	        _.forEach(catalog.resources, (data, type)=>{
+	            if(type != RESOURCE_ENERGY && data.total > Memory.settings.mineralLimit && !_.includes(Memory.limits.mineral, type)){
+	                Memory.limits.mineral.push(type);
+	                console.log('banning', type, '-', Memory.limits.mineral, data.total);
+	            }
+	        });
 	    }
 
 	    static initMemory(){
@@ -4220,6 +4250,9 @@ module.exports =
 	            Memory.accessibility = {};
 	            Memory.jobs = {};
 	            Memory.jobUpdateTime = {};
+	            Memory.limits = {
+	                mineral: []
+	            };
 	            Memory.uid = 1;
 	            Memory.updateTime = 0;
 	            Memory.production = {
@@ -4364,7 +4397,7 @@ module.exports =
 	    }
 
 	    generateReactions(type, deficit, output){
-	        if(type.length == 1){
+	        if(type != 'G' && type.length == 1){
 	            return;
 	        }
 	        var components = this.findReaction(type);

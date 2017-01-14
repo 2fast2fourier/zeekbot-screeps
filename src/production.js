@@ -89,7 +89,7 @@ class Production {
     }
 
     generateReactions(type, deficit, output){
-        if(type.length == 1){
+        if(type != 'G' && type.length == 1){
             return;
         }
         var components = this.findReaction(type);

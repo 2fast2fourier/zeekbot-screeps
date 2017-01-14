@@ -6,6 +6,7 @@ var WorkManager = require('./workmanager');
 var Catalog = require('./catalog');
 var Misc = require('./misc');
 var Production = require('./production');
+var Util = require('./util');
 
 module.exports.loop = function () {
     PathFinder.use(true);
@@ -19,21 +20,8 @@ module.exports.loop = function () {
     var catalog = new Catalog();
     var production = new Production(catalog);
 
-    if(Memory.refreshTransfer){
-        _.forEach(catalog.buildings.lab, lab => {
-            Memory.transfer.lab[lab.id] = false;
-            Memory.transfer.energy[lab.id] = lab.energyCapacity;
-        });
-        _.forEach(catalog.buildings.terminal, terminal => {
-            Memory.transfer.energy[terminal.id] = 50000;
-        });
-        console.log('refreshed transfer settings');
-        Memory.refreshTransfer = false;
-    }
-
-    if(Memory.updateTime < Game.time || !Memory.updateTime || !Memory.stats){
+    if(Util.interval(Memory.settings.updateDelta) || !Memory.stats){
         Misc.updateStats(catalog);
-        Memory.updateTime = Game.time + Memory.settings.updateDelta;
     }
 
     var startup = Game.cpu.getUsed();
@@ -44,9 +32,6 @@ module.exports.loop = function () {
     catalog.jobs.generate();
     catalog.jobs.allocate();
     catalog.quota.process();
-
-    // console.log(_.size(catalog.jobs.jobs.keep), catalog.jobs.capacity.keep);
-    // _.forEach(catalog.jobs.jobs.transfer, (job, id) => console.log(id, job.target, job.pickup, job.amount, job.resource));
 
     var jobs = Game.cpu.getUsed();
     catalog.profile('jobs', jobs - startup);
@@ -65,8 +50,7 @@ module.exports.loop = function () {
     catalog.finishProfile();
     catalog.profile('cpu', Game.cpu.getUsed());
 
-    if(Game.cpu.bucket < 5000 && Memory.cpuWarningTriggered < Game.time){
-        Game.notify('CPU bucket under limit!');
-        Memory.cpuWarningTriggered = Game.time + 5000;
+    if(Game.cpu.bucket < 5000){
+        Util.notify('cpubucket', 'CPU bucket under limit!');
     }
 }

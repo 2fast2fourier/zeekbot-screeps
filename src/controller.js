@@ -22,6 +22,7 @@ class Controller {
 
 
         if(Util.interval(10)){
+            Memory.transfer.reactions = {};
             _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
             _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
         }
@@ -118,11 +119,22 @@ class Controller {
         _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
     }
 
+    static registerReaction(type, roomName){
+        if(!Memory.transfer.reactions[type]){
+            Memory.transfer.reactions[type] = [];
+        }
+        if(!_.includes(Memory.transfer.reactions[type], roomName)){
+            Memory.transfer.reactions[type].push(roomName);
+        }
+    }
+
     static react(type, targetLab, labA, labB, components){
         if(!targetLab || !labA || !labB){
             Util.notify('labnotify', 'invalid lab for reaction' + type);
             return false;
         }
+        var roomName = targetLab.pos.roomName;
+        _.forEach(components, component => Controller.registerReaction(component, roomName));
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }
@@ -156,12 +168,37 @@ class Controller {
         var ideal = Memory.settings.terminalIdealResources;
         var terminalCount = _.size(catalog.buildings.terminal);
         _.forEach(catalog.resources, (data, type)=>{
-            if(type == RESOURCE_ENERGY){
+            if(type == RESOURCE_ENERGY || transferred){
                 return;
             }
+            var reactions = Memory.transfer.reactions[type];
+            if(data.totals.terminal > 100 && data.totals.terminal < ideal * terminalCount){
+                _.forEach(reactions, roomName=>{
+                    if(transferred){
+                        return;
+                    }
+                    var room = Game.rooms[roomName];
+                    var targetTerminal = room.terminal;
+                    var resources = Util.getResource(targetTerminal, type);
+                    if(targetTerminal && resources < ideal - 100 && resources < data.totals.terminal - 100){
+                        var source = _.last(Util.sort.resource(_.filter(data.terminal, terminal => !_.includes(reactions, terminal.pos.roomName) && Util.getResource(terminal, type) > 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 20000), type));
+                        if(source){
+                            var src = Util.getResource(source, type);
+                            var dest = Util.getResource(targetTerminal, type);
+                            var sending = Math.min(src, ideal - dest);
+                            if(sending > 100){
+                                console.log('transfer need', type, sending, source, 'to', targetTerminal);
+                                transferred = source.send(type, sending, targetTerminal.pos.roomName) == OK;
+                            }
+                        }
+                    }
+                });
+            }
+
             if(!transferred && data.totals.terminal > ideal){
                 var terminal = _.last(Util.sort.resource(_.filter(data.terminal, terminal => Util.getResource(terminal, type) > ideal + 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 40000), type));
-                var target = _.last(Util.sort.resource(_.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100), type));
+                var targets = _.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100);
+                var target = _.first(Util.sort.resource(targets, type));
                 if(terminal && target){
                     var source = Util.getResource(terminal, type);
                     var dest = Util.getResource(target, type);
@@ -169,6 +206,7 @@ class Controller {
                     if(sending >= 100){
                         console.log('transfer', type, terminal, source, 'to', target, dest, sending);
                         transferred = terminal.send(type, sending, target.pos.roomName) == OK;
+                        return;
                     }
                 }
             }
@@ -201,7 +239,7 @@ class Controller {
         });
         _.forEach(catalog.resources, (data, type)=>{
             var overage = data.totals.terminal - max;
-            if(!sold && type != RESOURCE_ENERGY && overage > 1000 && Game.market.credits > 10000){
+            if(!sold && type != RESOURCE_ENERGY && overage > 10000 && Game.market.credits > 10000){
                 if(!_.has(prices, type)){
                     console.log('want to sell', type, 'but no price');
                     return;
