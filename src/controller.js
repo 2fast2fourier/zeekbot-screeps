@@ -240,7 +240,7 @@ class Controller {
         });
         _.forEach(catalog.resources, (data, type)=>{
             var overage = data.totals.terminal - max;
-            if(!sold && type != RESOURCE_ENERGY && overage > 20000 && Game.market.credits > 10000){
+            if(!sold && type != RESOURCE_ENERGY && overage > 20000 && Game.market.credits > 10000 && data.totals.storage > 50000){
                 if(!_.has(prices, type)){
                     console.log('want to sell', type, 'but no price');
                     return;
