@@ -171,10 +171,6 @@ class Catalog {
         return access;
     }
 
-    lookForArea(room, pos, type, radius){
-        return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
-    }
-
     isFull(entity){
         return this.getAvailableCapacity(entity) < 1;
     }

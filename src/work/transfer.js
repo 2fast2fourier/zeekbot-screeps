@@ -99,7 +99,7 @@ class TransferWorker extends StaticWorker {
         var target;
         if(job.subtype == 'store'){
             var terminalIdeal = Memory.settings.terminalIdealResources * _.size(this.catalog.buildings.terminal);
-            if(this.catalog.resources[job.resource].totals.terminal + resources <= terminalIdeal){
+            if(this.catalog.resources[job.resource].totals.terminal + resources <= terminalIdeal + 10000){
                 target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.terminal));
             }else{
                 target = _.first(Util.helper.closestNotFull(creep, this.catalog.buildings.storage));

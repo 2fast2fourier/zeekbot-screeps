@@ -80,6 +80,10 @@ class Misc {
                 console.log('banning', type, '-', Memory.limits.mineral, data.total);
             }
         });
+        if(Memory.stats.global.totalRepair < 500000 && Memory.stats.global.totalEnergy > 250000 + 100000 * _.size(catalog.buildings.storage)){
+            Memory.settings.repairTarget = Memory.settings.repairTarget + 5000;
+            console.log('Expanding repairTarget', Memory.settings.repairTarget);
+        }
     }
 
     static initMemory(){

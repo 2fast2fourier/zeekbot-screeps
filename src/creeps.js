@@ -7,8 +7,7 @@ module.exports = {
                 allocation: 7,
                 critical: true,
                 parts: { move: 1, carry: 2, work: 1},
-                boost: { XUHO2: 1 },
-                actions: { boost: {}, avoid: {}, minecart: {} }
+                boost: { XUHO2: 1 }
             },
             milli: {
                 allocation: 7,
@@ -20,7 +19,6 @@ module.exports = {
                 quota: 'mine-mineral',
                 parts: { move: 4, carry: 2, work: 1},
                 boost: { XUHO2: 1 },
-                actions: { boost: {}, avoid: {}, minecart: {} },
                 rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
             },
             mineral: {
@@ -71,7 +69,7 @@ module.exports = {
                 rules: {
                     pickup: { subtype: false, local: true },
                     deliver: { subtype: 'spawn', local: true },
-                    idle: { type: 'spawn', local: true }
+                    idle: { type: 'spawn' }
                 },
                 actions: { assignRoom: {} }
             },
@@ -174,8 +172,7 @@ module.exports = {
                     build: {},
                     repair: { priority: 99 }
                 },
-                parts: { work: 4, carry: 6, move: 10 },
-                actions: { boost: {}, avoid: {} }
+                parts: { work: 4, carry: 6, move: 10 }
             },
             upgrade: {
                 quota: 'upgrade',
@@ -183,12 +180,20 @@ module.exports = {
                 parts: { work: 10, carry: 2, move: 6 },
                 rules: { pickup: {}, upgrade: {} }
             },
-            repair: {
+            boostrepair: {
                 quota: 'repair',
-                max: 12,
+                max: 10,
+                boost: { XLH2O: 2 },
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
-                parts: { work: 5, carry: 5, move: 10 }
+                parts: { work: 2, carry: 6, move: 4 }
+            },
+            repair: {
+                quota: 'repair',
+                max: 10,
+                rules: { pickup: {}, repair: {} },
+                actions: { avoid: {}, repair: {} },
+                parts: { work: 5, carry: 10, move: 8 }
             }
         },
         rules: {
@@ -198,7 +203,7 @@ module.exports = {
             upgrade: { priority: 10 },
             idle: { type: 'worker' }
         },
-        actions: { avoid: {} }
+        actions: { avoid: {}, energy: {} }
     },
     claimer: {
         versions: {

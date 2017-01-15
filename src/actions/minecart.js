@@ -6,6 +6,7 @@ var offsets = {
     container: 0.5,
     storage: 0.25,
     link: 0,
+    tower: -1
 };
 
 class MinecartAction extends BaseAction {

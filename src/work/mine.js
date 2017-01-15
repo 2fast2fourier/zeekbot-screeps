@@ -15,7 +15,7 @@ class MineWorker extends BaseWorker {
 
     calculateAllocation(creep, opts){
         if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
-            return 7;
+            return 8 * creep.getActiveBodyparts(WORK);
         }
         return creep.getActiveBodyparts(WORK);
     }

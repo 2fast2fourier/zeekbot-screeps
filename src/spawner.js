@@ -165,6 +165,9 @@ class Spawner {
 
         if(version.boost){
             memory.boost = _.keys(version.boost);
+            if(!_.has(memory, 'actions.boost')){
+                _.set(memory, 'actions.boost', {});
+            }
         }
 
         var optMemory = version.memory || config.memory;

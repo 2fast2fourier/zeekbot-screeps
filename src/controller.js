@@ -12,10 +12,11 @@ class Controller {
         var towers = catalog.buildings.tower;
         var targets = _.map(catalog.jobs.jobs['defend'], 'target');
         var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
+        var repairTargets = Util.getObjects(Memory.jobs.repair);
         towers.forEach((tower, ix) => {
             if(!Controller.towerDefend(tower, catalog, targets)){
                 if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
-                    Controller.towerRepair(tower, catalog, ix);
+                    Controller.towerRepair(tower, catalog, repairTargets);
                 }
             }
         });
@@ -65,12 +66,12 @@ class Controller {
         return false;
     }
 
-    static towerRepair(tower, catalog, ix) {
-        // var damagedBuildings = _.filter(catalog.getStructures(tower.room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-        // if(damagedBuildings.length > ix) {
-        //     var damaged = _.sortBy(damagedBuildings, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-        //     tower.repair(damaged[ix]);
-        // }
+    static towerRepair(tower, catalog, repairTargets) {
+        var targets = _.filter(repairTargets, target => target && tower.pos.roomName == target.pos.roomName && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget));
+        if(targets.length > 0) {
+            var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
+            tower.repair(damaged[0]);
+        }
     }
 
     static linkTransfer(sourceId, targetId, catalog){
@@ -239,7 +240,7 @@ class Controller {
         });
         _.forEach(catalog.resources, (data, type)=>{
             var overage = data.totals.terminal - max;
-            if(!sold && type != RESOURCE_ENERGY && overage > 10000 && Game.market.credits > 10000){
+            if(!sold && type != RESOURCE_ENERGY && overage > 20000 && Game.market.credits > 10000){
                 if(!_.has(prices, type)){
                     console.log('want to sell', type, 'but no price');
                     return;

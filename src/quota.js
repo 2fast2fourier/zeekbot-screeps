@@ -11,7 +11,7 @@ class QuotaManager {
 
         var roomCount = this.catalog.rooms.length;
 
-        this.quota.spawnhauler = roomCount + 2;
+        this.quota.spawnhauler = roomCount * 2;
 
         // console.log(this.quota.transfer);
 
@@ -23,7 +23,7 @@ class QuotaManager {
         }else{
             this.quota.levelerhauler = 0;
         }
-        // console.log(_.size(this.catalog.creeps.type['levelerhauler']), this.quota['levelerhauler']);
+        // console.log(_.size(this.catalog.creeps.type['spawnhauler']), this.quota['spawnhauler']);
 
         if(Memory.stats.global.maxSpawn < 1200){
             this.quota.hauler = this.catalog.rooms.length * 4;

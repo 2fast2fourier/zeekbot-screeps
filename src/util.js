@@ -140,6 +140,10 @@ function notify(type, message){
     }
 }
 
+function lookForArea(room, pos, type, radius){
+    return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
+}
+
 class FilterPredicates {
 
     static empty(entity){
@@ -249,5 +253,6 @@ module.exports = {
     cacheRoomPos,
     calculateRealPosition,
     getRealDistance,
-    notify
+    notify,
+    lookForArea
 };
