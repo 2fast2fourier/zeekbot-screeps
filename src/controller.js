@@ -152,14 +152,17 @@ class Controller {
     static boost(catalog, labs){
         Memory.boost.stored = {};
         Memory.boost.labs = {};
+        Memory.boost.rooms = {};
         _.forEach(labs, lab => {
             var type = lab.mineralType;
             if(type && type.startsWith('X') && type.length > 1 && lab.mineralAmount > 50 && lab.energy > 50){
                 if(!Memory.boost.labs[type]){
                     Memory.boost.labs[type] = [];
+                    Memory.boost.rooms[type] = [];
                 }
                 Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
                 Memory.boost.labs[type].push(lab.id);
+                Memory.boost.rooms[type].push(lab.pos.roomName);
             }
         });
     }

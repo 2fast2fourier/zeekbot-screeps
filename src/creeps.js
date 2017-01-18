@@ -164,7 +164,7 @@ module.exports = {
             builder: {
                 quota: 'build',
                 allocation: 3,
-                max: 8,
+                max: 4,
                 boostOptional: true,
                 boost: { XLH2O: 4 },
                 rules: {
@@ -244,7 +244,7 @@ module.exports = {
             boostmelee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 20,
+                allocation: 10,
                 boost: { XUH2O: 5 },
                 parts: { tough: 24, move: 16, attack: 5, heal: 3 },
                 actions: { boost: {}, selfheal: {} }
@@ -252,7 +252,7 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 15,
+                allocation: 10,
                 parts: { tough: 14, move: 16, attack: 15, heal: 3 },
                 actions: { selfheal: {} }
             },
