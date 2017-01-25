@@ -101,7 +101,7 @@ module.exports = {
             },
             leveler: {
                 quota: 'levelerhauler',
-                max: 12,
+                max: 10,
                 rules: {
                     pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -225,8 +225,8 @@ module.exports = {
     healer: {
         versions: {
             boost: {
-                critical: true,
                 quota: 'heal',
+                max: 2,
                 boost: { XLHO2: 4 },
                 parts: { tough: 4, move: 8, heal: 4 },
                 actions: { boost: {} }

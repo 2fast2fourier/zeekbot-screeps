@@ -67,7 +67,11 @@ class Controller {
     }
 
     static towerRepair(tower, catalog, repairTargets) {
-        var targets = _.filter(repairTargets, target => target && tower.pos.roomName == target.pos.roomName && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget));
+        if(!tower){
+            Util.notify('towerbug', 'missing tower somehow!?');
+            return;
+        }
+        var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget));
         if(targets.length > 0) {
             var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
             tower.repair(damaged[0]);

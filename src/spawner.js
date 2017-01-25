@@ -20,6 +20,26 @@ class Spawner {
         }
 
         var spawned = false;
+
+        _.forEach(spawnlist.boosted, (boosts, type)=>{
+            if(spawned){
+                return;
+            }
+            var boostType = _.first(boosts);
+            var rooms = _.get(Memory, ['boost', 'rooms', boostType], false);
+            if(rooms){
+                _.forEach(rooms, room => {
+                    if(spawned){
+                        return;
+                    }
+                    var spawn = _.first(_.filter(Game.spawns, spawn => !spawn.spawning && spawn.pos.roomName == room && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])));
+                    if(spawn){
+                        spawned = Spawner.spawnCreep(spawn, spawnlist, type, catalog);
+                    }
+                });
+            }
+        });
+
         _.forEach(Game.spawns, spawn => {
             if(!spawned && !spawn.spawning){
                 spawned = Spawner.spawner(spawn, catalog, spawnlist);
@@ -31,6 +51,7 @@ class Spawner {
 
     static generateSpawnList(catalog){
         var spawnlist = {
+            boosted: {},
             costs: {},
             critical: {},
             spawn: {},
@@ -46,14 +67,14 @@ class Spawner {
                 var type = versionName+className;
                 var limit = Spawner.calculateSpawnLimit(catalog, type, version, config);
                 var quota = Spawner.calculateRemainingQuota(catalog, type, version, config, allocation);
-                // if(type == 'upgradeworker'){
-                //     console.log(type, quota, limit);
-                // }
                 var need = Math.min(limit, quota);
                 if(need > 0){
                     spawnlist.costs[type] = Spawner.calculateCost(version.parts || config.parts);
                     if(version.critical){
                         spawnlist.critical[type] = need;
+                    }
+                    if(version.boost){
+                        spawnlist.boosted[type] = _.keys(version.boost);
                     }
                     spawnlist.parts[type] = Spawner.partList(version.parts);
                     spawnlist.version[type] = versionName;
@@ -133,17 +154,21 @@ class Spawner {
         }
 
         if(spawnType){
-            var className = spawnlist.class[spawnType];
-            var versionName = spawnlist.version[spawnType];
-            var config = classConfig[className];
-            var version = config.versions[versionName];
-            var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(config, version, spawnType, className, versionName));
-            Memory.uid++;
-            var current = _.size(catalog.creeps.type[spawnType]);
-            console.log(spawn.name, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
-            return spawned;
+            return Spawner.spawnCreep(spawn, spawnlist, spawnType, catalog);
         }
         return false;
+    }
+
+    static spawnCreep(spawn, spawnlist, spawnType, catalog){
+        var className = spawnlist.class[spawnType];
+        var versionName = spawnlist.version[spawnType];
+        var config = classConfig[className];
+        var version = config.versions[versionName];
+        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(config, version, spawnType, className, versionName));
+        Memory.uid++;
+        var current = _.size(catalog.creeps.type[spawnType]);
+        console.log(spawn.name, 'spawning', spawned, spawnlist.costs[spawnType], '-', current + 1, 'of', current + spawnlist.spawn[spawnType]);
+        return spawned;
     }
 
     static canSpawn(spawn, parts, cost){
