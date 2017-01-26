@@ -12,7 +12,7 @@ class Controller {
         var towers = catalog.buildings.tower;
         var targets = _.map(catalog.jobs.jobs['defend'], 'target');
         var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
-        var repairTargets = Util.getObjects(Memory.jobs.repair);
+        var repairTargets = _.filter(Util.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
         towers.forEach((tower, ix) => {
             if(!Controller.towerDefend(tower, catalog, targets)){
                 if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
@@ -30,6 +30,9 @@ class Controller {
 
         if(Util.interval(10) || Memory.boost.update){
             Controller.boost(catalog, catalog.buildings.lab);
+            _.forEach(Memory.production.boosts, (boost, labId) => {
+                Memory.transfer.lab[labId] = boost;
+            });
             Memory.boost.update = false;
         }
         
@@ -38,6 +41,10 @@ class Controller {
             if(!Controller.levelTerminals(catalog)){
                 Controller.sellOverage(catalog);
             }
+        }
+
+        if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
+            _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
         }
     }
 
@@ -71,7 +78,7 @@ class Controller {
             Util.notify('towerbug', 'missing tower somehow!?');
             return;
         }
-        var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget));
+        var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName);
         if(targets.length > 0) {
             var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
             tower.repair(damaged[0]);
@@ -140,6 +147,9 @@ class Controller {
         }
         var roomName = targetLab.pos.roomName;
         _.forEach(components, component => Controller.registerReaction(component, roomName));
+        Memory.transfer.lab[targetLab.id] = type;
+        Memory.transfer.lab[labA.id] = components[0];
+        Memory.transfer.lab[labB.id] = components[1];
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }

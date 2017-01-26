@@ -46,7 +46,7 @@ class IdleJob extends BaseJob {
         if(parts.length == 2){
             return [{
                 allocated: 0,
-                capacity: 4,
+                capacity: 2,
                 id: this.generateId(flag)+"-"+parts[1],
                 target: flag,
                 idleType: parts[1],

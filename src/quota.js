@@ -15,15 +15,13 @@ class QuotaManager {
 
         // console.log(this.quota.transfer);
 
-        // this.quota.transfer = _.get(this.quota, 'transfer-deliver', 0) + _.get(this.quota, 'transfer-store', 0);
-
         //spread the wealth
         if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.9){
             this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 80000));
         }else{
             this.quota.levelerhauler = 0;
         }
-        // console.log(_.size(this.catalog.creeps.type['spawnhauler']), this.quota['spawnhauler']);
+        // console.log(_.size(this.catalog.creeps.type['assaultfighter']), this.quota['idle-assault']);
 
         if(Memory.stats.global.maxSpawn < 1200){
             this.quota.hauler = this.catalog.rooms.length * 4;

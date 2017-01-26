@@ -100,7 +100,8 @@ class Misc {
             Memory.updateTime = 0;
             Memory.production = {
                 labs: [],
-                quota: {}
+                quota: {},
+                boosts: {}
             };
             Memory.react = {};
             Memory.transfer = {

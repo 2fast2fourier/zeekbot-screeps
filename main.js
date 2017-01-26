@@ -120,7 +120,7 @@ module.exports =
 	        var towers = catalog.buildings.tower;
 	        var targets = _.map(catalog.jobs.jobs['defend'], 'target');
 	        var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
-	        var repairTargets = Util.getObjects(Memory.jobs.repair);
+	        var repairTargets = _.filter(Util.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
 	        towers.forEach((tower, ix) => {
 	            if(!Controller.towerDefend(tower, catalog, targets)){
 	                if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
@@ -138,6 +138,9 @@ module.exports =
 
 	        if(Util.interval(10) || Memory.boost.update){
 	            Controller.boost(catalog, catalog.buildings.lab);
+	            _.forEach(Memory.production.boosts, (boost, labId) => {
+	                Memory.transfer.lab[labId] = boost;
+	            });
 	            Memory.boost.update = false;
 	        }
 	        
@@ -146,6 +149,10 @@ module.exports =
 	            if(!Controller.levelTerminals(catalog)){
 	                Controller.sellOverage(catalog);
 	            }
+	        }
+
+	        if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
+	            _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
 	        }
 	    }
 
@@ -179,7 +186,7 @@ module.exports =
 	            Util.notify('towerbug', 'missing tower somehow!?');
 	            return;
 	        }
-	        var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget));
+	        var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName);
 	        if(targets.length > 0) {
 	            var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
 	            tower.repair(damaged[0]);
@@ -248,6 +255,9 @@ module.exports =
 	        }
 	        var roomName = targetLab.pos.roomName;
 	        _.forEach(components, component => Controller.registerReaction(component, roomName));
+	        Memory.transfer.lab[targetLab.id] = type;
+	        Memory.transfer.lab[labA.id] = components[0];
+	        Memory.transfer.lab[labB.id] = components[1];
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
@@ -1172,14 +1182,6 @@ module.exports =
 	    },
 	    fighter: {
 	        versions: {
-	            boostmelee: {
-	                critical: true,
-	                quota: 'keep',
-	                allocation: 10,
-	                boost: { XUH2O: 5 },
-	                parts: { tough: 24, move: 16, attack: 5, heal: 3 },
-	                actions: { boost: {}, selfheal: {} }
-	            },
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
@@ -1195,11 +1197,33 @@ module.exports =
 	                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
 	            },
 	            assault: {
-	                quota: 'idle-staging',
-	                max: 3,
+	                critical: true,
+	                quota: 'idle-assault',
+	                allocation: 1,
+	                max: 2,
+	                boost: { XUH2O: 10, XLHO2: 10 },
+	                parts: { tough: 5, move: 25, attack: 10, heal: 10 },
+	                actions: { boost: {}, selfheal: {} },
+	                rules: { attack: { subtype: 'assault' }, idle: { type: 'assault' } }
+	            },
+	            attack: {
+	                quota: 'idle-attack',
+	                max: 2,
 	                allocation: 1,
 	                parts: { tough: 17, move: 16, attack: 15 },
-	                rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
+	                rules: { attack: { subtype: 'attack' }, idle: { type: 'attack' } }
+	            },
+	            raider: {
+	                quota: 'idle-raid',
+	                allocation: 1,
+	                parts: { move: 15, attack: 15 },
+	                rules: { attack: { subtype: 'raid' }, idle: { type: 'raid' } }
+	            },
+	            picket: {
+	                quota: 'idle-picket',
+	                allocation: 1,
+	                parts: { move: 5, attack: 5 },
+	                rules: { attack: { subtype: 'picket' }, idle: { type: 'picket' } }
 	            }
 	        },
 	        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
@@ -1733,7 +1757,8 @@ module.exports =
 	var BaseWorker = __webpack_require__(17);
 
 	class AttackWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'attack', { chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 4 } }); }
+	    // ignoreDestructibleStructures: true,
+	    constructor(catalog){ super(catalog, 'attack', { chatty: true, moveOpts: { reusePath: 4 } }); }
 
 	    calculateAllocation(creep, opts){
 	        return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
@@ -3262,8 +3287,8 @@ module.exports =
 	class AttackJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
 
-	    calculateCapacity(room, target){
-	        return 30;
+	    calculateCapacity(room, target, flag){
+	        return 60;
 	    }
 
 	    generateTargets(room){
@@ -3271,23 +3296,45 @@ module.exports =
 	    }
 
 	    generateJobsForFlag(flag){
+	        var subtype = this.getSubflag(flag);
 	        if(flag.room){
-	            var towers = flag.room.find(FIND_HOSTILE_STRUCTURES, { filter: { structureType: STRUCTURE_TOWER } });
-	            if(towers.length > 0){
-	                return _.map(towers, target => this.generateJobForTarget(flag.room, target));
+	            if(flag.name.includes('target')){
+	                var results = flag.pos.lookFor(LOOK_STRUCTURES);
+	                if(results && results.length > 0){
+	                    // console.log(results);
+	                    return _.map(results, target => this.generateJobForTarget(flag.room, target, flag, subtype));
+	                }
 	            }
-	            var structures = _.filter(flag.room.find(FIND_HOSTILE_STRUCTURES), structure => structure.structureType != STRUCTURE_CONTROLLER);
+	            var hostileStructures = flag.room.find(FIND_HOSTILE_STRUCTURES);
+	            var towers = _.filter(hostileStructures, structure => structure.structureType == STRUCTURE_TOWER);
+	            if(towers.length > 0){
+	                return _.map(towers, target => this.generateJobForTarget(flag.room, target, flag, subtype));
+	            }
+	            var spawns = _.filter(hostileStructures, structure => structure.structureType == STRUCTURE_SPAWN);
+	            if(spawns.length > 0){
+	                return _.map(spawns, target => this.generateJobForTarget(flag.room, target, flag, subtype));
+	            }
+	            var structures = _.filter(hostileStructures, structure => structure.structureType != STRUCTURE_CONTROLLER);
 	            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
 	            if(structures.length > 0){
 	                targets = targets.concat(structures);
 	            }
 	            if(targets.length > 0){
-	                return _.map(targets, target => this.generateJobForTarget(flag.room, target));
+	                return _.map(targets, target => this.generateJobForTarget(flag.room, target, flag, subtype));
 	            }
 	        }else{
-	            return [this.generateJobForTarget(flag.room, flag, flag)];
+	            return [this.generateJobForTarget(flag.room, flag, flag, subtype)];
 	        }
 	        return [];
+	    }
+
+	    generateJobForTarget(room, target, flag, subtype){
+	        var job = super.generateJobForTarget(room, target, flag);
+	        if(subtype){
+	            job.subtype = subtype;
+	            job.id = this.generateId(target, subtype);
+	        }
+	        return job;
 	    }
 	}
 
@@ -3655,7 +3702,7 @@ module.exports =
 	        if(parts.length == 2){
 	            return [{
 	                allocated: 0,
-	                capacity: 4,
+	                capacity: 2,
 	                id: this.generateId(flag)+"-"+parts[1],
 	                target: flag,
 	                idleType: parts[1],
@@ -4088,6 +4135,7 @@ module.exports =
 	        targetLists.push(this.generateLabTransfers());
 	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
 	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
+	        targetLists.push(this.generateEnergyTransfers('nuker', 300000));
 	        targetLists.push(this.generateTerminalTransfers());
 
 	        return _.flatten(targetLists);
@@ -4200,15 +4248,13 @@ module.exports =
 
 	        // console.log(this.quota.transfer);
 
-	        // this.quota.transfer = _.get(this.quota, 'transfer-deliver', 0) + _.get(this.quota, 'transfer-store', 0);
-
 	        //spread the wealth
 	        if(Memory.stats.global.totalEnergy > 100000 && Memory.stats.global.energySpread < 0.9){
 	            this.quota.levelerhauler = Math.ceil((1 - Memory.stats.global.energySpread) * (Memory.stats.global.totalEnergy / 80000));
 	        }else{
 	            this.quota.levelerhauler = 0;
 	        }
-	        // console.log(_.size(this.catalog.creeps.type['spawnhauler']), this.quota['spawnhauler']);
+	        // console.log(_.size(this.catalog.creeps.type['assaultfighter']), this.quota['idle-assault']);
 
 	        if(Memory.stats.global.maxSpawn < 1200){
 	            this.quota.hauler = this.catalog.rooms.length * 4;
@@ -4343,7 +4389,8 @@ module.exports =
 	            Memory.updateTime = 0;
 	            Memory.production = {
 	                labs: [],
-	                quota: {}
+	                quota: {},
+	                boosts: {}
 	            };
 	            Memory.react = {};
 	            Memory.transfer = {

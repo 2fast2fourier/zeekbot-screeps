@@ -241,14 +241,6 @@ module.exports = {
     },
     fighter: {
         versions: {
-            boostmelee: {
-                critical: true,
-                quota: 'keep',
-                allocation: 10,
-                boost: { XUH2O: 5 },
-                parts: { tough: 24, move: 16, attack: 5, heal: 3 },
-                actions: { boost: {}, selfheal: {} }
-            },
             melee: {
                 critical: true,
                 quota: 'keep',
@@ -264,11 +256,33 @@ module.exports = {
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
             assault: {
-                quota: 'idle-staging',
-                max: 3,
+                critical: true,
+                quota: 'idle-assault',
+                allocation: 1,
+                max: 2,
+                boost: { XUH2O: 10, XLHO2: 10 },
+                parts: { tough: 5, move: 25, attack: 10, heal: 10 },
+                actions: { boost: {}, selfheal: {} },
+                rules: { attack: { subtype: 'assault' }, idle: { type: 'assault' } }
+            },
+            attack: {
+                quota: 'idle-attack',
+                max: 2,
                 allocation: 1,
                 parts: { tough: 17, move: 16, attack: 15 },
-                rules: { attack: {}, defend: {}, idle: { type: 'staging' } }
+                rules: { attack: { subtype: 'attack' }, idle: { type: 'attack' } }
+            },
+            raider: {
+                quota: 'idle-raid',
+                allocation: 1,
+                parts: { move: 15, attack: 15 },
+                rules: { attack: { subtype: 'raid' }, idle: { type: 'raid' } }
+            },
+            picket: {
+                quota: 'idle-picket',
+                allocation: 1,
+                parts: { move: 5, attack: 5 },
+                rules: { attack: { subtype: 'picket' }, idle: { type: 'picket' } }
             }
         },
         rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
