@@ -26,7 +26,7 @@ class Production {
         var reactions = {};
         _.forEach(needs, (amount, type) => {
             var temp = {};
-            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp);
+            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp, true);
             reactions[type] = temp[type];
         });
         // var components = _.uniq(_.flatten(_.map(reactions, 'allComponents')));
@@ -88,13 +88,13 @@ class Production {
         return _.findIndex(Memory.production.labs, (labList, ix) => labList.length >= count && !_.any(Memory.react, (data) => data.lab == ix));
     }
 
-    generateReactions(type, deficit, output){
-        if(type != 'G' && type.length == 1){
+    generateReactions(type, deficit, output, topLevel){
+        if(type.length == 1 && (!topLevel || type != 'G')){
             return;
         }
         var components = this.findReaction(type);
         var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
-        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output));
+        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output, false));
 
         if(output[type]){
             output[type].deficit += deficit;

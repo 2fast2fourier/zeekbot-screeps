@@ -6,8 +6,8 @@ var Util = require('../util');
 class TransferJob extends StaticJob {
     constructor(catalog){ super(catalog, 'transfer', { refresh: 10 }); }
 
-    generateEnergyTransfers(type, need){
-        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need * 0.95), building => {
+    generateEnergyTransfers(type, need, full){
+        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need * (full ? 1 : 0.95)), building => {
             return {
                 target: building,
                 resource: RESOURCE_ENERGY,
@@ -28,6 +28,20 @@ class TransferJob extends StaticJob {
                     resource: type,
                     amount: targetAmount,
                     subtype: 'terminal'
+                });
+            }
+            return result;
+        }, []);
+    }
+
+    generateNukeTransfers(){
+        return _.reduce(this.catalog.buildings.nuker, (result, nuker)=>{
+            if(Util.getResource(nuker, RESOURCE_GHODIUM) < 5000){
+                result.push({
+                    target: nuker,
+                    resource: RESOURCE_GHODIUM,
+                    amount: 5000,
+                    subtype: 'deliver'
                 });
             }
             return result;
@@ -81,9 +95,10 @@ class TransferJob extends StaticJob {
         var targetLists = [];
 
         targetLists.push(this.generateLabTransfers());
+        targetLists.push(this.generateNukeTransfers());
         targetLists.push(this.generateEnergyTransfers('terminal', 50000));
         targetLists.push(this.generateEnergyTransfers('lab', 2000));
-        targetLists.push(this.generateEnergyTransfers('nuker', 300000));
+        targetLists.push(this.generateEnergyTransfers('nuker', 300000, true));
         targetLists.push(this.generateTerminalTransfers());
 
         return _.flatten(targetLists);

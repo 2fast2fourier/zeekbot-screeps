@@ -7,11 +7,22 @@ class SelfHealAction extends BaseAction {
         super(catalog, 'selfheal');
     }
 
+    shouldBlock(creep, opts){
+        return opts.block && creep.hits < creep.hitsMax - 200;
+    }
+
     postWork(creep, opts, action){
         if(!action && creep.hits < creep.hitsMax){
             creep.heal(creep);
         }
     }
+
+    blocked(creep, opts, block){
+        if(creep.hits < creep.hitsMax){
+            creep.heal(creep);
+        }
+    }
+
 }
 
 

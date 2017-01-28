@@ -111,7 +111,7 @@ module.exports = {
             long: {
                 quota: 'pickup-remote',
                 allocation: 800,
-                max: 12,
+                max: 14,
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
@@ -146,10 +146,12 @@ module.exports = {
         versions: {
             soaker: {
                 quota: 'observe-soak',
-                max: 5,
-                parts: { tough: 40, move: 10 },
+                max: 1,
+                boost: { XLHO2: 10, XGHO2: 10 },
+                parts: { tough: 10, move: 10, heal: 10 },
                 memory: { ignoreHealth: true },
-                rules: { observe: { subtype: 'soak' } }
+                rules: { observe: { subtype: 'soak' } },
+                actions: { boost: {}, selfheal: {} }
             },
             pico: {
                 quota: 'observe',
@@ -182,7 +184,7 @@ module.exports = {
             },
             boostrepair: {
                 quota: 'repair',
-                max: 10,
+                max: 12,
                 boost: { XLH2O: 2 },
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
@@ -190,7 +192,7 @@ module.exports = {
             },
             repair: {
                 quota: 'repair',
-                max: 10,
+                max: 12,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
@@ -244,7 +246,7 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 10,
+                allocation: 13,
                 parts: { tough: 14, move: 16, attack: 15, heal: 3 },
                 actions: { selfheal: {} }
             },
@@ -259,10 +261,10 @@ module.exports = {
                 critical: true,
                 quota: 'idle-assault',
                 allocation: 1,
-                max: 2,
-                boost: { XUH2O: 10, XLHO2: 10 },
+                max: 4,
+                boost: { XLHO2: 10, XGHO2: 5 },//XUH2O: 10, 
                 parts: { tough: 5, move: 25, attack: 10, heal: 10 },
-                actions: { boost: {}, selfheal: {} },
+                actions: { boost: {}, selfheal: { block: true } },
                 rules: { attack: { subtype: 'assault' }, idle: { type: 'assault' } }
             },
             attack: {
@@ -275,6 +277,7 @@ module.exports = {
             raider: {
                 quota: 'idle-raid',
                 allocation: 1,
+                boost: { XUH2O: 15 }, 
                 parts: { move: 15, attack: 15 },
                 rules: { attack: { subtype: 'raid' }, idle: { type: 'raid' } }
             },

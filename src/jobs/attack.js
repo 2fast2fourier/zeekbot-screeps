@@ -32,7 +32,7 @@ class AttackJob extends BaseJob {
             if(spawns.length > 0){
                 return _.map(spawns, target => this.generateJobForTarget(flag.room, target, flag, subtype));
             }
-            var structures = _.filter(hostileStructures, structure => structure.structureType != STRUCTURE_CONTROLLER);
+            var structures = _.filter(hostileStructures, structure => structure.structureType != STRUCTURE_CONTROLLER && structure.structureType != STRUCTURE_RAMPART);
             var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
             if(structures.length > 0){
                 targets = targets.concat(structures);

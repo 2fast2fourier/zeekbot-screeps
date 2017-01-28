@@ -96,6 +96,7 @@ class Controller {
             target = Game.getObjectById(targetId);
         }
         if(!source || !target){
+            Util.notify('invalidlink', 'invalid linkTransfer: ' + source + ' ' + target);
             console.log('invalid linkTransfer', source, target);
             return false;
         }
@@ -126,9 +127,8 @@ class Controller {
     }
 
     static runChildReaction(component, parent, child, labs){
-        // console.log('running reactions for child', component);
         Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
-        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
+        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, parent, child, labs));
     }
 
     static registerReaction(type, roomName){
@@ -159,7 +159,6 @@ class Controller {
         if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
             return;
         }
-        // console.log('running reactions for', type, targetLab.pos.roomName);
         targetLab.runReaction(labA, labB);
     }
 

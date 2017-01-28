@@ -38,6 +38,10 @@ function getStorage(entity){
     return 0;
 }
 
+function owned(entity){
+    return entity.my || !entity.owner;
+}
+
 function getResource(entity, type){
     if(!entity){
         return 0;
@@ -53,6 +57,8 @@ function getResource(entity, type){
         return entity.mineralAmount;
     }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
         return entity.energy;
+    }else if(entity.ghodiumCapacity > 0 && type === RESOURCE_GHODIUM){
+        return entity.ghodium;
     }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
         return entity.amount;
     }
@@ -68,12 +74,18 @@ function getResourceList(entity){
         return _.pick(entity.carry, amount => amount > 0);
     }else if(entity.storeCapacity > 0){
         return _.pick(entity.store, amount => amount > 0);
-    }else if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
+    }
+    if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
         result[entity.mineralType] = entity.mineralAmount;
-    }else if(entity.energyCapacity > 0 && entity.energy > 0){
+    }
+    if(entity.energyCapacity > 0 && entity.energy > 0){
         result[RESOURCE_ENERGY] = entity.energy;
-    }else if(entity.resourceType && entity.amount > 0){
+    }
+    if(entity.resourceType && entity.amount > 0){
         result[entity.resourceType] = entity.amount;
+    }
+    if(entity.ghodiumCapacity > 0 && entity.ghodium > 0){
+        result[RESOURCE_GHODIUM] = entity.ghodium;
     }
     return result;
 }
@@ -254,5 +266,6 @@ module.exports = {
     calculateRealPosition,
     getRealDistance,
     notify,
-    lookForArea
+    lookForArea,
+    owned
 };

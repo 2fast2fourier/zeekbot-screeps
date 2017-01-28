@@ -204,6 +204,7 @@ module.exports =
 	            target = Game.getObjectById(targetId);
 	        }
 	        if(!source || !target){
+	            Util.notify('invalidlink', 'invalid linkTransfer: ' + source + ' ' + target);
 	            console.log('invalid linkTransfer', source, target);
 	            return false;
 	        }
@@ -234,9 +235,8 @@ module.exports =
 	    }
 
 	    static runChildReaction(component, parent, child, labs){
-	        // console.log('running reactions for child', component);
 	        Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
-	        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
+	        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, parent, child, labs));
 	    }
 
 	    static registerReaction(type, roomName){
@@ -267,7 +267,6 @@ module.exports =
 	        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
 	            return;
 	        }
-	        // console.log('running reactions for', type, targetLab.pos.roomName);
 	        targetLab.runReaction(labA, labB);
 	    }
 
@@ -435,6 +434,10 @@ module.exports =
 	    return 0;
 	}
 
+	function owned(entity){
+	    return entity.my || !entity.owner;
+	}
+
 	function getResource(entity, type){
 	    if(!entity){
 	        return 0;
@@ -450,6 +453,8 @@ module.exports =
 	        return entity.mineralAmount;
 	    }else if(entity.energyCapacity > 0 && type === RESOURCE_ENERGY){
 	        return entity.energy;
+	    }else if(entity.ghodiumCapacity > 0 && type === RESOURCE_GHODIUM){
+	        return entity.ghodium;
 	    }else if(entity.resourceType && entity.resourceType == type && entity.amount > 0){
 	        return entity.amount;
 	    }
@@ -465,12 +470,18 @@ module.exports =
 	        return _.pick(entity.carry, amount => amount > 0);
 	    }else if(entity.storeCapacity > 0){
 	        return _.pick(entity.store, amount => amount > 0);
-	    }else if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
+	    }
+	    if(entity.mineralCapacity > 0 && entity.mineralAmount > 0){
 	        result[entity.mineralType] = entity.mineralAmount;
-	    }else if(entity.energyCapacity > 0 && entity.energy > 0){
+	    }
+	    if(entity.energyCapacity > 0 && entity.energy > 0){
 	        result[RESOURCE_ENERGY] = entity.energy;
-	    }else if(entity.resourceType && entity.amount > 0){
+	    }
+	    if(entity.resourceType && entity.amount > 0){
 	        result[entity.resourceType] = entity.amount;
+	    }
+	    if(entity.ghodiumCapacity > 0 && entity.ghodium > 0){
+	        result[RESOURCE_GHODIUM] = entity.ghodium;
 	    }
 	    return result;
 	}
@@ -651,7 +662,8 @@ module.exports =
 	    calculateRealPosition,
 	    getRealDistance,
 	    notify,
-	    lookForArea
+	    lookForArea,
+	    owned
 	};
 
 /***/ },
@@ -1052,7 +1064,7 @@ module.exports =
 	            long: {
 	                quota: 'pickup-remote',
 	                allocation: 800,
-	                max: 12,
+	                max: 14,
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
@@ -1087,10 +1099,12 @@ module.exports =
 	        versions: {
 	            soaker: {
 	                quota: 'observe-soak',
-	                max: 5,
-	                parts: { tough: 40, move: 10 },
+	                max: 1,
+	                boost: { XLHO2: 10, XGHO2: 10 },
+	                parts: { tough: 10, move: 10, heal: 10 },
 	                memory: { ignoreHealth: true },
-	                rules: { observe: { subtype: 'soak' } }
+	                rules: { observe: { subtype: 'soak' } },
+	                actions: { boost: {}, selfheal: {} }
 	            },
 	            pico: {
 	                quota: 'observe',
@@ -1123,7 +1137,7 @@ module.exports =
 	            },
 	            boostrepair: {
 	                quota: 'repair',
-	                max: 10,
+	                max: 12,
 	                boost: { XLH2O: 2 },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
@@ -1131,7 +1145,7 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 10,
+	                max: 12,
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
@@ -1185,7 +1199,7 @@ module.exports =
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
-	                allocation: 10,
+	                allocation: 13,
 	                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
 	                actions: { selfheal: {} }
 	            },
@@ -1200,10 +1214,10 @@ module.exports =
 	                critical: true,
 	                quota: 'idle-assault',
 	                allocation: 1,
-	                max: 2,
-	                boost: { XUH2O: 10, XLHO2: 10 },
+	                max: 4,
+	                boost: { XLHO2: 10, XGHO2: 5 },//XUH2O: 10, 
 	                parts: { tough: 5, move: 25, attack: 10, heal: 10 },
-	                actions: { boost: {}, selfheal: {} },
+	                actions: { boost: {}, selfheal: { block: true } },
 	                rules: { attack: { subtype: 'assault' }, idle: { type: 'assault' } }
 	            },
 	            attack: {
@@ -1216,6 +1230,7 @@ module.exports =
 	            raider: {
 	                quota: 'idle-raid',
 	                allocation: 1,
+	                boost: { XUH2O: 15 }, 
 	                parts: { move: 15, attack: 15 },
 	                rules: { attack: { subtype: 'raid' }, idle: { type: 'raid' } }
 	            },
@@ -1663,6 +1678,7 @@ module.exports =
 	"use strict";
 
 	var BaseAction = __webpack_require__(8);
+	var Util = __webpack_require__(2);
 
 	class RepairAction extends BaseAction {
 	    constructor(catalog){
@@ -1672,7 +1688,7 @@ module.exports =
 	    postWork(creep, opts, action){
 	        if(!action && creep.carry.energy > creep.carryCapacity / 8){
 	            var structures = creep.room.lookForAtArea(LOOK_STRUCTURES, Math.max(0, creep.pos.y - 3), Math.max(0, creep.pos.x - 3), Math.min(49, creep.pos.y + 3), Math.min(49, creep.pos.x + 3), true);
-	            var targets = _.filter(structures, struct => struct.structure.hits < Math.min(struct.structure.hitsMax, Memory.settings.repairTarget));
+	            var targets = _.filter(structures, struct => struct.structure.hits < Math.min(struct.structure.hitsMax, Memory.settings.repairTarget) && Util.owned(struct));
 	            if(targets.length > 0){
 	                creep.repair(targets[0].structure);
 	            }
@@ -1696,11 +1712,22 @@ module.exports =
 	        super(catalog, 'selfheal');
 	    }
 
+	    shouldBlock(creep, opts){
+	        return opts.block && creep.hits < creep.hitsMax - 200;
+	    }
+
 	    postWork(creep, opts, action){
 	        if(!action && creep.hits < creep.hitsMax){
 	            creep.heal(creep);
 	        }
 	    }
+
+	    blocked(creep, opts, block){
+	        if(creep.hits < creep.hitsMax){
+	            creep.heal(creep);
+	        }
+	    }
+
 	}
 
 
@@ -3314,7 +3341,7 @@ module.exports =
 	            if(spawns.length > 0){
 	                return _.map(spawns, target => this.generateJobForTarget(flag.room, target, flag, subtype));
 	            }
-	            var structures = _.filter(hostileStructures, structure => structure.structureType != STRUCTURE_CONTROLLER);
+	            var structures = _.filter(hostileStructures, structure => structure.structureType != STRUCTURE_CONTROLLER && structure.structureType != STRUCTURE_RAMPART);
 	            var targets = _.filter(this.catalog.getHostileCreeps(flag.room), enemy => flag.pos.getRangeTo(enemy) <= Memory.settings.flagRange.attack);
 	            if(structures.length > 0){
 	                targets = targets.concat(structures);
@@ -3866,12 +3893,13 @@ module.exports =
 	"use strict";
 
 	var StaticJob = __webpack_require__(48);
+	var Util = __webpack_require__(2);
 
 	class RepairJob extends StaticJob {
 	    constructor(catalog){ super(catalog, 'repair', { flagPrefix: 'Repair', refresh: 20 }); }
 
 	    generateTargets(room){
-	        return _.filter(this.catalog.getStructures(room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget));
+	        return _.filter(this.catalog.getStructures(room), structure => structure.hits < Math.min(structure.hitsMax, Memory.settings.repairTarget) && Util.owned(structure));
 	    }
 
 	    finalizeTargetList(targets){
@@ -4058,8 +4086,8 @@ module.exports =
 	class TransferJob extends StaticJob {
 	    constructor(catalog){ super(catalog, 'transfer', { refresh: 10 }); }
 
-	    generateEnergyTransfers(type, need){
-	        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need * 0.95), building => {
+	    generateEnergyTransfers(type, need, full){
+	        return _.map(_.filter(this.catalog.buildings[type], building => this.catalog.getResource(building, RESOURCE_ENERGY) < need * (full ? 1 : 0.95)), building => {
 	            return {
 	                target: building,
 	                resource: RESOURCE_ENERGY,
@@ -4080,6 +4108,20 @@ module.exports =
 	                    resource: type,
 	                    amount: targetAmount,
 	                    subtype: 'terminal'
+	                });
+	            }
+	            return result;
+	        }, []);
+	    }
+
+	    generateNukeTransfers(){
+	        return _.reduce(this.catalog.buildings.nuker, (result, nuker)=>{
+	            if(Util.getResource(nuker, RESOURCE_GHODIUM) < 5000){
+	                result.push({
+	                    target: nuker,
+	                    resource: RESOURCE_GHODIUM,
+	                    amount: 5000,
+	                    subtype: 'deliver'
 	                });
 	            }
 	            return result;
@@ -4133,9 +4175,10 @@ module.exports =
 	        var targetLists = [];
 
 	        targetLists.push(this.generateLabTransfers());
+	        targetLists.push(this.generateNukeTransfers());
 	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
 	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
-	        targetLists.push(this.generateEnergyTransfers('nuker', 300000));
+	        targetLists.push(this.generateEnergyTransfers('nuker', 300000, true));
 	        targetLists.push(this.generateTerminalTransfers());
 
 	        return _.flatten(targetLists);
@@ -4467,7 +4510,7 @@ module.exports =
 	        var reactions = {};
 	        _.forEach(needs, (amount, type) => {
 	            var temp = {};
-	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp);
+	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp, true);
 	            reactions[type] = temp[type];
 	        });
 	        // var components = _.uniq(_.flatten(_.map(reactions, 'allComponents')));
@@ -4529,13 +4572,13 @@ module.exports =
 	        return _.findIndex(Memory.production.labs, (labList, ix) => labList.length >= count && !_.any(Memory.react, (data) => data.lab == ix));
 	    }
 
-	    generateReactions(type, deficit, output){
-	        if(type != 'G' && type.length == 1){
+	    generateReactions(type, deficit, output, topLevel){
+	        if(type.length == 1 && (!topLevel || type != 'G')){
 	            return;
 	        }
 	        var components = this.findReaction(type);
 	        var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
-	        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output));
+	        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output, false));
 
 	        if(output[type]){
 	            output[type].deficit += deficit;
