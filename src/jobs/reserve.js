@@ -28,11 +28,13 @@ class ReserveJob extends BaseJob {
 
     generateJobsForFlag(flag){
         var subtype = this.getSubflag(flag);
+        var target = _.get(flag.room, 'controller', flag);
+        var access = this.catalog.getAccessibility(target.pos, target.room);
         var job = {
             allocated: 0,
             capacity: 2,
             id: this.type+"-"+flag.name,
-            target: _.get(flag.room, 'controller', flag)
+            target
         };
         if(subtype == 'claim'){
             if(flag.room && flag.room.controller.my){
@@ -47,7 +49,7 @@ class ReserveJob extends BaseJob {
             job.subtype = subtype;
             job.id = this.type+"-"+subtype+"-"+flag.name;
             if(subtype == 'downgrade'){
-                job.capacity = 50;
+                job.capacity = Math.min(access * 10, 20);
             }
         }else{
             job.subtype = 'reserve';

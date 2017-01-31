@@ -154,7 +154,7 @@ class Catalog {
 
     getAccessibility(pos, room){
         var name = pos.roomName + '-' + pos.x + '-'  + pos.y;
-        var access = _.get(Memory.accessibility, name, false);
+        var access = _.get(Memory.cache.accessibility, name, false);
         if(access === false){
             access = 0;
             if(room){
@@ -165,7 +165,7 @@ class Catalog {
                     }
                 });
                 console.log('cached pos availability', pos, room, access);
-                Memory.accessibility[name] = access;
+                Memory.cache.accessibility[name] = access;
             }
         }
         return access;
@@ -220,24 +220,6 @@ class Catalog {
 
     getAvoid(pos){
         return this.avoid[pos.roomName];
-    }
-
-    profile(type, value){
-        if(!_.has(Memory.stats.profile.misc, type)){
-            Memory.stats.profile.misc[type] = value;
-            Memory.stats.profile.miscCount[type] = 1;
-        }else{
-            Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
-            Memory.stats.profile.miscCount[type]++;
-        }
-    }
-
-    profileAdd(type, value){
-        _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
-    }
-
-    finishProfile(){
-        _.forEach(this.profileData, (value, type) => this.profile(type, value));
     }
 }
 

@@ -62,12 +62,13 @@ class Misc {
             build: totalBuild,
             repair: totalRepair
         }
+        stats.trends = Misc.calculateTrends(catalog, stats, Memory.stats);
         Memory.stats = stats;
         Misc.updateSettings(catalog);
     }
 
     static updateSettings(catalog){
-        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.5){
+        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.75){
             Memory.settings.upgradeCapacity = 20;
         }else{
             Memory.settings.upgradeCapacity = 10;
@@ -86,6 +87,15 @@ class Misc {
         }
     }
 
+    static calculateTrends(catalog, current, last){
+        var trends = {
+            repair: current.global.repair - last.global.repair,
+            totalEnergy: current.global.totalEnergy - last.global.totalEnergy,
+            energySpread: current.global.energySpread - last.global.energySpread
+        };
+        return trends;
+    }
+
     static initMemory(){
         if(Memory.memoryVersion != memoryVersion){
             console.log('Init memory version', memoryVersion);
@@ -96,6 +106,10 @@ class Misc {
             Memory.limits = {
                 mineral: []
             };
+            Memory.cache = {
+                accessibility: {},
+                roompos: {}
+            }
             Memory.uid = 1;
             Memory.updateTime = 0;
             Memory.production = {
@@ -103,7 +117,7 @@ class Misc {
                 quota: {},
                 boosts: {}
             };
-            Memory.react = {};
+            Memory.reaction = {};
             Memory.transfer = {
                 lab: {},
                 energy: {}

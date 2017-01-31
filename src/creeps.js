@@ -85,7 +85,7 @@ module.exports = {
             // },
             transfer: {
                 quota: 'transfer',
-                allocation: 1,
+                allocation: 2,
                 max: 4,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
@@ -210,10 +210,10 @@ module.exports = {
     claimer: {
         versions: {
             attack: {
-                parts: { claim: 5, move: 5 },
+                parts: { claim: 10, move: 10 },
                 quota: 'reserve-downgrade',
-                allocation: 5,
-                max: 5,
+                allocation: 10,
+                max: 4,
                 rules: { reserve: { downgrade: true } }
             },
             pico: {

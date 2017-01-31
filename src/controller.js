@@ -25,7 +25,7 @@ class Controller {
         if(Util.interval(10)){
             Memory.transfer.reactions = {};
             _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-            _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+            _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
         }
 
         if(Util.interval(10) || Memory.boost.update){
@@ -107,28 +107,11 @@ class Controller {
         }
     }
 
-    // Memory.react[type] = {
-    //     lab: labNum,
-    //     deficit: reaction.deficit,
-    //     components: reaction.components,
-    //     children: reaction.children,
-    //     size: reaction.size,
-    //     allComponents: reaction.allComponents,
-    //     full: fullReaction,
-    //     assignments
-    // };
-
-    static runReaction(type, data, catalog){
+    static runReaction(type, data){
+        var labSet = data.lab;
         var labs = Util.getObjects(Memory.production.labs[data.lab]);
         Controller.react(type, labs[data.assignments[type]], labs[data.assignments[data.components[0]]], labs[data.assignments[data.components[1]]], data.components);
-        if(data.full){
-            _.forEach(data.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
-        }
-    }
-
-    static runChildReaction(component, parent, child, labs){
-        Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
-        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, parent, child, labs));
+        _.forEach(data.children, (child, component)=>Controller.runReaction(component, child));
     }
 
     static registerReaction(type, roomName){
@@ -142,14 +125,12 @@ class Controller {
 
     static react(type, targetLab, labA, labB, components){
         if(!targetLab || !labA || !labB){
-            Util.notify('labnotify', 'invalid lab for reaction' + type);
+            Util.notify('labnotify', 'invalid lab for reaction: ' + type);
+            console.log('invalid lab for reaction: ' + type);
             return false;
         }
         var roomName = targetLab.pos.roomName;
         _.forEach(components, component => Controller.registerReaction(component, roomName));
-        Memory.transfer.lab[targetLab.id] = type;
-        Memory.transfer.lab[labA.id] = components[0];
-        Memory.transfer.lab[labB.id] = components[1];
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }

@@ -152,6 +152,24 @@ function notify(type, message){
     }
 }
 
+function profile(type, value){
+    if(!_.has(Memory.stats.profile.misc, type)){
+        Memory.stats.profile.misc[type] = value;
+        Memory.stats.profile.miscCount[type] = 1;
+    }else{
+        Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
+        Memory.stats.profile.miscCount[type]++;
+    }
+}
+
+function profileAdd(type, value){
+    _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
+}
+
+function finishProfile(){
+    _.forEach(this.profileData, (value, type) => this.profile(type, value));
+}
+
 function lookForArea(room, pos, type, radius){
     return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
 }
@@ -267,5 +285,8 @@ module.exports = {
     getRealDistance,
     notify,
     lookForArea,
-    owned
+    owned,
+    profile,
+    profileAdd,
+    finishProfile
 };

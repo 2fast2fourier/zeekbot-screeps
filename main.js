@@ -61,6 +61,7 @@ module.exports =
 	    if(!Memory.settings){
 	        Misc.setSettings();
 	    }
+	    Util.profile('memory', Game.cpu.getUsed());
 	    
 	    Misc.mourn();
 
@@ -133,7 +134,7 @@ module.exports =
 	        if(Util.interval(10)){
 	            Memory.transfer.reactions = {};
 	            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-	            _.forEach(Memory.react, (data, type) => Controller.runReaction(type, data, catalog));
+	            _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
 	        }
 
 	        if(Util.interval(10) || Memory.boost.update){
@@ -215,28 +216,11 @@ module.exports =
 	        }
 	    }
 
-	    // Memory.react[type] = {
-	    //     lab: labNum,
-	    //     deficit: reaction.deficit,
-	    //     components: reaction.components,
-	    //     children: reaction.children,
-	    //     size: reaction.size,
-	    //     allComponents: reaction.allComponents,
-	    //     full: fullReaction,
-	    //     assignments
-	    // };
-
-	    static runReaction(type, data, catalog){
+	    static runReaction(type, data){
+	        var labSet = data.lab;
 	        var labs = Util.getObjects(Memory.production.labs[data.lab]);
 	        Controller.react(type, labs[data.assignments[type]], labs[data.assignments[data.components[0]]], labs[data.assignments[data.components[1]]], data.components);
-	        if(data.full){
-	            _.forEach(data.children, (child, component)=>Controller.runChildReaction(component, data, child, labs));
-	        }
-	    }
-
-	    static runChildReaction(component, parent, child, labs){
-	        Controller.react(component, labs[parent.assignments[component]], labs[parent.assignments[child.components[0]]], labs[parent.assignments[child.components[1]]], child.components);
-	        _.forEach(child.children, (child, component)=>Controller.runChildReaction(component, parent, child, labs));
+	        _.forEach(data.children, (child, component)=>Controller.runReaction(component, child));
 	    }
 
 	    static registerReaction(type, roomName){
@@ -250,14 +234,12 @@ module.exports =
 
 	    static react(type, targetLab, labA, labB, components){
 	        if(!targetLab || !labA || !labB){
-	            Util.notify('labnotify', 'invalid lab for reaction' + type);
+	            Util.notify('labnotify', 'invalid lab for reaction: ' + type);
+	            console.log('invalid lab for reaction: ' + type);
 	            return false;
 	        }
 	        var roomName = targetLab.pos.roomName;
 	        _.forEach(components, component => Controller.registerReaction(component, roomName));
-	        Memory.transfer.lab[targetLab.id] = type;
-	        Memory.transfer.lab[labA.id] = components[0];
-	        Memory.transfer.lab[labB.id] = components[1];
 	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
 	            return;
 	        }
@@ -548,6 +530,24 @@ module.exports =
 	    }
 	}
 
+	function profile(type, value){
+	    if(!_.has(Memory.stats.profile.misc, type)){
+	        Memory.stats.profile.misc[type] = value;
+	        Memory.stats.profile.miscCount[type] = 1;
+	    }else{
+	        Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
+	        Memory.stats.profile.miscCount[type]++;
+	    }
+	}
+
+	function profileAdd(type, value){
+	    _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
+	}
+
+	function finishProfile(){
+	    _.forEach(this.profileData, (value, type) => this.profile(type, value));
+	}
+
 	function lookForArea(room, pos, type, radius){
 	    return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
 	}
@@ -663,7 +663,10 @@ module.exports =
 	    getRealDistance,
 	    notify,
 	    lookForArea,
-	    owned
+	    owned,
+	    profile,
+	    profileAdd,
+	    finishProfile
 	};
 
 /***/ },
@@ -766,6 +769,9 @@ module.exports =
 	            _.forEach(config.versions, (version, versionName)=>{
 	                var type = versionName+className;
 	                var spawntime = _.sum(version.parts) * 3;
+	                if(version.boost){
+	                    spawntime += 20;
+	                }
 	                var quota = version.quota || config.quota;
 	                if(quota && _.has(catalog.creeps.type, type)){
 	                    var allocate = _.get(version, 'allocation', 1);
@@ -1038,7 +1044,7 @@ module.exports =
 	            // },
 	            transfer: {
 	                quota: 'transfer',
-	                allocation: 1,
+	                allocation: 2,
 	                max: 4,
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
@@ -1163,10 +1169,10 @@ module.exports =
 	    claimer: {
 	        versions: {
 	            attack: {
-	                parts: { claim: 5, move: 5 },
+	                parts: { claim: 10, move: 10 },
 	                quota: 'reserve-downgrade',
-	                allocation: 5,
-	                max: 5,
+	                allocation: 10,
+	                max: 4,
 	                rules: { reserve: { downgrade: true } }
 	            },
 	            pico: {
@@ -3064,7 +3070,7 @@ module.exports =
 
 	    getAccessibility(pos, room){
 	        var name = pos.roomName + '-' + pos.x + '-'  + pos.y;
-	        var access = _.get(Memory.accessibility, name, false);
+	        var access = _.get(Memory.cache.accessibility, name, false);
 	        if(access === false){
 	            access = 0;
 	            if(room){
@@ -3075,7 +3081,7 @@ module.exports =
 	                    }
 	                });
 	                console.log('cached pos availability', pos, room, access);
-	                Memory.accessibility[name] = access;
+	                Memory.cache.accessibility[name] = access;
 	            }
 	        }
 	        return access;
@@ -3130,24 +3136,6 @@ module.exports =
 
 	    getAvoid(pos){
 	        return this.avoid[pos.roomName];
-	    }
-
-	    profile(type, value){
-	        if(!_.has(Memory.stats.profile.misc, type)){
-	            Memory.stats.profile.misc[type] = value;
-	            Memory.stats.profile.miscCount[type] = 1;
-	        }else{
-	            Memory.stats.profile.misc[type] = (Memory.stats.profile.misc[type]*Memory.stats.profile.miscCount[type] + value)/(Memory.stats.profile.miscCount[type]+1);
-	            Memory.stats.profile.miscCount[type]++;
-	        }
-	    }
-
-	    profileAdd(type, value){
-	        _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
-	    }
-
-	    finishProfile(){
-	        _.forEach(this.profileData, (value, type) => this.profile(type, value));
 	    }
 	}
 
@@ -4044,11 +4032,13 @@ module.exports =
 
 	    generateJobsForFlag(flag){
 	        var subtype = this.getSubflag(flag);
+	        var target = _.get(flag.room, 'controller', flag);
+	        var access = this.catalog.getAccessibility(target.pos, target.room);
 	        var job = {
 	            allocated: 0,
 	            capacity: 2,
 	            id: this.type+"-"+flag.name,
-	            target: _.get(flag.room, 'controller', flag)
+	            target
 	        };
 	        if(subtype == 'claim'){
 	            if(flag.room && flag.room.controller.my){
@@ -4063,7 +4053,7 @@ module.exports =
 	            job.subtype = subtype;
 	            job.id = this.type+"-"+subtype+"-"+flag.name;
 	            if(subtype == 'downgrade'){
-	                job.capacity = 50;
+	                job.capacity = Math.min(access * 10, 20);
 	            }
 	        }else{
 	            job.subtype = 'reserve';
@@ -4394,12 +4384,13 @@ module.exports =
 	            build: totalBuild,
 	            repair: totalRepair
 	        }
+	        stats.trends = Misc.calculateTrends(catalog, stats, Memory.stats);
 	        Memory.stats = stats;
 	        Misc.updateSettings(catalog);
 	    }
 
 	    static updateSettings(catalog){
-	        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.5){
+	        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.75){
 	            Memory.settings.upgradeCapacity = 20;
 	        }else{
 	            Memory.settings.upgradeCapacity = 10;
@@ -4418,6 +4409,15 @@ module.exports =
 	        }
 	    }
 
+	    static calculateTrends(catalog, current, last){
+	        var trends = {
+	            repair: current.global.repair - last.global.repair,
+	            totalEnergy: current.global.totalEnergy - last.global.totalEnergy,
+	            energySpread: current.global.energySpread - last.global.energySpread
+	        };
+	        return trends;
+	    }
+
 	    static initMemory(){
 	        if(Memory.memoryVersion != memoryVersion){
 	            console.log('Init memory version', memoryVersion);
@@ -4428,6 +4428,10 @@ module.exports =
 	            Memory.limits = {
 	                mineral: []
 	            };
+	            Memory.cache = {
+	                accessibility: {},
+	                roompos: {}
+	            }
 	            Memory.uid = 1;
 	            Memory.updateTime = 0;
 	            Memory.production = {
@@ -4435,7 +4439,7 @@ module.exports =
 	                quota: {},
 	                boosts: {}
 	            };
-	            Memory.react = {};
+	            Memory.reaction = {};
 	            Memory.transfer = {
 	                lab: {},
 	                energy: {}
@@ -4491,85 +4495,163 @@ module.exports =
 	        this.catalog = catalog;
 	    }
 
-	//production{
-	//     labs: [[labs]],
-	//     quota: {resource: count}
-	// }
-	// react{
-	//     type: {
-	//          lab: labNum,
-	//          deficit,
-	//          components,
-	//      }
-	// }
 	    process(){
 	        if(!Util.interval(25)){
 	            return;
 	        }
 	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
+
 	        var reactions = {};
 	        _.forEach(needs, (amount, type) => {
 	            var temp = {};
 	            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp, true);
 	            reactions[type] = temp[type];
 	        });
-	        // var components = _.uniq(_.flatten(_.map(reactions, 'allComponents')));
-	        // var topReactions = _.pick(reactions, (data, type)=>!_.includes(components, type));
-	        // _.forEach(topReactions, (reaction, type)=>console.log(type, reaction.size));
-	        _.forEach(Memory.react, (data, type)=>{
+
+	        _.forEach(Memory.reaction, (data, type)=>{
 	            if(!reactions[type]){
 	                var labs = Memory.production.labs[data.lab];
-	                _.forEach(labs, (lab) => {
-	                    Memory.transfer.lab[lab] = false;
+	                _.forEach(data.assignments, (labNum) => {
+	                    Memory.transfer.lab[labs[labNum]] = false;
 	                });
-	                delete Memory.react[type];
+	                delete Memory.reaction[type];
 	            }
 	        });
+
+	        var assignments = this.findAllAssignments();
+	        var freeLabs = this.countFreeLabs(assignments);
 	        _.forEach(reactions, (reaction, type) => {
-	            if(Memory.react[type]){
-	                Memory.react[type].deficit = reaction.deficit;
-	            }else if(_.size(Memory.react) < _.size(Memory.production.labs)){
-	                var labNum = this.findFreeLab(reaction.size);
-	                var fullReaction = true;
-	                if(labNum < 0){
-	                    labNum = this.findFreeLab(3);
-	                    fullReaction = false;
+	            if(Memory.reaction[type]){
+	                this.updateReaction(type, Memory.reaction[type], reaction);
+	            }else if(_.sum(freeLabs) >= 3){
+	                var reservation = this.allocateLabs(type, reaction, freeLabs);
+	                if(reservation && this.startReaction(type, reaction, reservation, freeLabs, assignments)){
+	                    freeLabs = this.countFreeLabs(assignments);
 	                }
-	                if(labNum < 0){
-	                    return;
-	                }
-	                var labs = Memory.production.labs[labNum];
-	                var assignments = {};
-	                _.forEach(labs, (labId, ix) => Memory.transfer.lab[labs[ix]] = false);
-	                Memory.transfer.lab[labs[0]] = type;
-	                assignments[type] = 0;
-	                if(fullReaction){
-	                    _.forEach(reaction.allComponents, (component, ix) => {
-	                        Memory.transfer.lab[labs[ix+1]] = component;
-	                        assignments[component] = ix+1;
-	                    });
-	                }else{
-	                    _.forEach(reaction.components, (component, ix) => {
-	                        Memory.transfer.lab[labs[ix+1]] = component;
-	                        assignments[component] = ix+1;
-	                    });
-	                }
-	                Memory.react[type] = {
-	                    lab: labNum,
-	                    deficit: reaction.deficit,
-	                    components: reaction.components,
-	                    children: reaction.children,
-	                    size: reaction.size,
-	                    allComponents: reaction.allComponents,
-	                    full: fullReaction,
-	                    assignments
-	                };
 	            }
+	        });
+	        this.updateLabTransfers(this.findAllAssignments());
+	    }
+
+	    updateLabTransfers(assignments){
+	        _.forEach(Memory.production.labs, labSet => _.forEach(labSet, (labId, ix)=>{
+	            Memory.transfer.lab[labId] = false;
+	        }));
+	        _.forEach(assignments, (assign, labNum)=>{
+	            var labs = Memory.production.labs[labNum];
+	            _.forEach(assign, (labNum, type)=>{
+	                Memory.transfer.lab[labs[labNum]] = type;
+	            });
 	        });
 	    }
 
-	    findFreeLab(count){
-	        return _.findIndex(Memory.production.labs, (labList, ix) => labList.length >= count && !_.any(Memory.react, (data) => data.lab == ix));
+	    countFreeLabs(assignments){
+	        return _.map(Memory.production.labs, (labs, ix) => labs.length - _.size(_.get(assignments, ix, [])));
+	    }
+
+	    allocateLabs(type, reaction, freeLabs){
+	        var labSet = this.findFreeLab(reaction.size, freeLabs);
+	        if(labSet >= 0){
+	            var chains = {};
+	            chains[type] = labSet;
+	            return chains;
+	        }
+	        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs);
+	        labSet = this.findFreeLab(3, freeLabs, _.values(chains));
+	        if(chains && labSet >= 0){
+	            chains[type] = labSet;
+	            return chains;
+	        }
+
+	        return false;
+	    }
+
+	    findFreeLab(count, freeLabs, exclude){
+	        var target = -1;
+	        var targetDiff = Infinity;
+	        _.forEach(freeLabs, (labs, ix)=>{
+	            if(exclude && _.includes(exclude, ix)){
+	                return;
+	            }
+	            if(labs >= count && labs - count < targetDiff){
+	                target = ix;
+	                targetDiff = labs - count;
+	            }
+	        });
+	        return target;
+	    }
+
+	    assignLabs(reservations, type, reaction, assignments, labNum){
+	        if(_.has(reservations, type)){
+	            labNum = reservations[type];
+	        }
+	        var assignedChildren = _.every(reaction.children, (child, childType) => this.assignLabs(reservations, childType, child, assignments, labNum));
+	        if(assignedChildren){
+	            var localAssignments = {};
+	            var assignedComponents = _.every(reaction.components, component => {
+	                if(!_.has(assignments, [labNum, component])){
+	                    var targetLab = this.findNextLab(assignments, labNum);
+	                    if(targetLab < 0){
+	                        return false;
+	                    }
+	                    localAssignments[component] = targetLab;
+	                    _.set(assignments, [labNum, component], targetLab);
+	                }else{
+	                    localAssignments[component] = _.get(assignments, [labNum, component]);
+	                }
+	                return true;
+	            });
+	            if(assignedComponents){
+	                if(!_.has(assignments, [labNum, type])){
+	                    var targetLab = this.findNextLab(assignments, labNum);
+	                    if(targetLab < 0){
+	                        return false;
+	                    }
+	                    localAssignments[type] = targetLab;
+	                    _.set(assignments, [labNum, type], targetLab);
+	                }else{
+	                    localAssignments[type] = _.get(assignments, [labNum, type]);
+	                }
+	                reaction.lab = labNum;
+	                reaction.assignments = localAssignments;
+	                return true;
+	            }
+	        }
+	        console.log('failed to assign', type);
+	        return false;
+	    }
+
+	    findAllAssignments(){
+	        var assignments = {};
+	        _.forEach(Memory.reaction, data => this.collectAssignments(assignments, data));
+	        return assignments;
+	    }
+
+	    collectAssignments(assignments, reaction){
+	        if(!assignments[reaction.lab]){
+	            assignments[reaction.lab] = {};
+	        }
+	        _.forEach(reaction.assignments, (lab, type)=>{
+	            assignments[reaction.lab][type] = lab;
+	        });
+	        _.forEach(reaction.children, child => this.collectAssignments(assignments, child));
+	    }
+
+	    findNextLab(assignments, labNum){
+	        var assignedLabs = _.values(assignments[labNum]);
+	        var labs = Memory.production.labs[labNum];
+	        return _.findIndex(labs, (labId, ix)=> !_.includes(assignedLabs, ix));
+	    }
+
+	    startReaction(type, reaction, reservations, freeLabs, assignments){
+	        if(this.assignLabs(reservations, type, reaction, assignments, reservations[type])){
+	            Memory.reaction[type] = reaction;
+	        }
+	        return true;
+	    }
+
+	    updateReaction(type, reaction, updated){
+	        reaction.deficit = updated.deficit;
 	    }
 
 	    generateReactions(type, deficit, output, topLevel){

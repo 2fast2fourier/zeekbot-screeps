@@ -14,6 +14,7 @@ module.exports.loop = function () {
     if(!Memory.settings){
         Misc.setSettings();
     }
+    Util.profile('memory', Game.cpu.getUsed());
     
     Misc.mourn();
 
