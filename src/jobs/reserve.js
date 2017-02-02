@@ -36,6 +36,11 @@ class ReserveJob extends BaseJob {
             id: this.type+"-"+flag.name,
             target
         };
+        if(flag.room && subtype == 'downgrade' && !target.owner){
+            flag.remove();
+            target.pos.createFlag('Reserve-reserve-'+Game.time, COLOR_BROWN);
+            return;
+        }
         if(subtype == 'claim'){
             if(flag.room && flag.room.controller.my){
                 flag.remove();

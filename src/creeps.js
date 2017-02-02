@@ -184,7 +184,7 @@ module.exports = {
             },
             boostrepair: {
                 quota: 'repair',
-                max: 12,
+                max: 10,
                 boost: { XLH2O: 2 },
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
@@ -192,10 +192,19 @@ module.exports = {
             },
             repair: {
                 quota: 'repair',
-                max: 12,
+                max: 16,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
+            },
+            dismantle: {
+                quota: 'dismantle',
+                max: 3,
+                allocation: 2000000,
+                boost: { XZH2O: 10 },
+                rules: { dismantle: {} },
+                actions: { boost: {} },
+                parts: { work: 10, move: 10 }
             }
         },
         rules: {

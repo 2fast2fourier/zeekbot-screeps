@@ -91,15 +91,17 @@ class WorkManager {
     static processCreep(creep, workers, catalog, actions, block){
         var action = false;
         if(creep.memory.jobType && !creep.memory.block){
-            var start = Game.cpu.getUsed();
+        var start = Game.cpu.getUsed();
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
             catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
         }
+        var action = Game.cpu.getUsed();
         if(block){
             actions[block.type].blocked(creep, creep.memory.actions[block.type], block.data);
         }else{
             _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
         }
+        catalog.profileAdd('work-action', Game.cpu.getUsed() - action);
     }
 }
 

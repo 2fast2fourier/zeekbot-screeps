@@ -4,6 +4,7 @@ var Attack = require('./attack');
 var Build = require('./build');
 var Defend = require('./defend');
 var Deliver = require('./deliver');
+var Dismantle = require('./dismantle');
 var Mine = require('./mine');
 var Idle = require('./idle');
 var Keep = require('./keep');
@@ -21,6 +22,7 @@ module.exports = function(catalog){
         build: new Build(catalog),
         defend: new Defend(catalog),
         deliver: new Deliver(catalog),
+        dismantle: new Dismantle(catalog),
         heal: new Heal(catalog),
         idle: new Idle(catalog),
         keep: new Keep(catalog),

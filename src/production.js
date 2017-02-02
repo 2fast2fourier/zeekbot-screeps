@@ -8,10 +8,11 @@ class Production {
     }
 
     process(){
+        // console.log(_.values(REACTIONS.X));
         if(!Util.interval(25)){
             return;
         }
-        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
+        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.resources[type].total);
 
         var reactions = {};
         _.forEach(needs, (amount, type) => {
@@ -22,10 +23,6 @@ class Production {
 
         _.forEach(Memory.reaction, (data, type)=>{
             if(!reactions[type]){
-                var labs = Memory.production.labs[data.lab];
-                _.forEach(data.assignments, (labNum) => {
-                    Memory.transfer.lab[labs[labNum]] = false;
-                });
                 delete Memory.reaction[type];
             }
         });
@@ -36,7 +33,7 @@ class Production {
             if(Memory.reaction[type]){
                 this.updateReaction(type, Memory.reaction[type], reaction);
             }else if(_.sum(freeLabs) >= 3){
-                var reservation = this.allocateLabs(type, reaction, freeLabs);
+                var reservation = this.allocateLabs(type, reaction, freeLabs, assignments);
                 if(reservation && this.startReaction(type, reaction, reservation, freeLabs, assignments)){
                     freeLabs = this.countFreeLabs(assignments);
                 }
@@ -61,15 +58,15 @@ class Production {
         return _.map(Memory.production.labs, (labs, ix) => labs.length - _.size(_.get(assignments, ix, [])));
     }
 
-    allocateLabs(type, reaction, freeLabs){
-        var labSet = this.findFreeLab(reaction.size, freeLabs);
+    allocateLabs(type, reaction, freeLabs, assignments){
+        var labSet = this.findFreeLab(reaction.size, freeLabs, false, reaction.allComponents, assignments);
         if(labSet >= 0){
             var chains = {};
             chains[type] = labSet;
             return chains;
         }
-        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs);
-        labSet = this.findFreeLab(3, freeLabs, _.values(chains));
+        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs, assignments);
+        labSet = this.findFreeLab(3, freeLabs, _.values(chains), reaction.allComponents, assignments);
         if(chains && labSet >= 0){
             chains[type] = labSet;
             return chains;
@@ -78,7 +75,8 @@ class Production {
         return false;
     }
 
-    findFreeLab(count, freeLabs, exclude){
+    findFreeLab(count, freeLabs, exclude, components, assignments){
+        //TODO account for existing labs when counting
         var target = -1;
         var targetDiff = Infinity;
         _.forEach(freeLabs, (labs, ix)=>{

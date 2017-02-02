@@ -50,9 +50,9 @@ module.exports =
 	var Controller = __webpack_require__(1);
 	var Spawner = __webpack_require__(3);
 	var WorkManager = __webpack_require__(5);
-	var Catalog = __webpack_require__(34);
-	var Misc = __webpack_require__(54);
-	var Production = __webpack_require__(55);
+	var Catalog = __webpack_require__(35);
+	var Misc = __webpack_require__(56);
+	var Production = __webpack_require__(57);
 	var Util = __webpack_require__(2);
 
 	module.exports.loop = function () {
@@ -294,7 +294,6 @@ module.exports =
 	                            var dest = Util.getResource(targetTerminal, type);
 	                            var sending = Math.min(src, ideal - dest);
 	                            if(sending > 100){
-	                                console.log('transfer need', type, sending, source, 'to', targetTerminal);
 	                                transferred = source.send(type, sending, targetTerminal.pos.roomName) == OK;
 	                            }
 	                        }
@@ -311,7 +310,6 @@ module.exports =
 	                    var dest = Util.getResource(target, type);
 	                    var sending = Math.min(source - ideal, ideal - dest);
 	                    if(sending >= 100){
-	                        console.log('transfer', type, terminal, source, 'to', target, dest, sending);
 	                        transferred = terminal.send(type, sending, target.pos.roomName) == OK;
 	                        return;
 	                    }
@@ -1143,7 +1141,7 @@ module.exports =
 	            },
 	            boostrepair: {
 	                quota: 'repair',
-	                max: 12,
+	                max: 10,
 	                boost: { XLH2O: 2 },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
@@ -1151,10 +1149,19 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 12,
+	                max: 16,
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
+	            },
+	            dismantle: {
+	                quota: 'dismantle',
+	                max: 3,
+	                allocation: 2000000,
+	                boost: { XZH2O: 10 },
+	                rules: { dismantle: {} },
+	                actions: { boost: {} },
+	                parts: { work: 10, move: 10 }
 	            }
 	        },
 	        rules: {
@@ -1348,15 +1355,17 @@ module.exports =
 	    static processCreep(creep, workers, catalog, actions, block){
 	        var action = false;
 	        if(creep.memory.jobType && !creep.memory.block){
-	            var start = Game.cpu.getUsed();
+	        var start = Game.cpu.getUsed();
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
 	            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
 	        }
+	        var action = Game.cpu.getUsed();
 	        if(block){
 	            actions[block.type].blocked(creep, creep.memory.actions[block.type], block.data);
 	        }else{
 	            _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
 	        }
+	        catalog.profileAdd('work-action', Game.cpu.getUsed() - action);
 	    }
 	}
 
@@ -1749,17 +1758,18 @@ module.exports =
 	var Build = __webpack_require__(19);
 	var Defend = __webpack_require__(20);
 	var Deliver = __webpack_require__(21);
-	var Drop = __webpack_require__(22);
-	var Heal = __webpack_require__(23);
-	var Idle = __webpack_require__(24);
-	var Keep = __webpack_require__(25);
-	var Mine = __webpack_require__(26);
-	var Observe = __webpack_require__(27);
-	var Pickup = __webpack_require__(28);
-	var Repair = __webpack_require__(29);
-	var Reserve = __webpack_require__(31);
-	var Transfer = __webpack_require__(32);
-	var Upgrade = __webpack_require__(33);
+	var Dismantle = __webpack_require__(22);
+	var Drop = __webpack_require__(23);
+	var Heal = __webpack_require__(24);
+	var Idle = __webpack_require__(25);
+	var Keep = __webpack_require__(26);
+	var Mine = __webpack_require__(27);
+	var Observe = __webpack_require__(28);
+	var Pickup = __webpack_require__(29);
+	var Repair = __webpack_require__(30);
+	var Reserve = __webpack_require__(32);
+	var Transfer = __webpack_require__(33);
+	var Upgrade = __webpack_require__(34);
 
 	module.exports = function(catalog){
 	    return {
@@ -1767,6 +1777,7 @@ module.exports =
 	        build: new Build(catalog),
 	        defend: new Defend(catalog),
 	        deliver: new Deliver(catalog),
+	        dismantle: new Dismantle(catalog),
 	        drop: new Drop(catalog),
 	        heal: new Heal(catalog),
 	        idle: new Idle(catalog),
@@ -2241,6 +2252,33 @@ module.exports =
 
 	"use strict";
 
+	var BaseWorker = __webpack_require__(17);
+
+	class DismantleWorker extends BaseWorker {
+	    constructor(catalog){ super(catalog, 'dismantle'); }
+
+	    calculateAllocation(creep, opts){
+	        return creep.getActiveBodyparts(WORK) * 50 * creep.ticksToLive;
+	    }
+
+	    calculateBid(creep, opts, job, allocation, distance){
+	        return distance / this.distanceWeight;
+	    }
+
+	    processStep(creep, job, target, opts){
+	        this.orMove(creep, target, creep.dismantle(target));
+	    }
+
+	}
+
+	module.exports = DismantleWorker;
+
+/***/ },
+/* 23 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
 	var SimpleWorker = __webpack_require__(18);
 
 	class DropWorker extends SimpleWorker {
@@ -2271,7 +2309,7 @@ module.exports =
 	module.exports = DropWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2304,7 +2342,7 @@ module.exports =
 	module.exports = HealWorker;
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2336,7 +2374,7 @@ module.exports =
 	module.exports = IdleWorker;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2394,7 +2432,7 @@ module.exports =
 	module.exports = KeepWorker;
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2432,7 +2470,7 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2461,7 +2499,7 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2523,12 +2561,12 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 29 */
+/* 30 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticWorker = __webpack_require__(30);
+	var StaticWorker = __webpack_require__(31);
 
 	class RepairWorker extends StaticWorker {
 	    constructor(catalog){ super(catalog, 'repair', { requiresEnergy: true, chatty: true }); }
@@ -2550,7 +2588,7 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 30 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2664,7 +2702,7 @@ module.exports =
 	module.exports = StaticWorker;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2704,12 +2742,12 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticWorker = __webpack_require__(30);
+	var StaticWorker = __webpack_require__(31);
 	var Util = __webpack_require__(2);
 
 	class TransferWorker extends StaticWorker {
@@ -2884,7 +2922,7 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 33 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -2911,13 +2949,13 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 34 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var JobManager = __webpack_require__(35);
-	var QuotaManager = __webpack_require__(53);
+	var JobManager = __webpack_require__(36);
+	var QuotaManager = __webpack_require__(55);
 	var Util = __webpack_require__(2);
 
 	class Catalog {
@@ -3142,12 +3180,12 @@ module.exports =
 	module.exports = Catalog;
 
 /***/ },
-/* 35 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Jobs = __webpack_require__(36);
+	var Jobs = __webpack_require__(37);
 
 	class JobManager {
 	    constructor(catalog){
@@ -3252,25 +3290,26 @@ module.exports =
 	module.exports = JobManager;
 
 /***/ },
-/* 36 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Attack = __webpack_require__(37);
-	var Build = __webpack_require__(39);
-	var Defend = __webpack_require__(40);
-	var Deliver = __webpack_require__(41);
-	var Mine = __webpack_require__(42);
-	var Idle = __webpack_require__(43);
-	var Keep = __webpack_require__(44);
-	var Observe = __webpack_require__(45);
-	var Pickup = __webpack_require__(46);
-	var Repair = __webpack_require__(47);
-	var Reserve = __webpack_require__(49);
-	var Transfer = __webpack_require__(50);
-	var Upgrade = __webpack_require__(51);
-	var Heal = __webpack_require__(52);
+	var Attack = __webpack_require__(38);
+	var Build = __webpack_require__(40);
+	var Defend = __webpack_require__(41);
+	var Deliver = __webpack_require__(42);
+	var Dismantle = __webpack_require__(43);
+	var Mine = __webpack_require__(44);
+	var Idle = __webpack_require__(45);
+	var Keep = __webpack_require__(46);
+	var Observe = __webpack_require__(47);
+	var Pickup = __webpack_require__(48);
+	var Repair = __webpack_require__(49);
+	var Reserve = __webpack_require__(51);
+	var Transfer = __webpack_require__(52);
+	var Upgrade = __webpack_require__(53);
+	var Heal = __webpack_require__(54);
 
 	module.exports = function(catalog){
 	    return {
@@ -3278,6 +3317,7 @@ module.exports =
 	        build: new Build(catalog),
 	        defend: new Defend(catalog),
 	        deliver: new Deliver(catalog),
+	        dismantle: new Dismantle(catalog),
 	        heal: new Heal(catalog),
 	        idle: new Idle(catalog),
 	        keep: new Keep(catalog),
@@ -3292,12 +3332,12 @@ module.exports =
 	};
 
 /***/ },
-/* 37 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class AttackJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'attack', { flagPrefix: 'Attack' }); }
@@ -3358,7 +3398,7 @@ module.exports =
 
 
 /***/ },
-/* 38 */
+/* 39 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -3455,12 +3495,12 @@ module.exports =
 	module.exports = BaseJob;
 
 /***/ },
-/* 39 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	var offsets = {
 	    container: -0.5,
@@ -3497,12 +3537,12 @@ module.exports =
 	module.exports = BuildJob;
 
 /***/ },
-/* 40 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class DefendJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend' }); }
@@ -3531,12 +3571,12 @@ module.exports =
 
 
 /***/ },
-/* 41 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	var offsets = {
 	    spawn: -0.25,
@@ -3613,12 +3653,44 @@ module.exports =
 	module.exports = DeliverJob;
 
 /***/ },
-/* 42 */
+/* 43 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
+	var Util = __webpack_require__(2);
+
+	class DismantleJob extends BaseJob {
+	    constructor(catalog){ super(catalog, 'dismantle', { flagPrefix: 'Dismantle' }); }
+
+	    calculateCapacity(room, target){
+	        return target.hits;
+	    }
+
+	    generateTargets(room, flag){
+	        if(!flag || !flag.room){
+	            return [];
+	        }
+	        var results = flag.pos.lookFor(LOOK_STRUCTURES);
+	        if(results && results.length > 0){
+	            return results;
+	        }else{
+	            console.log('No targets found:', flag.pos, flag.name);
+	            flag.remove();
+	        }
+	    }
+	}
+
+	module.exports = DismantleJob;
+
+/***/ },
+/* 44 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseJob = __webpack_require__(39);
 
 	class MineJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'mine', { flagPrefix: 'Mine' }); }
@@ -3666,12 +3738,12 @@ module.exports =
 
 
 /***/ },
-/* 43 */
+/* 45 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	var types = {
 	    spawn: 2,
@@ -3731,12 +3803,12 @@ module.exports =
 	module.exports = IdleJob;
 
 /***/ },
-/* 44 */
+/* 46 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class KeepJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'keep', { flagPrefix: 'Keep' }); }
@@ -3787,12 +3859,12 @@ module.exports =
 
 
 /***/ },
-/* 45 */
+/* 47 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class ObserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'observe', { flagPrefix: 'Observe' }); }
@@ -3812,12 +3884,12 @@ module.exports =
 	module.exports = ObserveJob;
 
 /***/ },
-/* 46 */
+/* 48 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	var types = [
 	    STRUCTURE_STORAGE,
@@ -3875,12 +3947,12 @@ module.exports =
 	module.exports = PickupJob;
 
 /***/ },
-/* 47 */
+/* 49 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticJob = __webpack_require__(48);
+	var StaticJob = __webpack_require__(50);
 	var Util = __webpack_require__(2);
 
 	class RepairJob extends StaticJob {
@@ -3903,7 +3975,7 @@ module.exports =
 	module.exports = RepairJob;
 
 /***/ },
-/* 48 */
+/* 50 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -3999,12 +4071,12 @@ module.exports =
 	module.exports = StaticJob;
 
 /***/ },
-/* 49 */
+/* 51 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class ReserveJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'reserve', { flagPrefix: 'Reserve' }); }
@@ -4040,6 +4112,11 @@ module.exports =
 	            id: this.type+"-"+flag.name,
 	            target
 	        };
+	        if(flag.room && subtype == 'downgrade' && !target.owner){
+	            flag.remove();
+	            target.pos.createFlag('Reserve-reserve-'+Game.time, COLOR_BROWN);
+	            return;
+	        }
 	        if(subtype == 'claim'){
 	            if(flag.room && flag.room.controller.my){
 	                flag.remove();
@@ -4065,12 +4142,12 @@ module.exports =
 	module.exports = ReserveJob;
 
 /***/ },
-/* 50 */
+/* 52 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var StaticJob = __webpack_require__(48);
+	var StaticJob = __webpack_require__(50);
 	var Util = __webpack_require__(2);
 
 	class TransferJob extends StaticJob {
@@ -4183,12 +4260,12 @@ module.exports =
 	module.exports = TransferJob;
 
 /***/ },
-/* 51 */
+/* 53 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class UpgradeJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'upgrade', { flagPrefix: 'Upgrade' }); }
@@ -4233,12 +4310,12 @@ module.exports =
 	module.exports = UpgradeJob;
 
 /***/ },
-/* 52 */
+/* 54 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseJob = __webpack_require__(38);
+	var BaseJob = __webpack_require__(39);
 
 	class HealJob extends BaseJob {
 	    constructor(catalog){ super(catalog, 'heal'); }
@@ -4261,7 +4338,7 @@ module.exports =
 	module.exports = HealJob;
 
 /***/ },
-/* 53 */
+/* 55 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -4317,7 +4394,7 @@ module.exports =
 	module.exports = QuotaManager;
 
 /***/ },
-/* 54 */
+/* 56 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -4404,7 +4481,7 @@ module.exports =
 	            }
 	        });
 	        if(Memory.stats.global.repair < 500000 && Memory.stats.global.totalEnergy > 250000 + 100000 * _.size(catalog.buildings.storage)){
-	            Memory.settings.repairTarget = Memory.settings.repairTarget + 5000;
+	            Memory.settings.repairTarget = Memory.settings.repairTarget + 1000;
 	            console.log('Expanding repairTarget', Memory.settings.repairTarget);
 	        }
 	    }
@@ -4483,7 +4560,7 @@ module.exports =
 	module.exports = Misc;
 
 /***/ },
-/* 55 */
+/* 57 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4496,10 +4573,11 @@ module.exports =
 	    }
 
 	    process(){
+	        // console.log(_.values(REACTIONS.X));
 	        if(!Util.interval(25)){
 	            return;
 	        }
-	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.getTotalStored(type));
+	        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.resources[type].total);
 
 	        var reactions = {};
 	        _.forEach(needs, (amount, type) => {
@@ -4510,10 +4588,6 @@ module.exports =
 
 	        _.forEach(Memory.reaction, (data, type)=>{
 	            if(!reactions[type]){
-	                var labs = Memory.production.labs[data.lab];
-	                _.forEach(data.assignments, (labNum) => {
-	                    Memory.transfer.lab[labs[labNum]] = false;
-	                });
 	                delete Memory.reaction[type];
 	            }
 	        });
@@ -4524,7 +4598,7 @@ module.exports =
 	            if(Memory.reaction[type]){
 	                this.updateReaction(type, Memory.reaction[type], reaction);
 	            }else if(_.sum(freeLabs) >= 3){
-	                var reservation = this.allocateLabs(type, reaction, freeLabs);
+	                var reservation = this.allocateLabs(type, reaction, freeLabs, assignments);
 	                if(reservation && this.startReaction(type, reaction, reservation, freeLabs, assignments)){
 	                    freeLabs = this.countFreeLabs(assignments);
 	                }
@@ -4549,15 +4623,15 @@ module.exports =
 	        return _.map(Memory.production.labs, (labs, ix) => labs.length - _.size(_.get(assignments, ix, [])));
 	    }
 
-	    allocateLabs(type, reaction, freeLabs){
-	        var labSet = this.findFreeLab(reaction.size, freeLabs);
+	    allocateLabs(type, reaction, freeLabs, assignments){
+	        var labSet = this.findFreeLab(reaction.size, freeLabs, false, reaction.allComponents, assignments);
 	        if(labSet >= 0){
 	            var chains = {};
 	            chains[type] = labSet;
 	            return chains;
 	        }
-	        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs);
-	        labSet = this.findFreeLab(3, freeLabs, _.values(chains));
+	        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs, assignments);
+	        labSet = this.findFreeLab(3, freeLabs, _.values(chains), reaction.allComponents, assignments);
 	        if(chains && labSet >= 0){
 	            chains[type] = labSet;
 	            return chains;
@@ -4566,7 +4640,8 @@ module.exports =
 	        return false;
 	    }
 
-	    findFreeLab(count, freeLabs, exclude){
+	    findFreeLab(count, freeLabs, exclude, components, assignments){
+	        //TODO account for existing labs when counting
 	        var target = -1;
 	        var targetDiff = Infinity;
 	        _.forEach(freeLabs, (labs, ix)=>{

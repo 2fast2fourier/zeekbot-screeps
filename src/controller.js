@@ -185,7 +185,6 @@ class Controller {
                             var dest = Util.getResource(targetTerminal, type);
                             var sending = Math.min(src, ideal - dest);
                             if(sending > 100){
-                                console.log('transfer need', type, sending, source, 'to', targetTerminal);
                                 transferred = source.send(type, sending, targetTerminal.pos.roomName) == OK;
                             }
                         }
@@ -202,7 +201,6 @@ class Controller {
                     var dest = Util.getResource(target, type);
                     var sending = Math.min(source - ideal, ideal - dest);
                     if(sending >= 100){
-                        console.log('transfer', type, terminal, source, 'to', target, dest, sending);
                         transferred = terminal.send(type, sending, target.pos.roomName) == OK;
                         return;
                     }
