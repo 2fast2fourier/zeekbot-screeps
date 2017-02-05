@@ -42,9 +42,38 @@ class Controller {
                 Controller.sellOverage(catalog);
             }
         }
+        if(Util.interval(50)){
+            var buildFlags = catalog.getFlagsByPrefix('Build');
+            _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
+        }
 
         if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
             _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
+        }
+    }
+
+    static buildFlag(catalog, flag){
+        if(!flag.room){
+            console.log('buildflag in unknown room', flag.pos);
+            flag.remove();
+            return;
+        }
+        var args = flag.name.split('-');
+        var type = args[1];
+        if(!_.has(CONSTRUCTION_COST, type)){
+            console.log('unknown buildflag', type);
+            Util.notify('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + pos);
+            flag.remove();
+        }
+        var gcl = _.get(flag, 'room.controller.level', 0);
+        if(_.get(CONTROLLER_STRUCTURES, [type, gcl], 0) > _.size(catalog.getStructuresByType(flag.room, type))){
+            console.log('Building', type, 'at', flag.pos, gcl);
+            var result = flag.pos.createConstructionSite(type);
+            if(result == OK){
+                flag.remove();
+            }else{
+                Util.notify('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + pos);
+            }
         }
     }
 

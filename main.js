@@ -151,9 +151,38 @@ module.exports =
 	                Controller.sellOverage(catalog);
 	            }
 	        }
+	        if(Util.interval(5)){
+	            var buildFlags = catalog.getFlagsByPrefix('Build');
+	            _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
+	        }
 
 	        if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
 	            _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
+	        }
+	    }
+
+	    static buildFlag(catalog, flag){
+	        if(!flag.room){
+	            console.log('buildflag in unknown room', flag.pos);
+	            flag.remove();
+	            return;
+	        }
+	        var args = flag.name.split('-');
+	        var type = args[1];
+	        if(!_.has(CONSTRUCTION_COST, type)){
+	            console.log('unknown buildflag', type);
+	            Util.notify('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + pos);
+	            flag.remove();
+	        }
+	        var gcl = _.get(flag, 'room.controller.level', 0);
+	        if(_.get(CONTROLLER_STRUCTURES, [type, gcl], 0) > _.size(catalog.getStructuresByType(flag.room, type))){
+	            console.log('Building', type, 'at', flag.pos, gcl);
+	            var result = flag.pos.createConstructionSite(type);
+	            if(result == OK){
+	                flag.remove();
+	            }else{
+	                Util.notify('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + pos);
+	            }
 	        }
 	    }
 
@@ -1359,13 +1388,13 @@ module.exports =
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
 	            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
 	        }
-	        var action = Game.cpu.getUsed();
+	        var actionCPU = Game.cpu.getUsed();
 	        if(block){
 	            actions[block.type].blocked(creep, creep.memory.actions[block.type], block.data);
 	        }else{
 	            _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
 	        }
-	        catalog.profileAdd('work-action', Game.cpu.getUsed() - action);
+	        catalog.profileAdd('work-action', Game.cpu.getUsed() - actionCPU);
 	    }
 	}
 
@@ -4446,9 +4475,7 @@ module.exports =
 	                mineralId: _.get(mineral, 'id', false),
 	                mineralType: _.get(mineral, 'mineralType', false),
 	                mineralAmount: _.get(mineral, 'mineralAmount', 0),
-	                energy: catalog.getResource(room.storage, RESOURCE_ENERGY),
-	                // terminalEnergy: catalog.getResource(_.first(catalog.getStructuresByType(room, STRUCTURE_TERMINAL)), RESOURCE_ENERGY),
-	                // upgradeDistance: _.min(_.map(room.find(FIND_SOURCES), source => source.pos.getRangeTo(room.controller)))
+	                energy: catalog.getResource(room.storage, RESOURCE_ENERGY)
 	            };
 	            totalRepair += repairHits;
 	            totalBuild += buildHits;
