@@ -112,7 +112,6 @@ class Misc {
             Memory.updateTime = 0;
             Memory.production = {
                 labs: [],
-                quota: {},
                 boosts: {}
             };
             Memory.reaction = {};

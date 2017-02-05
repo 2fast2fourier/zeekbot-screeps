@@ -2,166 +2,87 @@
 
 var Util = require('./util');
 
+var CAPACITY_END_MIN = 100;
+var DEFICIT_END_MIN = 0;
+var DEFICIT_START_MIN = 1000;
+
 class Production {
     constructor(catalog){
         this.catalog = catalog;
     }
 
     process(){
-        // console.log(_.values(REACTIONS.X));
         if(!Util.interval(25)){
             return;
         }
-        var needs = _.pick(Memory.production.quota, (amount, type) => amount > this.catalog.resources[type].total);
+        var resources = _.values(REACTIONS.X);
+        resources.push('G');
 
         var reactions = {};
-        _.forEach(needs, (amount, type) => {
-            var temp = {};
-            this.generateReactions(type, amount - this.catalog.getTotalStored(type), temp, true);
-            reactions[type] = temp[type];
+        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
+        _.forEach(resources, (type) => {
+            this.generateReactions(type, targetAmount - this.catalog.resources[type].total, reactions, true);
         });
+        // _.forEach(reactions, (data, type) => console.log(type, data.capacity, data.current, data.deficit, data.current / targetAmount));
+
 
         _.forEach(Memory.reaction, (data, type)=>{
-            if(!reactions[type]){
+            var deficit = _.get(reactions, [type, 'deficit'], 0);
+            var capacity = _.get(reactions, [type, 'capacity'], 0);
+            if(deficit <= DEFICIT_END_MIN || capacity <= CAPACITY_END_MIN){
+                console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
                 delete Memory.reaction[type];
+            }else{
+                this.updateReaction(type, data, reactions[type]);
             }
         });
 
-        var assignments = this.findAllAssignments();
-        var freeLabs = this.countFreeLabs(assignments);
-        _.forEach(reactions, (reaction, type) => {
-            if(Memory.reaction[type]){
-                this.updateReaction(type, Memory.reaction[type], reaction);
-            }else if(_.sum(freeLabs) >= 3){
-                var reservation = this.allocateLabs(type, reaction, freeLabs, assignments);
-                if(reservation && this.startReaction(type, reaction, reservation, freeLabs, assignments)){
-                    freeLabs = this.countFreeLabs(assignments);
+        var freeLabs = this.countFreeLabs();
+        var runnableReactions = _.filter(reactions, (reaction, type) => reaction.capacity > DEFICIT_START_MIN && reaction.deficit > DEFICIT_START_MIN && !Memory.reaction[type]);
+        var sortedReactions = _.sortBy(runnableReactions, (reaction) => -Math.min(reaction.deficit, reaction.capacity));
+
+        if(freeLabs.length > 0){
+            _.forEach(sortedReactions, reaction => {
+                var type = reaction.type;
+                if(freeLabs.length > 0){
+                    console.log('Starting reaction:', type, '-', reaction.deficit, 'of', reaction.capacity);
+                    this.startReaction(type, reaction, freeLabs);
+                    freeLabs = this.countFreeLabs();
                 }
-            }
-        });
-        this.updateLabTransfers(this.findAllAssignments());
+            });
+        }
+        this.updateLabTransfers();
     }
 
-    updateLabTransfers(assignments){
+    countFreeLabs(){
+        return _.difference(_.keys(Memory.production.labs), _.map(Memory.reaction, 'lab'));
+    }
+
+    updateLabTransfers(){
         _.forEach(Memory.production.labs, labSet => _.forEach(labSet, (labId, ix)=>{
             Memory.transfer.lab[labId] = false;
         }));
-        _.forEach(assignments, (assign, labNum)=>{
-            var labs = Memory.production.labs[labNum];
-            _.forEach(assign, (labNum, type)=>{
-                Memory.transfer.lab[labs[labNum]] = type;
+        _.forEach(Memory.reaction, (reaction, type)=>{
+            var labs = Memory.production.labs[reaction.lab];
+            _.forEach(labs, (labId, ix)=>{
+                if(ix < reaction.components.length){
+                    Memory.transfer.lab[labId] = reaction.components[ix];
+                }else{
+                    Memory.transfer.lab[labId] = 'store-'+type;
+                }
             });
         });
     }
 
-    countFreeLabs(assignments){
-        return _.map(Memory.production.labs, (labs, ix) => labs.length - _.size(_.get(assignments, ix, [])));
-    }
-
-    allocateLabs(type, reaction, freeLabs, assignments){
-        var labSet = this.findFreeLab(reaction.size, freeLabs, false, reaction.allComponents, assignments);
-        if(labSet >= 0){
-            var chains = {};
-            chains[type] = labSet;
-            return chains;
-        }
-        var chains = this.allocateLabs(_.first(_.keys(reaction.children)), _.first(_.values(reaction.children)), freeLabs, assignments);
-        labSet = this.findFreeLab(3, freeLabs, _.values(chains), reaction.allComponents, assignments);
-        if(chains && labSet >= 0){
-            chains[type] = labSet;
-            return chains;
-        }
-
-        return false;
-    }
-
-    findFreeLab(count, freeLabs, exclude, components, assignments){
-        //TODO account for existing labs when counting
-        var target = -1;
-        var targetDiff = Infinity;
-        _.forEach(freeLabs, (labs, ix)=>{
-            if(exclude && _.includes(exclude, ix)){
-                return;
-            }
-            if(labs >= count && labs - count < targetDiff){
-                target = ix;
-                targetDiff = labs - count;
-            }
-        });
-        return target;
-    }
-
-    assignLabs(reservations, type, reaction, assignments, labNum){
-        if(_.has(reservations, type)){
-            labNum = reservations[type];
-        }
-        var assignedChildren = _.every(reaction.children, (child, childType) => this.assignLabs(reservations, childType, child, assignments, labNum));
-        if(assignedChildren){
-            var localAssignments = {};
-            var assignedComponents = _.every(reaction.components, component => {
-                if(!_.has(assignments, [labNum, component])){
-                    var targetLab = this.findNextLab(assignments, labNum);
-                    if(targetLab < 0){
-                        return false;
-                    }
-                    localAssignments[component] = targetLab;
-                    _.set(assignments, [labNum, component], targetLab);
-                }else{
-                    localAssignments[component] = _.get(assignments, [labNum, component]);
-                }
-                return true;
-            });
-            if(assignedComponents){
-                if(!_.has(assignments, [labNum, type])){
-                    var targetLab = this.findNextLab(assignments, labNum);
-                    if(targetLab < 0){
-                        return false;
-                    }
-                    localAssignments[type] = targetLab;
-                    _.set(assignments, [labNum, type], targetLab);
-                }else{
-                    localAssignments[type] = _.get(assignments, [labNum, type]);
-                }
-                reaction.lab = labNum;
-                reaction.assignments = localAssignments;
-                return true;
-            }
-        }
-        console.log('failed to assign', type);
-        return false;
-    }
-
-    findAllAssignments(){
-        var assignments = {};
-        _.forEach(Memory.reaction, data => this.collectAssignments(assignments, data));
-        return assignments;
-    }
-
-    collectAssignments(assignments, reaction){
-        if(!assignments[reaction.lab]){
-            assignments[reaction.lab] = {};
-        }
-        _.forEach(reaction.assignments, (lab, type)=>{
-            assignments[reaction.lab][type] = lab;
-        });
-        _.forEach(reaction.children, child => this.collectAssignments(assignments, child));
-    }
-
-    findNextLab(assignments, labNum){
-        var assignedLabs = _.values(assignments[labNum]);
-        var labs = Memory.production.labs[labNum];
-        return _.findIndex(labs, (labId, ix)=> !_.includes(assignedLabs, ix));
-    }
-
-    startReaction(type, reaction, reservations, freeLabs, assignments){
-        if(this.assignLabs(reservations, type, reaction, assignments, reservations[type])){
-            Memory.reaction[type] = reaction;
-        }
-        return true;
+    startReaction(type, reaction, freeLabs){
+        reaction.lab = _.first(freeLabs);
+        Memory.reaction[type] = reaction;
     }
 
     updateReaction(type, reaction, updated){
         reaction.deficit = updated.deficit;
+        reaction.capacity = updated.capacity;
+        reaction.current = updated.current;
     }
 
     generateReactions(type, deficit, output, topLevel){
@@ -169,18 +90,14 @@ class Production {
             return;
         }
         var components = this.findReaction(type);
-        var inventory = _.map(components, component => this.catalog.getTotalStored(component) + this.catalog.getTotalLabResources(component));
-        _.forEach(inventory, (amount, ix) => this.generateReactions(components[ix], deficit - amount + Memory.settings.productionOverhead, output, false));
+        var inventory = _.map(components, component => this.catalog.resources[component].total);
+        _.forEach(inventory, (amount, ix) =>  this.generateReactions(components[ix], deficit - amount, output, false));
 
         if(output[type]){
             output[type].deficit += deficit;
         }else{
-            output[type] = { type, components, deficit };
+            output[type] = { type, components, deficit, capacity: _.min(inventory), current: this.catalog.resources[type].total };
         }
-        var children = _.compact(_.map(components, comp => output[comp]));
-        output[type].children = _.zipObject(_.map(children, 'type'), children);
-        output[type].allComponents = _.union(components, _.flatten(_.map(output[type].children, 'allComponents')));
-        output[type].size = output[type].allComponents.length + 1;
     }
 
     findReaction(type){

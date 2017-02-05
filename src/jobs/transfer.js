@@ -58,6 +58,19 @@ class TransferJob extends StaticJob {
                 delete Memory.transfer.lab[labId];
                 return result;
             }
+            if(resource && resource.startsWith('store')){
+                var parts = resource.split('-');
+                var wrongType = target.mineralType && target.mineralType != parts[1];
+                if(wrongType || target.mineralAmount >= Memory.settings.transferStoreThreshold){
+                    result.push({
+                        target,
+                        resource: target.mineralType,
+                        amount: 0,
+                        subtype: 'store'
+                    });
+                }
+                return result;
+            }
             if(target.mineralType && target.mineralType != resource){
                 result.push({
                     target,
@@ -71,7 +84,7 @@ class TransferJob extends StaticJob {
                 return result;
             }
             var amount = this.catalog.getResource(target, resource);
-            if(amount < min && this.catalog.resources[resource].total > 0){
+            if(amount < min && this.catalog.resources[resource].stored > 0){
                 result.push({
                     target,
                     resource,

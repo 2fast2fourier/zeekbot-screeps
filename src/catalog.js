@@ -39,22 +39,28 @@ class Catalog {
 
         this.storage = {};
         this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
-            return { total: 0, sources: [], storage: [], terminal: [], totals: { storage: 0,  terminal: 0 } }
+            return { total: 0, stored: 0, sources: [], storage: [], terminal: [], lab: [], totals: { storage: 0,  terminal: 0, lab: 0 } }
         }));
         _.forEach(this.buildings.storage, (storage)=>this.processStorage(storage));
         _.forEach(this.buildings.terminal, (storage)=>this.processStorage(storage));
+        _.forEach(this.buildings.lab, (storage)=>this.processStorage(storage));
+        // _.forEach(this.resources, (resource, type) => console.log(type, resource.total, resource.stored, resource.totals.lab));
     }
 
     processStorage(storage){
+        var isLab = storage.structureType == STRUCTURE_LAB;
         var resources = this.getResourceList(storage);
         this.storage[storage.id] = resources;
         _.forEach(resources, (amount, type)=>{
             this.resources[type].total += amount;
+            if(!isLab){
+                this.resources[type].stored += amount;
+            }
             this.resources[type].totals[storage.structureType] += amount;
-            if(!(type == RESOURCE_ENERGY && storage.structureType == STRUCTURE_TERMINAL)){
+            this.resources[type][storage.structureType].push(storage);
+            if(!isLab && (type != RESOURCE_ENERGY || storage.structureType == STRUCTURE_STORAGE)){
                 this.resources[type].sources.push(storage);
             }
-            this.resources[type][storage.structureType].push(storage);
         });
     }
 

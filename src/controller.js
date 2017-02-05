@@ -139,8 +139,10 @@ class Controller {
     static runReaction(type, data){
         var labSet = data.lab;
         var labs = Util.getObjects(Memory.production.labs[data.lab]);
-        Controller.react(type, labs[data.assignments[type]], labs[data.assignments[data.components[0]]], labs[data.assignments[data.components[1]]], data.components);
-        _.forEach(data.children, (child, component)=>Controller.runReaction(component, child));
+        _.forEach(data.components, component => Controller.registerReaction(component, labs[0].pos.roomName));
+        for(var ix=2;ix<labs.length;ix++){
+            Controller.react(type, labs[ix], labs[0], labs[1], data.components);
+        }
     }
 
     static registerReaction(type, roomName){
@@ -158,8 +160,6 @@ class Controller {
             console.log('invalid lab for reaction: ' + type);
             return false;
         }
-        var roomName = targetLab.pos.roomName;
-        _.forEach(components, component => Controller.registerReaction(component, roomName));
         if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
             return;
         }

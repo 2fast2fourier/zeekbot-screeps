@@ -10,7 +10,7 @@ class TransferWorker extends StaticWorker {
         var resources = Util.getResource(creep, job.resource);
         var targetResources = Util.getResource(job.target, job.resource);
         var data = this.catalog.resources[job.resource];
-        var allStored = data.total;
+        var allStored = data.stored;
         var stored = data.totals.storage;
         var terminalStored = data.totals.terminal;
         if(job.subtype == 'store'){
