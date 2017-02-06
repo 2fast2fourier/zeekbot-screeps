@@ -25,6 +25,7 @@ class Production {
         });
         // _.forEach(reactions, (data, type) => console.log(type, data.capacity, data.current, data.deficit, data.current / targetAmount));
 
+        Memory.stats.global.reaction = _.sum(_.map(reactions, 'deficit'));
 
         _.forEach(Memory.reaction, (data, type)=>{
             var deficit = _.get(reactions, [type, 'deficit'], 0);

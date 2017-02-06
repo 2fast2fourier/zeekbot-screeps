@@ -60,7 +60,6 @@ class Misc {
             build: totalBuild,
             repair: totalRepair
         }
-        stats.trends = Misc.calculateTrends(catalog, stats, Memory.stats);
         Memory.stats = stats;
         Misc.updateSettings(catalog);
     }
@@ -83,15 +82,6 @@ class Misc {
             Memory.settings.repairTarget = Memory.settings.repairTarget + 1000;
             console.log('Expanding repairTarget', Memory.settings.repairTarget);
         }
-    }
-
-    static calculateTrends(catalog, current, last){
-        var trends = {
-            repair: current.global.repair - last.global.repair,
-            totalEnergy: current.global.totalEnergy - last.global.totalEnergy,
-            energySpread: current.global.energySpread - last.global.energySpread
-        };
-        return trends;
     }
 
     static initMemory(){

@@ -86,7 +86,7 @@ module.exports = {
             transfer: {
                 quota: 'transfer',
                 allocation: 2,
-                max: 4,
+                max: 6,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
@@ -192,7 +192,7 @@ module.exports = {
             },
             repair: {
                 quota: 'repair',
-                max: 16,
+                max: 14,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
@@ -201,6 +201,7 @@ module.exports = {
                 quota: 'dismantle',
                 max: 3,
                 allocation: 2000000,
+                boostOptional: true,
                 boost: { XZH2O: 10 },
                 rules: { dismantle: {} },
                 actions: { boost: {} },

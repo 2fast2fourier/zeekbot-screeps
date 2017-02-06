@@ -1072,7 +1072,7 @@ module.exports =
 	            transfer: {
 	                quota: 'transfer',
 	                allocation: 2,
-	                max: 4,
+	                max: 6,
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
 	            },
@@ -1178,7 +1178,7 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 16,
+	                max: 14,
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
@@ -1187,6 +1187,7 @@ module.exports =
 	                quota: 'dismantle',
 	                max: 3,
 	                allocation: 2000000,
+	                boostOptional: true,
 	                boost: { XZH2O: 10 },
 	                rules: { dismantle: {} },
 	                actions: { boost: {} },
@@ -4139,13 +4140,17 @@ module.exports =
 
 	    generateJobsForFlag(flag){
 	        var subtype = this.getSubflag(flag);
+	        if(!subtype){
+	            subtype = 'reserve';
+	        }
 	        var target = _.get(flag.room, 'controller', flag);
 	        var access = this.catalog.getAccessibility(target.pos, target.room);
 	        var job = {
 	            allocated: 0,
 	            capacity: 2,
 	            id: this.type+"-"+flag.name,
-	            target
+	            target,
+	            quota: 2
 	        };
 	        if(flag.room && subtype == 'downgrade' && !target.owner){
 	            flag.remove();
@@ -4160,15 +4165,16 @@ module.exports =
 	            job.subtype = 'reserve';
 	            job.id = this.type+"-reserve-"+flag.name;
 	            job.flag = flag;
-	        }else if(subtype){
+	        }else{
 	            job[subtype] = true;
 	            job.subtype = subtype;
 	            job.id = this.type+"-"+subtype+"-"+flag.name;
 	            if(subtype == 'downgrade'){
 	                job.capacity = Math.min(access * 10, 20);
+	                job.quota = job.capacity;
+	            }else{
+	                job.quota = _.get(target, 'reservation.ticksToEnd', 0) < 4000 ? 2 : 0;
 	            }
-	        }else{
-	            job.subtype = 'reserve';
 	        }
 	        return [job];
 	    }
@@ -4289,11 +4295,11 @@ module.exports =
 	    generateAllTargets(){
 	        var targetLists = [];
 
-	        targetLists.push(this.generateLabTransfers());
-	        targetLists.push(this.generateNukeTransfers());
 	        targetLists.push(this.generateEnergyTransfers('terminal', 50000));
 	        targetLists.push(this.generateEnergyTransfers('lab', 2000));
 	        targetLists.push(this.generateEnergyTransfers('nuker', 300000, true));
+	        targetLists.push(this.generateLabTransfers());
+	        targetLists.push(this.generateNukeTransfers());
 	        targetLists.push(this.generateTerminalTransfers());
 
 	        return _.flatten(targetLists);
@@ -4404,6 +4410,9 @@ module.exports =
 
 	        this.quota.spawnhauler = roomCount * 2;
 
+	        this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
+	        // console.log(this.quota['reserve-reserve']);
+
 	        // console.log(this.quota.transfer);
 
 	        //spread the wealth
@@ -4507,7 +4516,6 @@ module.exports =
 	            build: totalBuild,
 	            repair: totalRepair
 	        }
-	        stats.trends = Misc.calculateTrends(catalog, stats, Memory.stats);
 	        Memory.stats = stats;
 	        Misc.updateSettings(catalog);
 	    }
@@ -4530,15 +4538,6 @@ module.exports =
 	            Memory.settings.repairTarget = Memory.settings.repairTarget + 1000;
 	            console.log('Expanding repairTarget', Memory.settings.repairTarget);
 	        }
-	    }
-
-	    static calculateTrends(catalog, current, last){
-	        var trends = {
-	            repair: current.global.repair - last.global.repair,
-	            totalEnergy: current.global.totalEnergy - last.global.totalEnergy,
-	            energySpread: current.global.energySpread - last.global.energySpread
-	        };
-	        return trends;
 	    }
 
 	    static initMemory(){
@@ -4612,9 +4611,8 @@ module.exports =
 
 	var Util = __webpack_require__(2);
 
-	var CAPACITY_END_MIN = 100;
+	var DEFICIT_START_MIN = 750;
 	var DEFICIT_END_MIN = 0;
-	var DEFICIT_START_MIN = 1000;
 
 	class Production {
 	    constructor(catalog){
@@ -4629,6 +4627,7 @@ module.exports =
 	        resources.push('G');
 
 	        var reactions = {};
+	        var minCapacity = _.size(Memory.production.labs) * 5;
 	        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
 	        _.forEach(resources, (type) => {
 	            this.generateReactions(type, targetAmount - this.catalog.resources[type].total, reactions, true);
@@ -4639,7 +4638,7 @@ module.exports =
 	        _.forEach(Memory.reaction, (data, type)=>{
 	            var deficit = _.get(reactions, [type, 'deficit'], 0);
 	            var capacity = _.get(reactions, [type, 'capacity'], 0);
-	            if(deficit <= DEFICIT_END_MIN || capacity <= CAPACITY_END_MIN){
+	            if(deficit <= DEFICIT_END_MIN || capacity < minCapacity){
 	                console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
 	                delete Memory.reaction[type];
 	            }else{
@@ -4650,6 +4649,7 @@ module.exports =
 	        var freeLabs = this.countFreeLabs();
 	        var runnableReactions = _.filter(reactions, (reaction, type) => reaction.capacity > DEFICIT_START_MIN && reaction.deficit > DEFICIT_START_MIN && !Memory.reaction[type]);
 	        var sortedReactions = _.sortBy(runnableReactions, (reaction) => -Math.min(reaction.deficit, reaction.capacity));
+	        Memory.stats.global.reaction = _.sum(_.map(runnableReactions, 'deficit'));
 
 	        if(freeLabs.length > 0){
 	            _.forEach(sortedReactions, reaction => {

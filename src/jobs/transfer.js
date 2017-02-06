@@ -107,11 +107,11 @@ class TransferJob extends StaticJob {
     generateAllTargets(){
         var targetLists = [];
 
-        targetLists.push(this.generateLabTransfers());
-        targetLists.push(this.generateNukeTransfers());
         targetLists.push(this.generateEnergyTransfers('terminal', 50000));
         targetLists.push(this.generateEnergyTransfers('lab', 2000));
         targetLists.push(this.generateEnergyTransfers('nuker', 300000, true));
+        targetLists.push(this.generateLabTransfers());
+        targetLists.push(this.generateNukeTransfers());
         targetLists.push(this.generateTerminalTransfers());
 
         return _.flatten(targetLists);

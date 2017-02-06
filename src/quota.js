@@ -13,6 +13,9 @@ class QuotaManager {
 
         this.quota.spawnhauler = roomCount * 2;
 
+        this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
+        // console.log(this.quota['reserve-reserve']);
+
         // console.log(this.quota.transfer);
 
         //spread the wealth
