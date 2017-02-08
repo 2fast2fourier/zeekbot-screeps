@@ -32,9 +32,6 @@ class DeliverWorker extends BaseWorker {
         if(creep.memory.lastSource == job.target.id){
             return false;
         }
-        if(job.subtype == 'stockpile'){
-            // console.log(creep, job.id);
-        }
         var distanceOffset = opts.ignoreDistance ? 0 : distance / _.get(opts, 'distanceWeight', this.distanceWeight);
         if(this.catalog.hasMinerals(creep)){
             if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
@@ -65,15 +62,6 @@ class DeliverWorker extends BaseWorker {
                 done = true;
             }
         });
-        if(opts.profile && total > 0){
-            if(creep.memory.lastPickupTime > 0 && creep.memory.lastDeliveryTime > 0){
-                var ticks = Game.time - creep.memory.lastPickupTime;
-                var totalticks = Game.time - creep.memory.lastDeliveryTime;
-                var eps = total / totalticks;
-                this.catalog.profile('delivery', eps);
-            }
-            creep.memory.lastDeliveryTime = Game.time;
-        }
     }
 
 }

@@ -32,10 +32,6 @@ class QuotaManager {
         this.quota.repair = Math.ceil(Memory.stats.global.repair / 10000);
 
         this.catalog.profile('pickup-remote', this.quota['pickup-remote']);
-
-        
-        // console.log(this.quota['pickup']);
-        // _.forEach(this.quota, (quota, type)=> console.log(type, quota) );
     }
 
     add(type, value){

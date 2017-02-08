@@ -5,7 +5,6 @@ var classConfig = require('./creeps');
 class Spawner {
 
     static spawn(catalog){
-        var start = Game.cpu.getUsed();
         if(Memory.resetBehavior){
             Spawner.resetBehavior(catalog);
         }
@@ -45,8 +44,6 @@ class Spawner {
                 spawned = Spawner.spawner(spawn, catalog, spawnlist);
             }
         });
-
-        catalog.profile('spawner', Game.cpu.getUsed() - start);
     }
 
     static generateSpawnList(catalog){
@@ -94,9 +91,6 @@ class Spawner {
             _.forEach(config.versions, (version, versionName)=>{
                 var type = versionName+className;
                 var spawntime = _.sum(version.parts) * 3;
-                if(version.boost){
-                    spawntime += 20;
-                }
                 var quota = version.quota || config.quota;
                 if(quota && _.has(catalog.creeps.type, type)){
                     var allocate = _.get(version, 'allocation', 1);

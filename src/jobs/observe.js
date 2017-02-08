@@ -7,6 +7,9 @@ class ObserveJob extends BaseJob {
 
     generateJobsForFlag(flag){
         var subflag = this.getSubflag(flag);
+        if(!flag.room){
+            this.catalog.requestWatch(flag.pos.roomName);
+        }
         return [{
             allocated: 0,
             capacity: subflag ? 5 : 1,

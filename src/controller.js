@@ -47,9 +47,20 @@ class Controller {
             _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
         }
 
-        if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
-            _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
-        }
+        // if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
+        //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
+        // }
+
+        var ix = 0;
+        _.forEach(Memory.watch, (time, roomName)=>{
+            if(Game.time > time){
+                console.log('Ending watch for:', roomName);
+                delete Memory.watch[roomName];
+            }else if(ix < catalog.buildings.observer.length){
+                catalog.buildings.observer[ix].observeRoom(roomName);
+                ix++;
+            }
+        });
     }
 
     static buildFlag(catalog, flag){

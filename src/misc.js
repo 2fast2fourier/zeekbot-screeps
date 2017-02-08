@@ -60,6 +60,8 @@ class Misc {
             build: totalBuild,
             repair: totalRepair
         }
+        var baseResources = _.filter(RESOURCES_ALL, res => res.length == 1 || res.startsWith('X'));
+        stats.minerals = _.zipObject(baseResources, _.map(baseResources, res => catalog.resources[res].total));
         Memory.stats = stats;
         Misc.updateSettings(catalog);
     }
@@ -94,6 +96,7 @@ class Misc {
             Memory.limits = {
                 mineral: []
             };
+            Memory.watch = {};
             Memory.cache = {
                 accessibility: {},
                 roompos: {}

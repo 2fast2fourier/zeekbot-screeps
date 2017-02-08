@@ -5,31 +5,19 @@ var Work = require('./work');
 
 class WorkManager {
     static process(catalog){
-        var start = Game.cpu.getUsed();
         var workers = Work(catalog);
         var actions = Actions(catalog);
         var creeps = _.filter(Game.creeps, creep => !creep.spawning);
 
         _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
         catalog.jobs.postValidate();
-
-
-        var validate = Game.cpu.getUsed();
-        catalog.profile('work-validate', validate - start);
         
         var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
         
         var startBid = Game.cpu.getUsed();
-        catalog.profile('work-block', startBid - validate);
-
         _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
-
-        var bid = Game.cpu.getUsed();
-        catalog.profile('work-bid', bid - startBid);
-
         
         _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
-        catalog.profile('work-process', Game.cpu.getUsed() - bid);
     }
 
     static validateCreep(creep, workers, catalog){
@@ -93,7 +81,6 @@ class WorkManager {
         if(creep.memory.jobType && !creep.memory.block){
         var start = Game.cpu.getUsed();
             action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
-            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
         }
         var actionCPU = Game.cpu.getUsed();
         if(block){
@@ -101,7 +88,6 @@ class WorkManager {
         }else{
             _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
         }
-        catalog.profileAdd('work-action', Game.cpu.getUsed() - actionCPU);
     }
 }
 

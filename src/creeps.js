@@ -168,13 +168,13 @@ module.exports = {
                 allocation: 3,
                 max: 4,
                 boostOptional: true,
-                boost: { XLH2O: 4 },
+                boost: { XLH2O: 5 },
                 rules: {
                     pickup: {},
                     build: {},
                     repair: { priority: 99 }
                 },
-                parts: { work: 4, carry: 6, move: 10 }
+                parts: { work: 5, carry: 6, move: 11 }
             },
             upgrade: {
                 quota: 'upgrade',

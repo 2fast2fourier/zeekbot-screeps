@@ -48,7 +48,6 @@ class PickupWorker extends BaseWorker {
             this.move(creep, target);
         }else if(result == OK){
             creep.memory.lastSource = target.id;
-            creep.memory.lastPickupTime = Game.time;
         }
     }
 

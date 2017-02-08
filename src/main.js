@@ -25,8 +25,8 @@ module.exports.loop = function () {
         Misc.updateStats(catalog);
     }
 
-    var startup = Game.cpu.getUsed();
-    catalog.profile('startup', startup);
+    // var startup = Game.cpu.getUsed();
+    // catalog.profile('startup', startup);
 
     production.process();
 
@@ -34,19 +34,19 @@ module.exports.loop = function () {
     catalog.jobs.allocate();
     catalog.quota.process();
 
-    var jobs = Game.cpu.getUsed();
-    catalog.profile('jobs', jobs - startup);
+    // var jobs = Game.cpu.getUsed();
+    // catalog.profile('jobs', jobs - startup);
     
     WorkManager.process(catalog);
 
-    var worker = Game.cpu.getUsed();
-    catalog.profile('worker', worker - jobs);
+    // var worker = Game.cpu.getUsed();
+    // catalog.profile('worker', worker - jobs);
 
     Spawner.spawn(catalog);
     
-    var spawner = Game.cpu.getUsed();
+    // var spawner = Game.cpu.getUsed();
     Controller.control(catalog);
-    catalog.profile('controller', Game.cpu.getUsed() - spawner);
+    // catalog.profile('controller', Game.cpu.getUsed() - spawner);
 
     catalog.finishProfile();
     catalog.profile('cpu', Game.cpu.getUsed());

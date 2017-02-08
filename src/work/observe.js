@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class ObserveWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'observe', { idleTimer: 50 }); }
+    constructor(catalog){ super(catalog, 'observe'); }
 
     calculateAllocation(creep, opts){
         return 1;

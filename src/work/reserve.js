@@ -13,6 +13,9 @@ class ReserveWorker extends BaseWorker {
         if(!opts.downgrade && job.downgrade){
             return false;
         }
+        if(job.subtype == 'reserve'){
+            return _.get(job.target, 'reservation.ticksToEnd', 0) / 5000;
+        }
         return distance/this.distanceWeight;
     }
 

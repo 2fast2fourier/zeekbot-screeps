@@ -227,6 +227,13 @@ class Catalog {
     getAvoid(pos){
         return this.avoid[pos.roomName];
     }
+
+    requestWatch(roomName){
+        if(!Memory.watch[roomName]){
+            console.log('Starting to watch', roomName);
+        }
+        Memory.watch[roomName] = Game.time + 100;
+    }
 }
 
 module.exports = Catalog;

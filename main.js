@@ -72,8 +72,8 @@ module.exports =
 	        Misc.updateStats(catalog);
 	    }
 
-	    var startup = Game.cpu.getUsed();
-	    catalog.profile('startup', startup);
+	    // var startup = Game.cpu.getUsed();
+	    // catalog.profile('startup', startup);
 
 	    production.process();
 
@@ -81,19 +81,19 @@ module.exports =
 	    catalog.jobs.allocate();
 	    catalog.quota.process();
 
-	    var jobs = Game.cpu.getUsed();
-	    catalog.profile('jobs', jobs - startup);
+	    // var jobs = Game.cpu.getUsed();
+	    // catalog.profile('jobs', jobs - startup);
 	    
 	    WorkManager.process(catalog);
 
-	    var worker = Game.cpu.getUsed();
-	    catalog.profile('worker', worker - jobs);
+	    // var worker = Game.cpu.getUsed();
+	    // catalog.profile('worker', worker - jobs);
 
 	    Spawner.spawn(catalog);
 	    
-	    var spawner = Game.cpu.getUsed();
+	    // var spawner = Game.cpu.getUsed();
 	    Controller.control(catalog);
-	    catalog.profile('controller', Game.cpu.getUsed() - spawner);
+	    // catalog.profile('controller', Game.cpu.getUsed() - spawner);
 
 	    catalog.finishProfile();
 	    catalog.profile('cpu', Game.cpu.getUsed());
@@ -156,9 +156,20 @@ module.exports =
 	            _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
 	        }
 
-	        if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
-	            _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
-	        }
+	        // if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
+	        //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
+	        // }
+
+	        var ix = 0;
+	        _.forEach(Memory.watch, (time, roomName)=>{
+	            if(Game.time > time){
+	                console.log('Ending watch for:', roomName);
+	                delete Memory.watch[roomName];
+	            }else if(ix < catalog.buildings.observer.length){
+	                catalog.buildings.observer[ix].observeRoom(roomName);
+	                ix++;
+	            }
+	        });
 	    }
 
 	    static buildFlag(catalog, flag){
@@ -707,7 +718,6 @@ module.exports =
 	class Spawner {
 
 	    static spawn(catalog){
-	        var start = Game.cpu.getUsed();
 	        if(Memory.resetBehavior){
 	            Spawner.resetBehavior(catalog);
 	        }
@@ -747,8 +757,6 @@ module.exports =
 	                spawned = Spawner.spawner(spawn, catalog, spawnlist);
 	            }
 	        });
-
-	        catalog.profile('spawner', Game.cpu.getUsed() - start);
 	    }
 
 	    static generateSpawnList(catalog){
@@ -796,9 +804,6 @@ module.exports =
 	            _.forEach(config.versions, (version, versionName)=>{
 	                var type = versionName+className;
 	                var spawntime = _.sum(version.parts) * 3;
-	                if(version.boost){
-	                    spawntime += 20;
-	                }
 	                var quota = version.quota || config.quota;
 	                if(quota && _.has(catalog.creeps.type, type)){
 	                    var allocate = _.get(version, 'allocation', 1);
@@ -1154,13 +1159,13 @@ module.exports =
 	                allocation: 3,
 	                max: 4,
 	                boostOptional: true,
-	                boost: { XLH2O: 4 },
+	                boost: { XLH2O: 5 },
 	                rules: {
 	                    pickup: {},
 	                    build: {},
 	                    repair: { priority: 99 }
 	                },
-	                parts: { work: 4, carry: 6, move: 10 }
+	                parts: { work: 5, carry: 6, move: 11 }
 	            },
 	            upgrade: {
 	                quota: 'upgrade',
@@ -1299,31 +1304,19 @@ module.exports =
 
 	class WorkManager {
 	    static process(catalog){
-	        var start = Game.cpu.getUsed();
 	        var workers = Work(catalog);
 	        var actions = Actions(catalog);
 	        var creeps = _.filter(Game.creeps, creep => !creep.spawning);
 
 	        _.forEach(creeps, creep => WorkManager.validateCreep(creep, workers, catalog));
 	        catalog.jobs.postValidate();
-
-
-	        var validate = Game.cpu.getUsed();
-	        catalog.profile('work-validate', validate - start);
 	        
 	        var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
 	        
 	        var startBid = Game.cpu.getUsed();
-	        catalog.profile('work-block', startBid - validate);
-
 	        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
-
-	        var bid = Game.cpu.getUsed();
-	        catalog.profile('work-bid', bid - startBid);
-
 	        
 	        _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
-	        catalog.profile('work-process', Game.cpu.getUsed() - bid);
 	    }
 
 	    static validateCreep(creep, workers, catalog){
@@ -1387,7 +1380,6 @@ module.exports =
 	        if(creep.memory.jobType && !creep.memory.block){
 	        var start = Game.cpu.getUsed();
 	            action = workers[creep.memory.jobType].process(creep, creep.memory.rules[creep.memory.jobType]);
-	            catalog.profileAdd('work-process-'+creep.memory.jobType, Game.cpu.getUsed() - start);
 	        }
 	        var actionCPU = Game.cpu.getUsed();
 	        if(block){
@@ -1395,7 +1387,6 @@ module.exports =
 	        }else{
 	            _.forEach(creep.memory.actions, (opts, type) => actions[type].postWork(creep, opts, action));
 	        }
-	        catalog.profileAdd('work-action', Game.cpu.getUsed() - actionCPU);
 	    }
 	}
 
@@ -2228,9 +2219,6 @@ module.exports =
 	        if(creep.memory.lastSource == job.target.id){
 	            return false;
 	        }
-	        if(job.subtype == 'stockpile'){
-	            // console.log(creep, job.id);
-	        }
 	        var distanceOffset = opts.ignoreDistance ? 0 : distance / _.get(opts, 'distanceWeight', this.distanceWeight);
 	        if(this.catalog.hasMinerals(creep)){
 	            if(!job.minerals || !job.target.structureType || !_.includes(opts.mineralTypes || mineralTypes, job.target.structureType)){
@@ -2261,15 +2249,6 @@ module.exports =
 	                done = true;
 	            }
 	        });
-	        if(opts.profile && total > 0){
-	            if(creep.memory.lastPickupTime > 0 && creep.memory.lastDeliveryTime > 0){
-	                var ticks = Game.time - creep.memory.lastPickupTime;
-	                var totalticks = Game.time - creep.memory.lastDeliveryTime;
-	                var eps = total / totalticks;
-	                this.catalog.profile('delivery', eps);
-	            }
-	            creep.memory.lastDeliveryTime = Game.time;
-	        }
 	    }
 
 	}
@@ -2508,7 +2487,7 @@ module.exports =
 	var BaseWorker = __webpack_require__(17);
 
 	class ObserveWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'observe', { idleTimer: 50 }); }
+	    constructor(catalog){ super(catalog, 'observe'); }
 
 	    calculateAllocation(creep, opts){
 	        return 1;
@@ -2582,7 +2561,6 @@ module.exports =
 	            this.move(creep, target);
 	        }else if(result == OK){
 	            creep.memory.lastSource = target.id;
-	            creep.memory.lastPickupTime = Game.time;
 	        }
 	    }
 
@@ -2749,6 +2727,9 @@ module.exports =
 	    calculateBid(creep, opts, job, allocation, distance){
 	        if(!opts.downgrade && job.downgrade){
 	            return false;
+	        }
+	        if(job.subtype == 'reserve'){
+	            return _.get(job.target, 'reservation.ticksToEnd', 0) / 5000;
 	        }
 	        return distance/this.distanceWeight;
 	    }
@@ -3211,6 +3192,13 @@ module.exports =
 	    getAvoid(pos){
 	        return this.avoid[pos.roomName];
 	    }
+
+	    requestWatch(roomName){
+	        if(!Memory.watch[roomName]){
+	            console.log('Starting to watch', roomName);
+	        }
+	        Memory.watch[roomName] = Game.time + 100;
+	    }
 	}
 
 	module.exports = Catalog;
@@ -3239,7 +3227,6 @@ module.exports =
 
 	    generate(){
 	        _.forEach(this.categories, (category, categoryName) =>{
-	            var start = Game.cpu.getUsed();
 	            var cap = 0;
 	            var type = category.getType();
 	            var jobList = category.generate();
@@ -3259,18 +3246,11 @@ module.exports =
 	            }
 	            this.capacity[type] = cap;
 	            this.allocation[type] = 0;
-	            this.catalog.profile('job-'+categoryName, Game.cpu.getUsed() - start);
 	        });
-	            // _.forEach(this.subjobs, (list, type) => console.log(type, _.size(list), this.capacity[type]));
-	        if(Memory.debugJob){
-	            _.forEach(this.jobs[Memory.debugJob], (job, type) => console.log(type, job.target, job.capacity));
-	        }
 	    }
 
 	    allocate(){
-	        var start = Game.cpu.getUsed();
 	        _.forEach(Game.creeps, creep => this.addAllocation(creep.memory.jobType, creep.memory.jobId, creep.memory.jobAllocation));
-	        this.catalog.profile('job-allocate', Game.cpu.getUsed() - start);
 	    }
 
 	    getOpenJobs(type){
@@ -3297,10 +3277,6 @@ module.exports =
 	            var full = this.categories[type].addAllocation(this.jobs[type], jobId, allocation);
 	            this.allocation[type] += allocation;
 	            if(full && _.has(this.openJobs, [type, jobId])){
-	                // if(type == 'upgrade'){
-	                //     var job = this.openJobs[type][jobId];
-	                //     console.log(jobId, job.capacity, job.target.pos, job.allocated)
-	                // }
 	                delete this.openJobs[type][jobId];
 	            }
 	        }
@@ -3907,6 +3883,9 @@ module.exports =
 
 	    generateJobsForFlag(flag){
 	        var subflag = this.getSubflag(flag);
+	        if(!flag.room){
+	            this.catalog.requestWatch(flag.pos.roomName);
+	        }
 	        return [{
 	            allocated: 0,
 	            capacity: subflag ? 5 : 1,
@@ -4429,10 +4408,6 @@ module.exports =
 	        this.quota.repair = Math.ceil(Memory.stats.global.repair / 10000);
 
 	        this.catalog.profile('pickup-remote', this.quota['pickup-remote']);
-
-	        
-	        // console.log(this.quota['pickup']);
-	        // _.forEach(this.quota, (quota, type)=> console.log(type, quota) );
 	    }
 
 	    add(type, value){
@@ -4516,6 +4491,8 @@ module.exports =
 	            build: totalBuild,
 	            repair: totalRepair
 	        }
+	        var baseResources = _.filter(RESOURCES_ALL, res => res.length == 1 || res.startsWith('X'));
+	        stats.minerals = _.zipObject(baseResources, _.map(baseResources, res => catalog.resources[res].total));
 	        Memory.stats = stats;
 	        Misc.updateSettings(catalog);
 	    }
@@ -4550,6 +4527,7 @@ module.exports =
 	            Memory.limits = {
 	                mineral: []
 	            };
+	            Memory.watch = {};
 	            Memory.cache = {
 	                accessibility: {},
 	                roompos: {}
@@ -4634,6 +4612,7 @@ module.exports =
 	        });
 	        // _.forEach(reactions, (data, type) => console.log(type, data.capacity, data.current, data.deficit, data.current / targetAmount));
 
+	        Memory.stats.global.reaction = _.sum(_.map(reactions, 'deficit'));
 
 	        _.forEach(Memory.reaction, (data, type)=>{
 	            var deficit = _.get(reactions, [type, 'deficit'], 0);
@@ -4649,7 +4628,6 @@ module.exports =
 	        var freeLabs = this.countFreeLabs();
 	        var runnableReactions = _.filter(reactions, (reaction, type) => reaction.capacity > DEFICIT_START_MIN && reaction.deficit > DEFICIT_START_MIN && !Memory.reaction[type]);
 	        var sortedReactions = _.sortBy(runnableReactions, (reaction) => -Math.min(reaction.deficit, reaction.capacity));
-	        Memory.stats.global.reaction = _.sum(_.map(runnableReactions, 'deficit'));
 
 	        if(freeLabs.length > 0){
 	            _.forEach(sortedReactions, reaction => {
