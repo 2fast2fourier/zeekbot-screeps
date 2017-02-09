@@ -33,12 +33,16 @@ class SimpleWorker {
     }
 
     move(creep, target){
+        var start = Game.cpu.getUsed();
         if(this.moveOpts){
-            return creep.moveTo(target, this.moveOpts);
+            var result = creep.moveTo(target, this.moveOpts);
+            this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
+            this.catalog.profileAdd('movedCreeps', 1);
+            return result;
         }
         if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
             var range = 6;
-            return creep.moveTo(target, { reusePath: 15, costCallback: (roomName, costMatrix) => {
+            return creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
                 var avoidList = this.catalog.getAvoid({ roomName });
                 if(!avoidList){
                     return;
@@ -71,7 +75,10 @@ class SimpleWorker {
             creep.memory.moveTicks++;
         }
         
-        return creep.moveTo(target, { reusePath: 20 });
+        var result = creep.moveTo(target, { reusePath: 50 });
+        this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
+        this.catalog.profileAdd('movedCreeps', 1);
+        return result;
     }
 
     orMove(creep, target, result){

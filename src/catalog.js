@@ -234,6 +234,14 @@ class Catalog {
         }
         Memory.watch[roomName] = Game.time + 100;
     }
+    
+    profileAdd(type, value){
+        _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
+    }
+
+    finishProfile(){
+        _.forEach(this.profileData, (value, type) => this.profile(type, value));
+    }
 }
 
 module.exports = Catalog;

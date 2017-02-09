@@ -86,7 +86,7 @@ module.exports = {
             transfer: {
                 quota: 'transfer',
                 allocation: 2,
-                max: 6,
+                max: 8,
                 rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
                 parts: {carry: 10, move: 10}
             },
@@ -120,7 +120,7 @@ module.exports = {
             },
             mineral: {
                 quota: 'pickup-mineral',
-                allocation: 1000,
+                allocation: 1500,
                 max: 4,
                 parts: { carry: 20, move: 10 },
                 rules: {
@@ -174,7 +174,7 @@ module.exports = {
                     build: {},
                     repair: { priority: 99 }
                 },
-                parts: { work: 5, carry: 6, move: 11 }
+                parts: { work: 5, carry: 10, move: 15 }
             },
             upgrade: {
                 quota: 'upgrade',
@@ -182,17 +182,11 @@ module.exports = {
                 parts: { work: 10, carry: 2, move: 6 },
                 rules: { pickup: {}, upgrade: {} }
             },
-            boostrepair: {
-                quota: 'repair',
-                max: 10,
-                boost: { XLH2O: 2 },
-                rules: { pickup: {}, repair: {} },
-                actions: { avoid: {}, repair: {} },
-                parts: { work: 2, carry: 6, move: 4 }
-            },
             repair: {
                 quota: 'repair',
-                max: 14,
+                max: 8,
+                boostOptional: true,
+                boost: { XLH2O: 5 },
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
@@ -207,13 +201,6 @@ module.exports = {
                 actions: { boost: {} },
                 parts: { work: 10, move: 10 }
             }
-        },
-        rules: {
-            pickup: {},
-            build: {},
-            repair: { priority: 5 },
-            upgrade: { priority: 10 },
-            idle: { type: 'worker' }
         },
         actions: { avoid: {}, energy: {} }
     },
@@ -239,9 +226,7 @@ module.exports = {
             boost: {
                 quota: 'heal',
                 max: 2,
-                boost: { XLHO2: 4 },
-                parts: { tough: 4, move: 8, heal: 4 },
-                actions: { boost: {} }
+                parts: { tough: 4, move: 8, heal: 4 }
             },
             pico: {
                 quota: 'heal',

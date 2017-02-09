@@ -4,11 +4,8 @@ var memoryVersion = 1;
 
 class Misc {
     static updateStats(catalog){
-        if(Memory.debugMisc === true){
-            _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat))
-        }else if(Memory.debugMisc){
-            console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
-        }
+        _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat));
+        console.log('bucket:', Game.cpu.bucket);
         var stats = {
             rooms: {},
             profile: {
@@ -67,22 +64,18 @@ class Misc {
     }
 
     static updateSettings(catalog){
-        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.75){
-            Memory.settings.upgradeCapacity = 20;
-        }else{
-            Memory.settings.upgradeCapacity = 10;
-        }
-        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 20000 * _.size(catalog.buildings.storage) + 100000;
+        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 25000 * _.size(catalog.buildings.storage) + 100000;
         Memory.limits.mineral = _.filter(Memory.limits.mineral, mineral => catalog.resources[mineral].total > Memory.settings.mineralLimit - 20000);
         _.forEach(catalog.resources, (data, type)=>{
             if(type != RESOURCE_ENERGY && data.total > Memory.settings.mineralLimit && !_.includes(Memory.limits.mineral, type)){
                 Memory.limits.mineral.push(type);
-                console.log('banning', type, '-', Memory.limits.mineral, data.total);
+                console.log('Banning:', type, '-', Memory.limits.mineral, data.total);
             }
         });
         if(Memory.stats.global.repair < 500000 && Memory.stats.global.totalEnergy > 250000 + 100000 * _.size(catalog.buildings.storage)){
             Memory.settings.repairTarget = Memory.settings.repairTarget + 1000;
             console.log('Expanding repairTarget', Memory.settings.repairTarget);
+            Game.notify('Expanding repairTarget: ' + Memory.settings.repairTarget);
         }
     }
 

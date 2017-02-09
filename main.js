@@ -578,14 +578,6 @@ module.exports =
 	    }
 	}
 
-	function profileAdd(type, value){
-	    _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
-	}
-
-	function finishProfile(){
-	    _.forEach(this.profileData, (value, type) => this.profile(type, value));
-	}
-
 	function lookForArea(room, pos, type, radius){
 	    return _.map(room.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
 	}
@@ -702,9 +694,7 @@ module.exports =
 	    notify,
 	    lookForArea,
 	    owned,
-	    profile,
-	    profileAdd,
-	    finishProfile
+	    profile
 	};
 
 /***/ },
@@ -1077,7 +1067,7 @@ module.exports =
 	            transfer: {
 	                quota: 'transfer',
 	                allocation: 2,
-	                max: 6,
+	                max: 8,
 	                rules: { transfer: {}, deliver: { minerals: true, mineralTypes: [ STRUCTURE_STORAGE ], priority: 99 } },
 	                parts: {carry: 10, move: 10}
 	            },
@@ -1111,7 +1101,7 @@ module.exports =
 	            },
 	            mineral: {
 	                quota: 'pickup-mineral',
-	                allocation: 1000,
+	                allocation: 1500,
 	                max: 4,
 	                parts: { carry: 20, move: 10 },
 	                rules: {
@@ -1165,7 +1155,7 @@ module.exports =
 	                    build: {},
 	                    repair: { priority: 99 }
 	                },
-	                parts: { work: 5, carry: 6, move: 11 }
+	                parts: { work: 5, carry: 10, move: 15 }
 	            },
 	            upgrade: {
 	                quota: 'upgrade',
@@ -1173,17 +1163,11 @@ module.exports =
 	                parts: { work: 10, carry: 2, move: 6 },
 	                rules: { pickup: {}, upgrade: {} }
 	            },
-	            boostrepair: {
-	                quota: 'repair',
-	                max: 10,
-	                boost: { XLH2O: 2 },
-	                rules: { pickup: {}, repair: {} },
-	                actions: { avoid: {}, repair: {} },
-	                parts: { work: 2, carry: 6, move: 4 }
-	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 14,
+	                max: 6,
+	                boostOptional: true,
+	                boost: { XLH2O: 5 },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
@@ -1198,13 +1182,6 @@ module.exports =
 	                actions: { boost: {} },
 	                parts: { work: 10, move: 10 }
 	            }
-	        },
-	        rules: {
-	            pickup: {},
-	            build: {},
-	            repair: { priority: 5 },
-	            upgrade: { priority: 10 },
-	            idle: { type: 'worker' }
 	        },
 	        actions: { avoid: {}, energy: {} }
 	    },
@@ -1230,9 +1207,7 @@ module.exports =
 	            boost: {
 	                quota: 'heal',
 	                max: 2,
-	                boost: { XLHO2: 4 },
-	                parts: { tough: 4, move: 8, heal: 4 },
-	                actions: { boost: {} }
+	                parts: { tough: 4, move: 8, heal: 4 }
 	            },
 	            pico: {
 	                quota: 'heal',
@@ -2013,12 +1988,16 @@ module.exports =
 	    }
 
 	    move(creep, target){
+	        var start = Game.cpu.getUsed();
 	        if(this.moveOpts){
-	            return creep.moveTo(target, this.moveOpts);
+	            var result = creep.moveTo(target, this.moveOpts);
+	            this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
+	            this.catalog.profileAdd('movedCreeps', 1);
+	            return result;
 	        }
 	        if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
 	            var range = 6;
-	            return creep.moveTo(target, { reusePath: 15, costCallback: (roomName, costMatrix) => {
+	            return creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
 	                var avoidList = this.catalog.getAvoid({ roomName });
 	                if(!avoidList){
 	                    return;
@@ -2051,7 +2030,10 @@ module.exports =
 	            creep.memory.moveTicks++;
 	        }
 	        
-	        return creep.moveTo(target, { reusePath: 20 });
+	        var result = creep.moveTo(target, { reusePath: 50 });
+	        this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
+	        this.catalog.profileAdd('movedCreeps', 1);
+	        return result;
 	    }
 
 	    orMove(creep, target, result){
@@ -2728,6 +2710,9 @@ module.exports =
 	        if(!opts.downgrade && job.downgrade){
 	            return false;
 	        }
+	        if(opts.downgrade && job.downgrade){
+	            return -10 + distance/this.distanceWeight;
+	        }
 	        if(job.subtype == 'reserve'){
 	            return _.get(job.target, 'reservation.ticksToEnd', 0) / 5000;
 	        }
@@ -3198,6 +3183,14 @@ module.exports =
 	            console.log('Starting to watch', roomName);
 	        }
 	        Memory.watch[roomName] = Game.time + 100;
+	    }
+	    
+	    profileAdd(type, value){
+	        _.set(this.profileData, type, _.get(this.profileData, type, 0) + value);
+	    }
+
+	    finishProfile(){
+	        _.forEach(this.profileData, (value, type) => this.profile(type, value));
 	    }
 	}
 
@@ -4301,43 +4294,24 @@ module.exports =
 	var BaseJob = __webpack_require__(39);
 
 	class UpgradeJob extends BaseJob {
-	    constructor(catalog){ super(catalog, 'upgrade', { flagPrefix: 'Upgrade' }); }
+	    constructor(catalog){ super(catalog, 'upgrade'); }
 	    
 	    calculateCapacity(room, target, flag){
-	        var capacity = Memory.settings.upgradeCapacity || 10;
-	        if(flag){
-	            var flagparts = flag.name.split('-');
-	            if(flagparts.length > 2){
-	                return _.parseInt(flagparts[1]);
-	            }else{
-	                return capacity * 2;
-	            }
+	        var baseCapacity = Memory.settings.upgradeCapacity || 10;
+	        var capacity = baseCapacity;
+	        var rcl = target.level;
+	        if(rcl <= 6){
+	            capacity += baseCapacity;
+	        }
+	        if(rcl <= 7 && Memory.stats.global.totalEnergy > 200000 * this.catalog.rooms.length){
+	            capacity += baseCapacity;
 	        }
 	        return capacity;
 	    }
 
-	    generate(){
-	        var jobs = {};
-	        var jobRooms = {};
-	        _.forEach(this.catalog.rooms, room => {
-	            var job = this.generateJobForTarget(room, room.controller);
-	            jobs[job.id] = job;
-	            jobRooms[room.name] = job;
-	        });
-	        if(this.flagPrefix){
-	            _.forEach(this.catalog.getFlagsByPrefix(this.flagPrefix), flag => {
-	                jobRooms[flag.pos.roomName].capacity = this.calculateCapacity(flag.room, jobRooms[flag.pos.roomName].target, flag);
-	            });
-	        }
-	        // _.forEach(jobs, job=>console.log(job.target, job.capacity));
-	        
-	        return this.postGenerate(jobs);
+	    generateTargets(){
+	        return _.map(this.catalog.rooms, 'controller');
 	    }
-
-	    // addAllocation(jobs, jobId, allocation){
-	    //     super.addAllocation(jobs, jobId, allocation);
-	    //     // console.log(jobs[jobId].target.pos.roomName, jobs[jobId].allocated, allocation);
-	    // }
 	}
 
 	module.exports = UpgradeJob;
@@ -4435,11 +4409,8 @@ module.exports =
 
 	class Misc {
 	    static updateStats(catalog){
-	        if(Memory.debugMisc === true){
-	            _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat))
-	        }else if(Memory.debugMisc){
-	            console.log('P: '+Memory.debugMisc+' avg:', Memory.stats.profile.misc[Memory.debugMisc]);
-	        }
+	        _.forEach(Memory.stats.profile.misc, (stat, name) => console.log('P:', name, 'avg:', stat));
+	        console.log('bucket:', Game.cpu.bucket);
 	        var stats = {
 	            rooms: {},
 	            profile: {
@@ -4498,22 +4469,18 @@ module.exports =
 	    }
 
 	    static updateSettings(catalog){
-	        if(Memory.stats.global.totalEnergy > 1000000 && Memory.stats.global.energySpread > 0.75){
-	            Memory.settings.upgradeCapacity = 20;
-	        }else{
-	            Memory.settings.upgradeCapacity = 10;
-	        }
-	        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 20000 * _.size(catalog.buildings.storage) + 100000;
+	        Memory.settings.mineralLimit = Memory.settings.terminalIdealResources * _.size(catalog.buildings.terminal) + 25000 * _.size(catalog.buildings.storage) + 100000;
 	        Memory.limits.mineral = _.filter(Memory.limits.mineral, mineral => catalog.resources[mineral].total > Memory.settings.mineralLimit - 20000);
 	        _.forEach(catalog.resources, (data, type)=>{
 	            if(type != RESOURCE_ENERGY && data.total > Memory.settings.mineralLimit && !_.includes(Memory.limits.mineral, type)){
 	                Memory.limits.mineral.push(type);
-	                console.log('banning', type, '-', Memory.limits.mineral, data.total);
+	                console.log('Banning:', type, '-', Memory.limits.mineral, data.total);
 	            }
 	        });
 	        if(Memory.stats.global.repair < 500000 && Memory.stats.global.totalEnergy > 250000 + 100000 * _.size(catalog.buildings.storage)){
 	            Memory.settings.repairTarget = Memory.settings.repairTarget + 1000;
 	            console.log('Expanding repairTarget', Memory.settings.repairTarget);
+	            Game.notify('Expanding repairTarget: ' + Memory.settings.repairTarget);
 	        }
 	    }
 
