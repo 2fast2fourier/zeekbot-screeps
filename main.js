@@ -72,8 +72,8 @@ module.exports =
 	        Misc.updateStats(catalog);
 	    }
 
-	    // var startup = Game.cpu.getUsed();
-	    // catalog.profile('startup', startup);
+	    var startup = Game.cpu.getUsed();
+	    catalog.profile('startup', startup);
 
 	    production.process();
 
@@ -81,19 +81,19 @@ module.exports =
 	    catalog.jobs.allocate();
 	    catalog.quota.process();
 
-	    // var jobs = Game.cpu.getUsed();
-	    // catalog.profile('jobs', jobs - startup);
+	    var jobs = Game.cpu.getUsed();
+	    catalog.profile('jobs', jobs - startup);
 	    
 	    WorkManager.process(catalog);
 
-	    // var worker = Game.cpu.getUsed();
-	    // catalog.profile('worker', worker - jobs);
+	    var worker = Game.cpu.getUsed();
+	    catalog.profile('worker', worker - jobs);
 
 	    Spawner.spawn(catalog);
 	    
 	    // var spawner = Game.cpu.getUsed();
 	    Controller.control(catalog);
-	    // catalog.profile('controller', Game.cpu.getUsed() - spawner);
+	    catalog.profile('controller', Game.cpu.getUsed() - worker);
 
 	    catalog.finishProfile();
 	    catalog.profile('cpu', Game.cpu.getUsed());
@@ -1007,32 +1007,7 @@ module.exports =
 	                quota: 'mine-mineral',
 	                parts: { move: 4, carry: 2, work: 8 },
 	                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
-	            },
-	            // micro: {
-	            //     allocation: 6,
-	            //     critical: 750,
-	            //     disable: {
-	            //         maxSpawn: 1400
-	            //     },
-	            //     parts: {work: 6, carry: 2, move: 1}
-	            // },
-	            // nano: {
-	            //     allocation: 4,
-	            //     critical: 550,
-	            //     disable: {
-	            //         maxSpawn: 750
-	            //     },
-	            //     parts: {work: 4, carry: 2, move: 1}
-	            // },
-	            // pico: {
-	            //     bootstrap: 1,
-	            //     quota: false,
-	            //     critical: 300,
-	            //     parts: {work: 2, carry: 1, move: 1},
-	            //     disable: {
-	            //         energy: 2000
-	            //     }
-	            // }
+	            }
 	        },
 	        quota: 'mine-energy',
 	        rules: {
@@ -1054,16 +1029,6 @@ module.exports =
 	                },
 	                actions: { assignRoom: {} }
 	            },
-	            // picospawn: {
-	            //     bootstrap: 1,
-	            //     critical: 300,
-	            //     parts: {carry: 3, move: 3},
-	            //     rules: {
-	            //         pickup: {},
-	            //         deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, subtype: 'spawn' },
-	            //         idle: { type: 'spawn' }
-	            //     }
-	            // },
 	            transfer: {
 	                quota: 'transfer',
 	                allocation: 2,
@@ -1082,7 +1047,7 @@ module.exports =
 	            },
 	            leveler: {
 	                quota: 'levelerhauler',
-	                max: 10,
+	                max: 5,
 	                rules: {
 	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -1092,7 +1057,7 @@ module.exports =
 	            long: {
 	                quota: 'pickup-remote',
 	                allocation: 800,
-	                max: 14,
+	                max: 12,
 	                rules: {
 	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
@@ -1108,18 +1073,7 @@ module.exports =
 	                    pickup: { subtype: 'mineral', minerals: true, types: [ STRUCTURE_CONTAINER ] },
 	                    deliver: { subtype: false }
 	                }
-	            },
-	            // nano: {
-	            //     ideal: 2,
-	            //     disable: {
-	            //         maxSpawn: 600
-	            //     },
-	            //     parts: { carry: 5, move: 5 }
-	            // },
-	            // pico: {
-	            //     bootstrap: 1,
-	            //     parts: { carry: 2, move: 2 }
-	            // }
+	            }
 	        },
 	        actions: { avoid: {} }
 	    },
@@ -1165,7 +1119,7 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 6,
+	                max: 8,
 	                boostOptional: true,
 	                boost: { XLH2O: 5 },
 	                rules: { pickup: {}, repair: {} },
@@ -1174,7 +1128,7 @@ module.exports =
 	            },
 	            dismantle: {
 	                quota: 'dismantle',
-	                max: 3,
+	                max: 2,
 	                allocation: 2000000,
 	                boostOptional: true,
 	                boost: { XZH2O: 10 },
@@ -1204,16 +1158,11 @@ module.exports =
 	    },
 	    healer: {
 	        versions: {
-	            boost: {
-	                quota: 'heal',
-	                max: 2,
-	                parts: { tough: 4, move: 8, heal: 4 }
-	            },
 	            pico: {
 	                quota: 'heal',
-	                max: 2,
+	                max: 1,
 	                parts: { tough: 4, move: 8, heal: 4 }
-	            },
+	            }
 	        },
 	        rules: { heal: {}, idle: { type: 'heal' } }
 	    },
@@ -1222,7 +1171,7 @@ module.exports =
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
-	                allocation: 13,
+	                allocation: 15,
 	                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
 	                actions: { selfheal: {} }
 	            },
@@ -1289,9 +1238,12 @@ module.exports =
 	        var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
 	        
 	        var startBid = Game.cpu.getUsed();
-	        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
-	        
-	        _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
+	        if(Game.cpu.bucket > 500){
+	            _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
+	        }
+	        if(Game.cpu.bucket > 250){
+	            _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
+	        }
 	    }
 
 	    static validateCreep(creep, workers, catalog){
@@ -1564,16 +1516,18 @@ module.exports =
 	            delete creep.memory.boost;
 	            return;
 	        }
-	        var lab = _.first(Util.sort.closestReal(creep, Util.getObjects(labs)));
+	        if(!creep.memory.boostlab){
+	            creep.memory.boostlab = _.get(_.first(Util.sort.closestReal(creep, Util.getObjects(labs))), 'id');
+	        }
+	        var lab = Game.getObjectById(creep.memory.boostlab);
 	        if(lab){
-	            // console.log('boost', creep, mineral, lab);
 	            if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
 	                console.log(creep, 'not enough to boost', mineral, lab);
 	                delete creep.memory.boost;
 	                return;
 	            }
 	            if(creep.pos.getRangeTo(lab) > 1){
-	                creep.moveTo(lab, { reusePath: 15 });
+	                creep.moveTo(lab, { reusePath: 50 });
 	            }else if(lab.boostCreep(creep) == OK){
 	                this.boosted(creep, mineral);
 	            }
@@ -1586,6 +1540,7 @@ module.exports =
 
 	    boosted(creep, mineral){
 	        Memory.boost.update = true;
+	        delete creep.memory.boostlab;
 	        if(_.isString(creep.memory.boost)){
 	            delete creep.memory.boost;
 	        }else if(_.isArray(creep.memory.boost)){
@@ -4300,10 +4255,10 @@ module.exports =
 	        var baseCapacity = Memory.settings.upgradeCapacity || 10;
 	        var capacity = baseCapacity;
 	        var rcl = target.level;
-	        if(rcl <= 6){
+	        if(rcl <= 6 && Game.cpu.bucket > 5000){
 	            capacity += baseCapacity;
 	        }
-	        if(rcl <= 7 && Memory.stats.global.totalEnergy > 200000 * this.catalog.rooms.length){
+	        if(rcl <= 7 && Memory.stats.global.totalEnergy > 200000 * this.catalog.rooms.length && Game.cpu.bucket > 8000){
 	            capacity += baseCapacity;
 	        }
 	        return capacity;
@@ -4361,7 +4316,7 @@ module.exports =
 
 	        var roomCount = this.catalog.rooms.length;
 
-	        this.quota.spawnhauler = roomCount * 2;
+	        this.quota.spawnhauler = roomCount + 1;
 
 	        this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
 	        // console.log(this.quota['reserve-reserve']);

@@ -15,9 +15,12 @@ class WorkManager {
         var blocks = _.map(creeps, creep => WorkManager.creepAction(creep, actions, catalog));
         
         var startBid = Game.cpu.getUsed();
-        _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
-        
-        _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
+        if(Game.cpu.bucket > 500){
+            _.forEach(creeps, creep => WorkManager.bidCreep(creep, workers, catalog, startBid));
+        }
+        if(Game.cpu.bucket > 250){
+            _.forEach(creeps, (creep, ix) => WorkManager.processCreep(creep, workers, catalog, actions, blocks[ix]));
+        }
     }
 
     static validateCreep(creep, workers, catalog){

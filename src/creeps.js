@@ -26,32 +26,7 @@ module.exports = {
                 quota: 'mine-mineral',
                 parts: { move: 4, carry: 2, work: 8 },
                 rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
-            },
-            // micro: {
-            //     allocation: 6,
-            //     critical: 750,
-            //     disable: {
-            //         maxSpawn: 1400
-            //     },
-            //     parts: {work: 6, carry: 2, move: 1}
-            // },
-            // nano: {
-            //     allocation: 4,
-            //     critical: 550,
-            //     disable: {
-            //         maxSpawn: 750
-            //     },
-            //     parts: {work: 4, carry: 2, move: 1}
-            // },
-            // pico: {
-            //     bootstrap: 1,
-            //     quota: false,
-            //     critical: 300,
-            //     parts: {work: 2, carry: 1, move: 1},
-            //     disable: {
-            //         energy: 2000
-            //     }
-            // }
+            }
         },
         quota: 'mine-energy',
         rules: {
@@ -73,16 +48,6 @@ module.exports = {
                 },
                 actions: { assignRoom: {} }
             },
-            // picospawn: {
-            //     bootstrap: 1,
-            //     critical: 300,
-            //     parts: {carry: 3, move: 3},
-            //     rules: {
-            //         pickup: {},
-            //         deliver: { types: [ STRUCTURE_SPAWN, STRUCTURE_EXTENSION ], ignoreCreeps: true, subtype: 'spawn' },
-            //         idle: { type: 'spawn' }
-            //     }
-            // },
             transfer: {
                 quota: 'transfer',
                 allocation: 2,
@@ -101,7 +66,7 @@ module.exports = {
             },
             leveler: {
                 quota: 'levelerhauler',
-                max: 10,
+                max: 6,
                 rules: {
                     pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -111,7 +76,7 @@ module.exports = {
             long: {
                 quota: 'pickup-remote',
                 allocation: 800,
-                max: 14,
+                max: 12,
                 rules: {
                     pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
@@ -127,18 +92,7 @@ module.exports = {
                     pickup: { subtype: 'mineral', minerals: true, types: [ STRUCTURE_CONTAINER ] },
                     deliver: { subtype: false }
                 }
-            },
-            // nano: {
-            //     ideal: 2,
-            //     disable: {
-            //         maxSpawn: 600
-            //     },
-            //     parts: { carry: 5, move: 5 }
-            // },
-            // pico: {
-            //     bootstrap: 1,
-            //     parts: { carry: 2, move: 2 }
-            // }
+            }
         },
         actions: { avoid: {} }
     },
@@ -184,16 +138,16 @@ module.exports = {
             },
             repair: {
                 quota: 'repair',
-                max: 8,
-                boostOptional: true,
-                boost: { XLH2O: 5 },
+                max: 10,
+                //boostOptional: true,
+                //boost: { XLH2O: 5 },
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
             },
             dismantle: {
                 quota: 'dismantle',
-                max: 3,
+                max: 2,
                 allocation: 2000000,
                 boostOptional: true,
                 boost: { XZH2O: 10 },
@@ -223,16 +177,11 @@ module.exports = {
     },
     healer: {
         versions: {
-            boost: {
-                quota: 'heal',
-                max: 2,
-                parts: { tough: 4, move: 8, heal: 4 }
-            },
             pico: {
                 quota: 'heal',
-                max: 2,
+                max: 1,
                 parts: { tough: 4, move: 8, heal: 4 }
-            },
+            }
         },
         rules: { heal: {}, idle: { type: 'heal' } }
     },
@@ -241,7 +190,7 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 13,
+                allocation: 15,
                 parts: { tough: 14, move: 16, attack: 15, heal: 3 },
                 actions: { selfheal: {} }
             },

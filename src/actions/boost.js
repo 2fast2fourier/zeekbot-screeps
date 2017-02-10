@@ -27,16 +27,18 @@ class BoostAction extends BaseAction {
             delete creep.memory.boost;
             return;
         }
-        var lab = _.first(Util.sort.closestReal(creep, Util.getObjects(labs)));
+        if(!creep.memory.boostlab){
+            creep.memory.boostlab = _.get(_.first(Util.sort.closestReal(creep, Util.getObjects(labs))), 'id');
+        }
+        var lab = Game.getObjectById(creep.memory.boostlab);
         if(lab){
-            // console.log('boost', creep, mineral, lab);
             if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
                 console.log(creep, 'not enough to boost', mineral, lab);
                 delete creep.memory.boost;
                 return;
             }
             if(creep.pos.getRangeTo(lab) > 1){
-                creep.moveTo(lab, { reusePath: 15 });
+                creep.moveTo(lab, { reusePath: 50 });
             }else if(lab.boostCreep(creep) == OK){
                 this.boosted(creep, mineral);
             }
@@ -49,6 +51,7 @@ class BoostAction extends BaseAction {
 
     boosted(creep, mineral){
         Memory.boost.update = true;
+        delete creep.memory.boostlab;
         if(_.isString(creep.memory.boost)){
             delete creep.memory.boost;
         }else if(_.isArray(creep.memory.boost)){
