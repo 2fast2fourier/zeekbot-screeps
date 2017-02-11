@@ -46,7 +46,7 @@ module.exports = {
                     deliver: { subtype: 'spawn', local: true },
                     idle: { type: 'spawn' }
                 },
-                actions: { assignRoom: {} }
+                actions: { assignRoom: { type: 'spawn' } }
             },
             transfer: {
                 quota: 'transfer',
@@ -74,14 +74,13 @@ module.exports = {
                 parts: { carry: 30, move: 15 }
             },
             long: {
-                quota: 'pickup-remote',
-                allocation: 800,
-                max: 12,
+                quota: 'longhauler',
                 rules: {
-                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
+                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
                 },
-                parts: { carry: 32, move: 16 }
+                parts: { carry: 32, move: 16 },
+                actions: { avoid: {}, assignRoom: { type: 'pickup' } }
             },
             mineral: {
                 quota: 'pickup-mineral',
@@ -190,9 +189,8 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
-                allocation: 15,
                 parts: { tough: 14, move: 16, attack: 15, heal: 3 },
-                actions: { selfheal: {} }
+                actions: { selfheal: {}, assignRoom: { type: 'keep' } }
             },
             ranged: {
                 quota: 'idle-defend',
@@ -232,6 +230,6 @@ module.exports = {
                 rules: { attack: { subtype: 'picket' }, idle: { type: 'picket' } }
             }
         },
-        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
+        rules: { defend: {}, keep: { local: true } }
     }
 };

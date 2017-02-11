@@ -22,13 +22,13 @@ class Controller {
         });
 
 
-        if(Util.interval(10)){
+        if(Util.interval(10, 1)){
             Memory.transfer.reactions = {};
             _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
             _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
         }
 
-        if(Util.interval(10) || Memory.boost.update){
+        if(Util.interval(10, 1) || Memory.boost.update){
             Controller.boost(catalog, catalog.buildings.lab);
             _.forEach(Memory.production.boosts, (boost, labId) => {
                 Memory.transfer.lab[labId] = boost;
@@ -37,12 +37,12 @@ class Controller {
         }
         
 
-        if(Util.interval(20)){
+        if(Util.interval(20, 1)){
             if(!Controller.levelTerminals(catalog)){
                 Controller.sellOverage(catalog);
             }
         }
-        if(Util.interval(50)){
+        if(Util.interval(50, 1)){
             var buildFlags = catalog.getFlagsByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
         }

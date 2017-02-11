@@ -11,7 +11,7 @@ class Production {
     }
 
     process(){
-        if(!Util.interval(25)){
+        if(!Util.interval(25, 2)){
             return;
         }
         var resources = _.values(REACTIONS.X);

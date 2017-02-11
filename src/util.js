@@ -90,7 +90,10 @@ function getResourceList(entity){
     return result;
 }
 
-function interval(num){
+function interval(num, offset){
+    if(offset){
+        return Game.time % num == offset;
+    }
     return Game.time % num == 0;
 }
 

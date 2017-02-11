@@ -79,6 +79,18 @@ class Misc {
         }
     }
 
+    static miscUpdate(catalog){
+        var keeps = _.map(catalog.getFlagsByPrefix('Keep'), 'pos.roomName');
+        var pickup = catalog.getFlagsByPrefix('Pickup');
+        // var repair = _.union(_.map(catalog.rooms, 'name'), _.map(catalog.getFlagsByPrefix('Repair'), 'pos.roomName'));
+        Memory.roomlist = {
+            keep: _.zipObject(keeps, _.map(keeps, roomName => Math.ceil(_.get(Memory.keeps, roomName, 0) / 2))),
+            pickup: _.zipObject(_.map(pickup, 'pos.roomName'), _.map(pickup, flag => flag.room ? _.size(flag.room.find(FIND_SOURCES)) : 2)),
+            // repair: _.zipObject(repair, new Array(repair.length).fill(1)),
+            spawn: _.zipObject(_.map(catalog.rooms, 'name'), new Array(catalog.rooms.length).fill(1))//_.map(catalog.rooms, room => _.size(room.find(FIND_MY_SPAWNS))))
+        }
+    }
+
     static initMemory(){
         if(Memory.memoryVersion != memoryVersion){
             console.log('Init memory version', memoryVersion);

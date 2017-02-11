@@ -27,7 +27,9 @@ class MineJob extends BaseJob {
         // var hostiles = this.catalog.getHostileCreeps(room);
         // targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
         if(flag && Memory.settings.flagRange[this.type] > 0){
-            return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
+            var result = _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
+            _.set(Memory, ['roomlist', 'pickup', flag.pos.roomName], _.size(result));
+            return result;
         }
         return targets;
     }

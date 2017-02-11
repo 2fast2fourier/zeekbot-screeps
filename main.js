@@ -72,6 +72,10 @@ module.exports =
 	        Misc.updateStats(catalog);
 	    }
 
+	    if(Util.interval(50, 5)){
+	        Misc.miscUpdate(catalog);
+	    }
+
 	    var startup = Game.cpu.getUsed();
 	    catalog.profile('startup', startup);
 
@@ -100,6 +104,9 @@ module.exports =
 
 	    if(Game.cpu.bucket < 5000){
 	        Util.notify('cpubucket', 'CPU bucket under limit!');
+	    }
+	    if(Game.cpu.bucket < 600){
+	        Util.notify('cpubucketcrit', 'CPU bucket critical!');
 	    }
 	}
 
@@ -131,13 +138,13 @@ module.exports =
 	        });
 
 
-	        if(Util.interval(10)){
+	        if(Util.interval(10, 1)){
 	            Memory.transfer.reactions = {};
 	            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
 	            _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
 	        }
 
-	        if(Util.interval(10) || Memory.boost.update){
+	        if(Util.interval(10, 1) || Memory.boost.update){
 	            Controller.boost(catalog, catalog.buildings.lab);
 	            _.forEach(Memory.production.boosts, (boost, labId) => {
 	                Memory.transfer.lab[labId] = boost;
@@ -146,12 +153,12 @@ module.exports =
 	        }
 	        
 
-	        if(Util.interval(20)){
+	        if(Util.interval(20, 1)){
 	            if(!Controller.levelTerminals(catalog)){
 	                Controller.sellOverage(catalog);
 	            }
 	        }
-	        if(Util.interval(50)){
+	        if(Util.interval(50, 1)){
 	            var buildFlags = catalog.getFlagsByPrefix('Build');
 	            _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
 	        }
@@ -506,7 +513,10 @@ module.exports =
 	    return result;
 	}
 
-	function interval(num){
+	function interval(num, offset){
+	    if(offset){
+	        return Game.time % num == offset;
+	    }
 	    return Game.time % num == 0;
 	}
 
@@ -1027,7 +1037,7 @@ module.exports =
 	                    deliver: { subtype: 'spawn', local: true },
 	                    idle: { type: 'spawn' }
 	                },
-	                actions: { assignRoom: {} }
+	                actions: { assignRoom: { type: 'spawn' } }
 	            },
 	            transfer: {
 	                quota: 'transfer',
@@ -1047,7 +1057,7 @@ module.exports =
 	            },
 	            leveler: {
 	                quota: 'levelerhauler',
-	                max: 5,
+	                max: 6,
 	                rules: {
 	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -1055,14 +1065,13 @@ module.exports =
 	                parts: { carry: 30, move: 15 }
 	            },
 	            long: {
-	                quota: 'pickup-remote',
-	                allocation: 800,
-	                max: 12,
+	                quota: 'longhauler',
 	                rules: {
-	                    pickup: { minerals: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
+	                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
 	                },
-	                parts: { carry: 32, move: 16 }
+	                parts: { carry: 32, move: 16 },
+	                actions: { avoid: {}, assignRoom: { type: 'pickup' } }
 	            },
 	            mineral: {
 	                quota: 'pickup-mineral',
@@ -1119,9 +1128,9 @@ module.exports =
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 8,
-	                boostOptional: true,
-	                boost: { XLH2O: 5 },
+	                max: 10,
+	                //boostOptional: true,
+	                //boost: { XLH2O: 5 },
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
@@ -1171,9 +1180,8 @@ module.exports =
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
-	                allocation: 15,
 	                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
-	                actions: { selfheal: {} }
+	                actions: { selfheal: {}, assignRoom: { type: 'keep' } }
 	            },
 	            ranged: {
 	                quota: 'idle-defend',
@@ -1213,7 +1221,7 @@ module.exports =
 	                rules: { attack: { subtype: 'picket' }, idle: { type: 'picket' } }
 	            }
 	        },
-	        rules: { defend: {}, keep: {}, idle: { type: 'keep' } }
+	        rules: { defend: {}, keep: { local: true } }
 	    }
 	};
 
@@ -1359,26 +1367,28 @@ module.exports =
 	    }
 
 	    preWork(creep, opts){
-	        var assignments = this.generateAssignedList(creep.memory.type);
+	        var type = creep.memory.actions.assignRoom.type;
+	        var assignments = this.generateAssignedList(type);
 	        var least = Infinity;
 	        var targetRoom = false;
-	        _.forEach(this.catalog.rooms, room => {
-	            var assigned = _.get(assignments, room.name, 0);
+	        _.forEach(Memory.roomlist[type], (target, roomName) => {
+	            var assigned = _.get(assignments, roomName, 0) / target;
 	            if(assigned < least){
 	                least = assigned;
-	                targetRoom = room.name;
+	                targetRoom = roomName;
 	            }
 	        });
 	        if(targetRoom){
 	            creep.memory.room = targetRoom;
-	            console.log('assigned', creep.name, 'to room', targetRoom, least);
+	            creep.memory.roomtype = type;
+	            console.log('Assigned', creep.name, 'to room', targetRoom, creep.memory.roomtype, least);
 	        }
 	        delete creep.memory.actions.assignRoom;
 	    }
 
 	    generateAssignedList(type){
 	        return _.reduce(Game.creeps, (result, creep)=>{
-	            if(creep.memory.type == type && creep.memory.room){
+	            if(creep.memory.room && creep.memory.roomtype == type){
 	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
 	            }
 	            return result;
@@ -3677,7 +3687,9 @@ module.exports =
 	        // var hostiles = this.catalog.getHostileCreeps(room);
 	        // targets = _.filter(targets, target => _.size(_.filter(hostiles, hostile => target.pos.getRangeTo(hostile) <= 10)) == 0);
 	        if(flag && Memory.settings.flagRange[this.type] > 0){
-	            return _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
+	            var result = _.filter(targets, target => flag.pos.getRangeTo(target) <= Memory.settings.flagRange[this.type]);
+	            _.set(Memory, ['roomlist', 'pickup', flag.pos.roomName], _.size(result));
+	            return result;
 	        }
 	        return targets;
 	    }
@@ -3795,6 +3807,7 @@ module.exports =
 	            if(Memory.settings.flagRange.keep > 0){
 	                keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.flagRange.keep);
 	            }
+	            _.set(Memory, ['keeps', flag.pos.roomName], _.size(keeps));
 	            return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
 	        }else{
 	            return [ this.generateJobForTarget(flag.room, flag) ];
@@ -4314,9 +4327,9 @@ module.exports =
 	    process(){
 	        this.quota = _.cloneDeep(this.catalog.jobs.capacity);
 
-	        var roomCount = this.catalog.rooms.length;
-
-	        this.quota.spawnhauler = roomCount + 1;
+	        this.quota.spawnhauler = _.size(Memory.roomlist.spawn) + 1;
+	        this.quota.keep = _.sum(Memory.roomlist.keep);
+	        this.quota.longhauler = _.sum(Memory.roomlist.pickup);
 
 	        this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
 	        // console.log(this.quota['reserve-reserve']);
@@ -4439,6 +4452,18 @@ module.exports =
 	        }
 	    }
 
+	    static miscUpdate(catalog){
+	        var keeps = _.map(catalog.getFlagsByPrefix('Keep'), 'pos.roomName');
+	        var pickup = catalog.getFlagsByPrefix('Pickup');
+	        // var repair = _.union(_.map(catalog.rooms, 'name'), _.map(catalog.getFlagsByPrefix('Repair'), 'pos.roomName'));
+	        Memory.roomlist = {
+	            keep: _.zipObject(keeps, _.map(keeps, roomName => Math.ceil(_.get(Memory.keeps, roomName, 0) / 2))),
+	            pickup: _.zipObject(_.map(pickup, 'pos.roomName'), _.map(pickup, flag => flag.room ? _.size(flag.room.find(FIND_SOURCES)) : 2)),
+	            // repair: _.zipObject(repair, new Array(repair.length).fill(1)),
+	            spawn: _.zipObject(_.map(catalog.rooms, 'name'), new Array(catalog.rooms.length).fill(1))//_.map(catalog.rooms, room => _.size(room.find(FIND_MY_SPAWNS))))
+	        }
+	    }
+
 	    static initMemory(){
 	        if(Memory.memoryVersion != memoryVersion){
 	            console.log('Init memory version', memoryVersion);
@@ -4520,7 +4545,7 @@ module.exports =
 	    }
 
 	    process(){
-	        if(!Util.interval(25)){
+	        if(!Util.interval(25, 2)){
 	            return;
 	        }
 	        var resources = _.values(REACTIONS.X);

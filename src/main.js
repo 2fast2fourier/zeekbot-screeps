@@ -25,6 +25,10 @@ module.exports.loop = function () {
         Misc.updateStats(catalog);
     }
 
+    if(Util.interval(50, 5)){
+        Misc.miscUpdate(catalog);
+    }
+
     var startup = Game.cpu.getUsed();
     catalog.profile('startup', startup);
 
@@ -53,5 +57,8 @@ module.exports.loop = function () {
 
     if(Game.cpu.bucket < 5000){
         Util.notify('cpubucket', 'CPU bucket under limit!');
+    }
+    if(Game.cpu.bucket < 600){
+        Util.notify('cpubucketcrit', 'CPU bucket critical!');
     }
 }

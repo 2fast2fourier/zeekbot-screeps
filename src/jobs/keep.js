@@ -27,6 +27,7 @@ class KeepJob extends BaseJob {
             if(Memory.settings.flagRange.keep > 0){
                 keeps = _.filter(keeps, keep => flag.pos.getRangeTo(keep) <= Memory.settings.flagRange.keep);
             }
+            _.set(Memory, ['keeps', flag.pos.roomName], _.size(keeps));
             return _.map(keeps, target => this.finalizeJob(flag.room, target, this.generateJobForTarget(flag.room, target)));
         }else{
             return [ this.generateJobForTarget(flag.room, flag) ];
