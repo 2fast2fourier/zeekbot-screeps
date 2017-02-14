@@ -14,8 +14,9 @@ class Production {
         if(!Util.interval(25, 2)){
             return;
         }
-        var resources = _.values(REACTIONS.X);
+        var resources = _.filter(_.values(REACTIONS.X), val => val != 'XUHO2');
         resources.push('G');
+        resources.push('UO');
 
         var reactions = {};
         var minCapacity = _.size(Memory.production.labs) * 5;

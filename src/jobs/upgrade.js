@@ -6,14 +6,11 @@ class UpgradeJob extends BaseJob {
     constructor(catalog){ super(catalog, 'upgrade'); }
     
     calculateCapacity(room, target, flag){
-        var baseCapacity = Memory.settings.upgradeCapacity || 10;
+        var baseCapacity = Memory.settings.upgradeCapacity;
         var capacity = baseCapacity;
         var rcl = target.level;
-        if(rcl <= 6 && Game.cpu.bucket > 5000){
-            capacity += baseCapacity;
-        }
-        if(rcl <= 7 && Memory.stats.global.totalEnergy > 200000 * this.catalog.rooms.length && Game.cpu.bucket > 8000){
-            capacity += baseCapacity;
+        if(rcl < 7){
+            capacity += baseCapacity * Math.min(2, Math.abs(rcl - 7));
         }
         return capacity;
     }

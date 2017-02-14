@@ -305,7 +305,7 @@ module.exports =
 	        Memory.boost.rooms = {};
 	        _.forEach(labs, lab => {
 	            var type = lab.mineralType;
-	            if(type && type.startsWith('X') && type.length > 1 && lab.mineralAmount > 50 && lab.energy > 50){
+	            if(type && type.length > 1 && lab.mineralAmount > 200 && lab.energy > 200){
 	                if(!Memory.boost.labs[type]){
 	                    Memory.boost.labs[type] = [];
 	                    Memory.boost.rooms[type] = [];
@@ -997,8 +997,8 @@ module.exports =
 	            boost: {
 	                allocation: 7,
 	                critical: true,
-	                parts: { move: 1, carry: 2, work: 1},
-	                boost: { XUHO2: 1 }
+	                parts: { move: 2, carry: 2, work: 2},
+	                boost: { UO: 2 }
 	            },
 	            milli: {
 	                allocation: 7,
@@ -1009,7 +1009,7 @@ module.exports =
 	                allocation: 5,
 	                quota: 'mine-mineral',
 	                parts: { move: 4, carry: 2, work: 4},
-	                boost: { XUHO2: 4 },
+	                boost: { UO: 4 },
 	                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
 	            },
 	            mineral: {
@@ -1031,7 +1031,7 @@ module.exports =
 	            spawn: {
 	                quota: 'spawnhauler',
 	                critical: true,
-	                parts: {carry: 20, move: 10},
+	                parts: {carry: 32, move: 16},
 	                rules: {
 	                    pickup: { subtype: false, local: true },
 	                    deliver: { subtype: 'spawn', local: true },
@@ -1047,17 +1047,17 @@ module.exports =
 	                parts: {carry: 10, move: 10}
 	            },
 	            stockpile: {
-	                quota: 'deliver-stockpile',
-	                allocation: 1600,
+	                quota: 'stockpilehauler',
 	                rules: {
 	                    pickup: { subtype: false, types: [ STRUCTURE_STORAGE ] },
-	                    deliver: { subtype: 'stockpile' }
+	                    deliver: { local: true, subtype: 'stockpile' }
 	                },
-	                parts: { carry: 20, move: 10 }
+	                actions: { avoid: {}, assignRoom: { type: 'stockpile' } },
+	                parts: { carry: 30, move: 15 }
 	            },
 	            leveler: {
 	                quota: 'levelerhauler',
-	                max: 6,
+	                max: 8,
 	                rules: {
 	                    pickup: { distanceWeight: 150, subtype: 'level' },
 	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -1067,8 +1067,8 @@ module.exports =
 	            long: {
 	                quota: 'longhauler',
 	                rules: {
-	                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
-	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
+	                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], subtype: 'remote' },
+	                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, profile: true }
 	                },
 	                parts: { carry: 32, move: 16 },
 	                actions: { avoid: {}, assignRoom: { type: 'pickup' } }
@@ -1122,15 +1122,13 @@ module.exports =
 	            },
 	            upgrade: {
 	                quota: 'upgrade',
-	                allocation: 10,
-	                parts: { work: 10, carry: 2, move: 6 },
+	                allocation: 15,
+	                parts: { work: 15, carry: 3, move: 9 },
 	                rules: { pickup: {}, upgrade: {} }
 	            },
 	            repair: {
 	                quota: 'repair',
-	                max: 10,
-	                //boostOptional: true,
-	                //boost: { XLH2O: 5 },
+	                max: 14,
 	                rules: { pickup: {}, repair: {} },
 	                actions: { avoid: {}, repair: {} },
 	                parts: { work: 5, carry: 10, move: 8 }
@@ -1180,13 +1178,12 @@ module.exports =
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
-	                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
+	                parts: { tough: 14, move: 17, attack: 15, heal: 4 },
 	                actions: { selfheal: {}, assignRoom: { type: 'keep' } }
 	            },
 	            ranged: {
 	                quota: 'idle-defend',
-	                max: 2,
-	                allocation: 1,
+	                max: 4,
 	                parts: { tough: 10, move: 10, ranged_attack: 10 },
 	                rules: { defend: { ranged: true }, idle: { type: 'defend' } }
 	            },
@@ -1458,21 +1455,19 @@ module.exports =
 	        var avoid = this.catalog.getAvoid(creep.pos);
 	        if(avoid && avoid.length > 0){
 	            var target = this.getJobTarget(creep);
-	            var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) < this.range);
+	            var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) <= this.range);
 	            if(positions.length > 0){
 	                return _.map(positions, position => {
 	                    if(target && target.pos.getRangeTo(position) < this.range && creep.pos.getRangeTo(position) == this.range - 1){
 	                        creep.memory.blockedUntil = Game.time + 5;
 	                    }
-	                    return { pos: position, range: this.range };
+	                    return { pos: position, range: this.range + 4 };
 	                });
 	            }else if(creep.memory.blockedUntil > Game.time){
 	                return true;
-	            }else{
-	                creep.memory.blockedUntil = 0;
 	            }
-	        }else{
-	            creep.memory.blockedUntil = 0;
+	        }else if(creep.memory.blockedUntil){
+	            delete creep.memory.blockedUntil;
 	        }
 	        return false;
 	    }
@@ -3599,7 +3594,7 @@ module.exports =
 	            }
 	            result.push({
 	                allocated: 0,
-	                capacity: capacity,
+	                capacity: 5000,
 	                id: this.generateId(stockpile, 'stockpile'),
 	                target: stockpile,
 	                creep: false,
@@ -4265,14 +4260,11 @@ module.exports =
 	    constructor(catalog){ super(catalog, 'upgrade'); }
 	    
 	    calculateCapacity(room, target, flag){
-	        var baseCapacity = Memory.settings.upgradeCapacity || 10;
+	        var baseCapacity = Memory.settings.upgradeCapacity;
 	        var capacity = baseCapacity;
 	        var rcl = target.level;
-	        if(rcl <= 6 && Game.cpu.bucket > 5000){
-	            capacity += baseCapacity;
-	        }
-	        if(rcl <= 7 && Memory.stats.global.totalEnergy > 200000 * this.catalog.rooms.length && Game.cpu.bucket > 8000){
-	            capacity += baseCapacity;
+	        if(rcl < 7){
+	            capacity += baseCapacity * Math.min(2, Math.abs(rcl - 7));
 	        }
 	        return capacity;
 	    }
@@ -4330,6 +4322,7 @@ module.exports =
 	        this.quota.spawnhauler = _.size(Memory.roomlist.spawn) + 1;
 	        this.quota.keep = _.sum(Memory.roomlist.keep);
 	        this.quota.longhauler = _.sum(Memory.roomlist.pickup);
+	        this.quota.stockpilehauler = _.sum(Memory.roomlist.stockpile);
 
 	        this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
 	        // console.log(this.quota['reserve-reserve']);
@@ -4369,11 +4362,12 @@ module.exports =
 
 /***/ },
 /* 56 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
 	var memoryVersion = 1;
+	var Util = __webpack_require__(2);
 
 	class Misc {
 	    static updateStats(catalog){
@@ -4431,6 +4425,7 @@ module.exports =
 	            repair: totalRepair
 	        }
 	        var baseResources = _.filter(RESOURCES_ALL, res => res.length == 1 || res.startsWith('X'));
+	        baseResources.push('UO');
 	        stats.minerals = _.zipObject(baseResources, _.map(baseResources, res => catalog.resources[res].total));
 	        Memory.stats = stats;
 	        Misc.updateSettings(catalog);
@@ -4455,11 +4450,20 @@ module.exports =
 	    static miscUpdate(catalog){
 	        var keeps = _.map(catalog.getFlagsByPrefix('Keep'), 'pos.roomName');
 	        var pickup = catalog.getFlagsByPrefix('Pickup');
+	        var stockpile = _.reduce(Util.getObjects(Memory.stockpile), (result, stockpile) =>{
+	            var level = _.get(stockpile, 'room.controller.level', 0);
+	            var allocation = Math.min(3, Math.abs(level - 7));
+	            if(allocation > 0){
+	                _.set(result, stockpile.pos.roomName, _.get(result, stockpile.pos.roomName, 0) + allocation);
+	            }
+	            return result;
+	        }, {});
 	        // var repair = _.union(_.map(catalog.rooms, 'name'), _.map(catalog.getFlagsByPrefix('Repair'), 'pos.roomName'));
 	        Memory.roomlist = {
 	            keep: _.zipObject(keeps, _.map(keeps, roomName => Math.ceil(_.get(Memory.keeps, roomName, 0) / 2))),
 	            pickup: _.zipObject(_.map(pickup, 'pos.roomName'), _.map(pickup, flag => flag.room ? _.size(flag.room.find(FIND_SOURCES)) : 2)),
 	            // repair: _.zipObject(repair, new Array(repair.length).fill(1)),
+	            stockpile,
 	            spawn: _.zipObject(_.map(catalog.rooms, 'name'), new Array(catalog.rooms.length).fill(1))//_.map(catalog.rooms, room => _.size(room.find(FIND_MY_SPAWNS))))
 	        }
 	    }
@@ -4548,8 +4552,9 @@ module.exports =
 	        if(!Util.interval(25, 2)){
 	            return;
 	        }
-	        var resources = _.values(REACTIONS.X);
+	        var resources = _.filter(_.values(REACTIONS.X), val => val != 'XUHO2');
 	        resources.push('G');
+	        resources.push('UO');
 
 	        var reactions = {};
 	        var minCapacity = _.size(Memory.production.labs) * 5;

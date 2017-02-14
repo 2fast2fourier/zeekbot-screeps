@@ -1,6 +1,7 @@
 "use strict";
 
 var memoryVersion = 1;
+var Util = require('./util');
 
 class Misc {
     static updateStats(catalog){
@@ -58,6 +59,7 @@ class Misc {
             repair: totalRepair
         }
         var baseResources = _.filter(RESOURCES_ALL, res => res.length == 1 || res.startsWith('X'));
+        baseResources.push('UO');
         stats.minerals = _.zipObject(baseResources, _.map(baseResources, res => catalog.resources[res].total));
         Memory.stats = stats;
         Misc.updateSettings(catalog);
@@ -82,11 +84,20 @@ class Misc {
     static miscUpdate(catalog){
         var keeps = _.map(catalog.getFlagsByPrefix('Keep'), 'pos.roomName');
         var pickup = catalog.getFlagsByPrefix('Pickup');
+        var stockpile = _.reduce(Util.getObjects(Memory.stockpile), (result, stockpile) =>{
+            var level = _.get(stockpile, 'room.controller.level', 0);
+            var allocation = Math.min(3, Math.abs(level - 7));
+            if(allocation > 0){
+                _.set(result, stockpile.pos.roomName, _.get(result, stockpile.pos.roomName, 0) + allocation);
+            }
+            return result;
+        }, {});
         // var repair = _.union(_.map(catalog.rooms, 'name'), _.map(catalog.getFlagsByPrefix('Repair'), 'pos.roomName'));
         Memory.roomlist = {
             keep: _.zipObject(keeps, _.map(keeps, roomName => Math.ceil(_.get(Memory.keeps, roomName, 0) / 2))),
             pickup: _.zipObject(_.map(pickup, 'pos.roomName'), _.map(pickup, flag => flag.room ? _.size(flag.room.find(FIND_SOURCES)) : 2)),
             // repair: _.zipObject(repair, new Array(repair.length).fill(1)),
+            stockpile,
             spawn: _.zipObject(_.map(catalog.rooms, 'name'), new Array(catalog.rooms.length).fill(1))//_.map(catalog.rooms, room => _.size(room.find(FIND_MY_SPAWNS))))
         }
     }

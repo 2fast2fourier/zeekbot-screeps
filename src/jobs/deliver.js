@@ -53,7 +53,7 @@ class DeliverJob extends BaseJob {
             }
             result.push({
                 allocated: 0,
-                capacity: capacity,
+                capacity: 5000,
                 id: this.generateId(stockpile, 'stockpile'),
                 target: stockpile,
                 creep: false,

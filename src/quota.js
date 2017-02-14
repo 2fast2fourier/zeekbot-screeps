@@ -12,6 +12,7 @@ class QuotaManager {
         this.quota.spawnhauler = _.size(Memory.roomlist.spawn) + 1;
         this.quota.keep = _.sum(Memory.roomlist.keep);
         this.quota.longhauler = _.sum(Memory.roomlist.pickup);
+        this.quota.stockpilehauler = _.sum(Memory.roomlist.stockpile);
 
         this.quota['reserve-reserve'] = _.sum(_.map(this.catalog.jobs.subjobs['reserve-reserve'], 'quota'));
         // console.log(this.quota['reserve-reserve']);

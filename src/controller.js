@@ -189,7 +189,7 @@ class Controller {
         Memory.boost.rooms = {};
         _.forEach(labs, lab => {
             var type = lab.mineralType;
-            if(type && type.startsWith('X') && type.length > 1 && lab.mineralAmount > 50 && lab.energy > 50){
+            if(type && type.length > 1 && lab.mineralAmount > 200 && lab.energy > 200){
                 if(!Memory.boost.labs[type]){
                     Memory.boost.labs[type] = [];
                     Memory.boost.rooms[type] = [];

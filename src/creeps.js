@@ -6,8 +6,8 @@ module.exports = {
             boost: {
                 allocation: 7,
                 critical: true,
-                parts: { move: 1, carry: 2, work: 1},
-                boost: { XUHO2: 1 }
+                parts: { move: 2, carry: 2, work: 2},
+                boost: { UO: 2 }
             },
             milli: {
                 allocation: 7,
@@ -18,7 +18,7 @@ module.exports = {
                 allocation: 5,
                 quota: 'mine-mineral',
                 parts: { move: 4, carry: 2, work: 4},
-                boost: { XUHO2: 4 },
+                boost: { UO: 4 },
                 rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
             },
             mineral: {
@@ -40,7 +40,7 @@ module.exports = {
             spawn: {
                 quota: 'spawnhauler',
                 critical: true,
-                parts: {carry: 20, move: 10},
+                parts: {carry: 32, move: 16},
                 rules: {
                     pickup: { subtype: false, local: true },
                     deliver: { subtype: 'spawn', local: true },
@@ -56,17 +56,17 @@ module.exports = {
                 parts: {carry: 10, move: 10}
             },
             stockpile: {
-                quota: 'deliver-stockpile',
-                allocation: 1600,
+                quota: 'stockpilehauler',
                 rules: {
                     pickup: { subtype: false, types: [ STRUCTURE_STORAGE ] },
-                    deliver: { subtype: 'stockpile' }
+                    deliver: { local: true, subtype: 'stockpile' }
                 },
-                parts: { carry: 20, move: 10 }
+                actions: { avoid: {}, assignRoom: { type: 'stockpile' } },
+                parts: { carry: 30, move: 15 }
             },
             leveler: {
                 quota: 'levelerhauler',
-                max: 6,
+                max: 8,
                 rules: {
                     pickup: { distanceWeight: 150, subtype: 'level' },
                     deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, ignoreDistance: true }
@@ -76,8 +76,8 @@ module.exports = {
             long: {
                 quota: 'longhauler',
                 rules: {
-                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], distanceWeight: 150, subtype: 'remote' },
-                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, distanceWeight: 100, profile: true }
+                    pickup: { local: true, types: [ STRUCTURE_CONTAINER ], subtype: 'remote' },
+                    deliver: { types: [ STRUCTURE_STORAGE ], ignoreCreeps: true, profile: true }
                 },
                 parts: { carry: 32, move: 16 },
                 actions: { avoid: {}, assignRoom: { type: 'pickup' } }
@@ -131,15 +131,13 @@ module.exports = {
             },
             upgrade: {
                 quota: 'upgrade',
-                allocation: 10,
-                parts: { work: 10, carry: 2, move: 6 },
+                allocation: 15,
+                parts: { work: 15, carry: 3, move: 9 },
                 rules: { pickup: {}, upgrade: {} }
             },
             repair: {
                 quota: 'repair',
-                max: 10,
-                //boostOptional: true,
-                //boost: { XLH2O: 5 },
+                max: 14,
                 rules: { pickup: {}, repair: {} },
                 actions: { avoid: {}, repair: {} },
                 parts: { work: 5, carry: 10, move: 8 }
@@ -189,13 +187,12 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
-                parts: { tough: 14, move: 16, attack: 15, heal: 3 },
+                parts: { tough: 14, move: 17, attack: 15, heal: 4 },
                 actions: { selfheal: {}, assignRoom: { type: 'keep' } }
             },
             ranged: {
                 quota: 'idle-defend',
-                max: 2,
-                allocation: 1,
+                max: 4,
                 parts: { tough: 10, move: 10, ranged_attack: 10 },
                 rules: { defend: { ranged: true }, idle: { type: 'defend' } }
             },
