@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class DefendWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 3 } }); }
+    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { reusePath: 15 } }); }
 
     calculateAllocation(creep, opts){
         return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);

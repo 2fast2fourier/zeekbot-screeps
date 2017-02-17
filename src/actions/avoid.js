@@ -34,10 +34,12 @@ class AvoidAction extends BaseAction {
             return;
         }
         if(block){
+            var start = Game.cpu.getUsed();
             creep.memory.avoidUntil = Game.time + 10;
             delete creep.memory._move;
             var result = PathFinder.search(creep.pos, block, { flee: true });
             creep.move(creep.pos.getDirectionTo(result.path[0]));
+            this.catalog.profileAdd('avoid', Game.cpu.getUsed() - start);
         }
     }
 }

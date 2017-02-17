@@ -29,10 +29,10 @@ class Controller {
         }
 
         if(Util.interval(10, 1) || Memory.boost.update){
-            Controller.boost(catalog, catalog.buildings.lab);
-            _.forEach(Memory.production.boosts, (boost, labId) => {
-                Memory.transfer.lab[labId] = boost;
-            });
+            Memory.boost.stored = {};
+            Memory.boost.labs = {};
+            Memory.boost.rooms = {};
+            _.forEach(Memory.production.boosts, Controller.boost);
             Memory.boost.update = false;
         }
         
@@ -183,22 +183,23 @@ class Controller {
         targetLab.runReaction(labA, labB);
     }
 
-    static boost(catalog, labs){
-        Memory.boost.stored = {};
-        Memory.boost.labs = {};
-        Memory.boost.rooms = {};
-        _.forEach(labs, lab => {
-            var type = lab.mineralType;
-            if(type && type.length > 1 && lab.mineralAmount > 200 && lab.energy > 200){
-                if(!Memory.boost.labs[type]){
-                    Memory.boost.labs[type] = [];
-                    Memory.boost.rooms[type] = [];
-                }
-                Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
-                Memory.boost.labs[type].push(lab.id);
-                Memory.boost.rooms[type].push(lab.pos.roomName);
+    static boost(type, labId){
+        Memory.transfer.lab[labId] = type;
+        var lab = Game.getObjectById(labId);
+        if(!lab){
+            delete Memory.production.boosts[labId];
+            Game.notify('Boost Lab no longer valid: '+labId + ' - ' + type);
+            return;
+        }
+        if(lab.mineralType == type && lab.mineralAmount > 500 && lab.energy > 500){
+            if(!Memory.boost.labs[type]){
+                Memory.boost.labs[type] = [];
+                Memory.boost.rooms[type] = [];
             }
-        });
+            Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
+            Memory.boost.labs[type].push(lab.id);
+            Memory.boost.rooms[type].push(lab.pos.roomName);
+        }
     }
 
     static levelTerminals(catalog){

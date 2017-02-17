@@ -54,6 +54,7 @@ module.exports =
 	var Misc = __webpack_require__(56);
 	var Production = __webpack_require__(57);
 	var Util = __webpack_require__(2);
+	var Traveller = __webpack_require__(58);
 
 	module.exports.loop = function () {
 	    PathFinder.use(true);
@@ -145,10 +146,10 @@ module.exports =
 	        }
 
 	        if(Util.interval(10, 1) || Memory.boost.update){
-	            Controller.boost(catalog, catalog.buildings.lab);
-	            _.forEach(Memory.production.boosts, (boost, labId) => {
-	                Memory.transfer.lab[labId] = boost;
-	            });
+	            Memory.boost.stored = {};
+	            Memory.boost.labs = {};
+	            Memory.boost.rooms = {};
+	            _.forEach(Memory.production.boosts, Controller.boost);
 	            Memory.boost.update = false;
 	        }
 	        
@@ -299,22 +300,23 @@ module.exports =
 	        targetLab.runReaction(labA, labB);
 	    }
 
-	    static boost(catalog, labs){
-	        Memory.boost.stored = {};
-	        Memory.boost.labs = {};
-	        Memory.boost.rooms = {};
-	        _.forEach(labs, lab => {
-	            var type = lab.mineralType;
-	            if(type && type.length > 1 && lab.mineralAmount > 200 && lab.energy > 200){
-	                if(!Memory.boost.labs[type]){
-	                    Memory.boost.labs[type] = [];
-	                    Memory.boost.rooms[type] = [];
-	                }
-	                Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
-	                Memory.boost.labs[type].push(lab.id);
-	                Memory.boost.rooms[type].push(lab.pos.roomName);
+	    static boost(type, labId){
+	        Memory.transfer.lab[labId] = type;
+	        var lab = Game.getObjectById(labId);
+	        if(!lab){
+	            delete Memory.production.boosts[labId];
+	            Game.notify('Boost Lab no longer valid: '+labId + ' - ' + type);
+	            return;
+	        }
+	        if(lab.mineralType == type && lab.mineralAmount > 500 && lab.energy > 500){
+	            if(!Memory.boost.labs[type]){
+	                Memory.boost.labs[type] = [];
+	                Memory.boost.rooms[type] = [];
 	            }
-	        });
+	            Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
+	            Memory.boost.labs[type].push(lab.id);
+	            Memory.boost.rooms[type].push(lab.pos.roomName);
+	        }
 	    }
 
 	    static levelTerminals(catalog){
@@ -524,6 +526,50 @@ module.exports =
 	    return _.map(idList, entity => Game.getObjectById(entity));
 	}
 
+	function cacheMinDistance(roomA, roomB){
+	    if(roomA.name == roomB.name){
+	        _.set(Memory.cache.dist, roomA.name + '-' + roomB.name, 0);
+	        return 0;
+	    }
+	    var roomRoute = Game.map.findRoute(roomA, roomB);
+	    if(_.isNumber(roomRoute) || roomRoute.length < 1){
+	        _.set(Memory.cache, ['dist', roomA.name + '-' + roomB.name], 999);
+	        console.log('no route found:', roomA.name, roomB.name);
+	        return 999;
+	    }else{
+	        var cost = 0;
+	        var lastExit = -1;
+	        _.forEach(roomRoute, step => {
+	            if(lastExit < 0){
+	                lastExit = step.exit;
+	                return;
+	            }
+	            if((step.exit + 4) % 8 == lastExit){
+	                cost += 50;
+	            }else{
+	                cost += 20;
+	            }
+	            lastExit = step.exit;
+	        });
+	        _.set(Memory.cache, ['dist', roomA.name + '-' + roomB.name], cost);
+	    }
+	    return cost;
+	}
+
+	function getMinDistance(roomA, roomB){
+	    if(!roomA || !roomB){
+	        return 0;
+	    }
+	    var dist = _.get(Memory.cache.dist, roomA.name + '-' + roomB.name, -1);
+	    if(dist < 0){
+	        dist = _.get(Memory.cache.dist, roomB.name + '-' + roomA.name, -1);
+	        if(dist < 0){
+	            dist = cacheMinDistance(roomA, roomB);
+	        }
+	    }
+	    return dist;
+	}
+
 	function cacheRoomPos(pos){
 	    console.log('cacheRoomPos', pos.roomName);
 	    var roomParts = roomRegex.exec(pos.roomName);
@@ -568,7 +614,8 @@ module.exports =
 	    }
 	    var posA = calculateRealPosition(entityA.pos);
 	    var posB = calculateRealPosition(entityB.pos);
-	    return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+	    var minDist = getMinDistance(entityA.room, entityB.room);
+	    return Math.max(minDist, Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y)));
 	}
 
 	function notify(type, message){
@@ -994,28 +1041,22 @@ module.exports =
 	module.exports = {
 	    miner: {
 	        versions: {
-	            boost: {
-	                allocation: 7,
-	                critical: true,
-	                parts: { move: 2, carry: 2, work: 2},
-	                boost: { UO: 2 }
-	            },
-	            milli: {
+	            energy: {
 	                allocation: 7,
 	                critical: true,
 	                parts: { move: 4, carry: 2, work: 8 }
 	            },
-	            boostmineral: {
-	                allocation: 5,
-	                quota: 'mine-mineral',
-	                parts: { move: 4, carry: 2, work: 4},
-	                boost: { UO: 4 },
-	                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
+	            milli: {
+	                allocation: 7,
+	                max: 0,
+	                parts: { move: 4, carry: 2, work: 8 }
 	            },
 	            mineral: {
 	                allocation: 5,
 	                quota: 'mine-mineral',
-	                parts: { move: 4, carry: 2, work: 8 },
+	                parts: { move: 5, carry: 2, work: 8 },
+	                boostOptional: true,
+	                boost: { UO: 8 },
 	                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
 	            }
 	        },
@@ -1178,6 +1219,7 @@ module.exports =
 	            melee: {
 	                critical: true,
 	                quota: 'keep',
+	                memory: { ignoreHealth: true },
 	                parts: { tough: 14, move: 17, attack: 15, heal: 4 },
 	                actions: { selfheal: {}, assignRoom: { type: 'keep' } }
 	            },
@@ -1477,10 +1519,12 @@ module.exports =
 	            return;
 	        }
 	        if(block){
+	            var start = Game.cpu.getUsed();
 	            creep.memory.avoidUntil = Game.time + 10;
 	            delete creep.memory._move;
 	            var result = PathFinder.search(creep.pos, block, { flee: true });
 	            creep.move(creep.pos.getDirectionTo(result.path[0]));
+	            this.catalog.profileAdd('avoid', Game.cpu.getUsed() - start);
 	        }
 	    }
 	}
@@ -1957,7 +2001,7 @@ module.exports =
 	        }
 	        if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
 	            var range = 6;
-	            return creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
+	            var result = creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
 	                var avoidList = this.catalog.getAvoid({ roomName });
 	                if(!avoidList){
 	                    return;
@@ -1978,19 +2022,25 @@ module.exports =
 	                    }
 	                }
 	            }});
+	            this.catalog.profileAdd('avoid', Game.cpu.getUsed() - start);
+	            return result;
 	        }
 
-	        if(creep.memory.lastX != creep.pos.x || creep.memory.lastY != creep.pos.y){
-	            creep.memory.lastX = creep.pos.x;
-	            creep.memory.lastY = creep.pos.y;
-	            creep.memory.moveTicks = 0;
-	        }else if(creep.memory.moveTicks >= 3){
-	            delete creep.memory._move;
+	        if(this.simpleMove){
+	            if(creep.memory.lastX != creep.pos.x || creep.memory.lastY != creep.pos.y){
+	                creep.memory.lastX = creep.pos.x;
+	                creep.memory.lastY = creep.pos.y;
+	                creep.memory.moveTicks = 0;
+	            }else if(creep.memory.moveTicks >= 3){
+	                delete creep.memory._move;
+	            }else{
+	                creep.memory.moveTicks++;
+	            }
+	            var result = creep.moveTo(target, { reusePath: 50 });
 	        }else{
-	            creep.memory.moveTicks++;
+	            var result = creep.travelTo(target, { allowSK: true });
 	        }
 	        
-	        var result = creep.moveTo(target, { reusePath: 50 });
 	        this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
 	        this.catalog.profileAdd('movedCreeps', 1);
 	        return result;
@@ -1998,7 +2048,12 @@ module.exports =
 
 	    orMove(creep, target, result){
 	        if(result == ERR_NOT_IN_RANGE){
-	            this.move(creep, target);
+	            if(this.move(creep, target) == OK){
+	                this.catalog.profileAdd('actions', 0.2);
+	            }
+	        }
+	        if(result == OK){
+	            this.catalog.profileAdd('actions', 0.2);
 	        }
 	        return result;
 	    }
@@ -2084,7 +2139,7 @@ module.exports =
 	var BaseWorker = __webpack_require__(17);
 
 	class DefendWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { ignoreDestructibleStructures: true, reusePath: 3 } }); }
+	    constructor(catalog){ super(catalog, 'defend', { flagPrefix: 'Defend', chatty: true, moveOpts: { reusePath: 15 } }); }
 
 	    calculateAllocation(creep, opts){
 	        return creep.getActiveBodyparts(ATTACK) + creep.getActiveBodyparts(RANGED_ATTACK);
@@ -2268,7 +2323,7 @@ module.exports =
 	var BaseWorker = __webpack_require__(17);
 
 	class HealWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'heal', { chatty: true }); }
+	    constructor(catalog){ super(catalog, 'heal', { chatty: true, simpleMove: true }); }
 
 	    calculateAllocation(creep, opts){
 	        return Math.min(creep.getActiveBodyparts(HEAL), 1);
@@ -2283,8 +2338,8 @@ module.exports =
 	        if(range > 1 && range <= 3){
 	            creep.rangedHeal(target);
 	            this.move(creep, target);
-	        }else if(creep.heal(target) == ERR_NOT_IN_RANGE){
-	            this.move(creep, target);
+	        }else{
+	            this.orMove(creep, target, creep.heal(target));
 	        }
 	    }
 
@@ -2301,7 +2356,7 @@ module.exports =
 	var BaseWorker = __webpack_require__(17);
 
 	class IdleWorker extends BaseWorker {
-	    constructor(catalog){ super(catalog, 'idle', { idleTimer: 5 }); }
+	    constructor(catalog){ super(catalog, 'idle', { idleTimer: 10 }); }
 
 	    calculateAllocation(creep, opts){
 	        return 1;
@@ -2374,6 +2429,7 @@ module.exports =
 	        }else if(creep.pos.getRangeTo(target) > targetRange){
 	            this.move(creep, target);
 	        }else if(creep.pos.getRangeTo(target) < targetRange){
+	            //TODO use pathfinder flee
 	            creep.move((creep.pos.getDirectionTo(target)+4)%8);
 	        }
 	    }
@@ -2402,10 +2458,11 @@ module.exports =
 	    }
 
 	    calculateAllocation(creep, opts){
-	        if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
-	            return 8 * creep.getActiveBodyparts(WORK);
-	        }
-	        return creep.getActiveBodyparts(WORK);
+	        // if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
+	        //     return 8 * creep.getActiveBodyparts(WORK);
+	        // }
+	        // return creep.getActiveBodyparts(WORK);
+	        return 8;
 	    }
 
 	    calculateBid(creep, opts, job, allocation, distance){
@@ -2503,6 +2560,7 @@ module.exports =
 	            this.move(creep, target);
 	        }else if(result == OK){
 	            creep.memory.lastSource = target.id;
+	            this.catalog.profileAdd('actions', 0.2);
 	        }
 	    }
 
@@ -2688,8 +2746,8 @@ module.exports =
 	            if(this.orMove(creep, target, creep.claimController(target)) == OK){
 	                job.flag.remove();
 	            }
-	        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
-	            this.move(creep, target);
+	        }else{
+	            this.orMove(creep, target, creep.reserveController(target));
 	        }
 	    }
 
@@ -3180,6 +3238,7 @@ module.exports =
 
 	    generate(){
 	        _.forEach(this.categories, (category, categoryName) =>{
+	            // var start = Game.cpu.getUsed();
 	            var cap = 0;
 	            var type = category.getType();
 	            var jobList = category.generate();
@@ -3199,6 +3258,10 @@ module.exports =
 	            }
 	            this.capacity[type] = cap;
 	            this.allocation[type] = 0;
+	            // var cpu = Game.cpu.getUsed() - start;
+	            // if(cpu > 2){
+	            //     console.log(categoryName, cpu, JSON.stringify(_.countBy(jobList, 'subtype')));
+	            // }
 	        });
 	    }
 
@@ -3556,7 +3619,6 @@ module.exports =
 	    STRUCTURE_SPAWN,
 	    STRUCTURE_EXTENSION,
 	    STRUCTURE_STORAGE,
-	    STRUCTURE_LINK,
 	    STRUCTURE_TOWER
 	];
 
@@ -4552,19 +4614,20 @@ module.exports =
 	        if(!Util.interval(25, 2)){
 	            return;
 	        }
-	        var resources = _.filter(_.values(REACTIONS.X), val => val != 'XUHO2');
-	        resources.push('G');
-	        resources.push('UO');
+	        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
+	        var resourceList = _.values(REACTIONS.X);//_.filter(, val => val != 'XUHO2');
+	        var resources = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
+	        resources.G = 5000;
+	        resources.UO = 5000;
+	        resources.XUHO2 = 5000;
 
 	        var reactions = {};
 	        var minCapacity = _.size(Memory.production.labs) * 5;
-	        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
-	        _.forEach(resources, (type) => {
-	            this.generateReactions(type, targetAmount - this.catalog.resources[type].total, reactions, true);
+	        _.forEach(resources, (amount, type) => {
+	            this.generateReactions(type, amount - this.catalog.resources[type].total, reactions, true);
 	        });
-	        // _.forEach(reactions, (data, type) => console.log(type, data.capacity, data.current, data.deficit, data.current / targetAmount));
 
-	        Memory.stats.global.reaction = _.sum(_.map(reactions, 'deficit'));
+	        Memory.stats.global.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
 
 	        _.forEach(Memory.reaction, (data, type)=>{
 	            var deficit = _.get(reactions, [type, 'deficit'], 0);
@@ -4661,6 +4724,322 @@ module.exports =
 	}
 
 	module.exports = Production;
+
+/***/ },
+/* 58 */
+/***/ function(module, exports) {
+
+	"use strict";
+	/**
+	 * https://gist.github.com/bonzaiferroni/bbbbf8a681f071dc13759da8a1be316e
+	 */
+	// const REPORT_CPU_THRESHOLD = 50;
+	const DEFAULT_MAXOPS = 40000;
+	const DEFAULT_STUCK_VALUE = 5;
+	class Traveler {
+	    constructor() {
+	        // change this memory path to suit your needs
+	        if (!Memory.empire) {
+	            Memory.empire = {};
+	        }
+	        if (!Memory.empire.hostileRooms) {
+	            Memory.empire.hostileRooms = {};
+	        }
+	        this.memory = Memory.empire;
+	    }
+	    findAllowedRooms(origin, destination, options = {}) {
+	        _.defaults(options, { restrictDistance: 16 });
+	        if (Game.map.getRoomLinearDistance(origin, destination) > options.restrictDistance) {
+	            return;
+	        }
+	        let allowedRooms = { [origin]: true, [destination]: true };
+	        let ret = Game.map.findRoute(origin, destination, {
+	            routeCallback: (roomName) => {
+	                if (options.routeCallback) {
+	                    let outcome = options.routeCallback(roomName);
+	                    if (outcome !== undefined) {
+	                        return outcome;
+	                    }
+	                }
+	                if (Game.map.getRoomLinearDistance(origin, roomName) > options.restrictDistance) {
+	                    return false;
+	                }
+	                let parsed;
+	                if (options.preferHighway) {
+	                    parsed = /^[WE]([0-9]+)[NS]([0-9]+)$/.exec(roomName);
+	                    let isHighway = (parsed[1] % 10 === 0) || (parsed[2] % 10 === 0);
+	                    if (isHighway) {
+	                        return 1;
+	                    }
+	                }
+	                if (!options.allowSK && !Game.rooms[roomName]) {
+	                    if (!parsed) {
+	                        parsed = /^[WE]([0-9]+)[NS]([0-9]+)$/.exec(roomName);
+	                    }
+	                    let fMod = parsed[1] % 10;
+	                    let sMod = parsed[2] % 10;
+	                    let isSK = !(fMod === 5 && sMod === 5) &&
+	                        ((fMod >= 4) && (fMod <= 6)) &&
+	                        ((sMod >= 4) && (sMod <= 6));
+	                    if (isSK) {
+	                        return 10;
+	                    }
+	                }
+	                if (!options.allowHostile && this.memory.hostileRooms[roomName] &&
+	                    roomName !== destination && roomName !== origin) {
+	                    return Number.POSITIVE_INFINITY;
+	                }
+	                return 2.5;
+	            },
+	        });
+	        if (!_.isArray(ret)) {
+	            console.log(`couldn't findRoute to ${destination}`);
+	            return;
+	        }
+	        for (let value of ret) {
+	            allowedRooms[value.room] = true;
+	        }
+	        return allowedRooms;
+	    }
+	    findTravelPath(origin, destination, options = {}) {
+	        _.defaults(options, {
+	            ignoreCreeps: true,
+	            range: 1,
+	            maxOps: DEFAULT_MAXOPS,
+	            obstacles: [],
+	        });
+	        let allowedRooms;
+	        if (options.useFindRoute || (options.useFindRoute === undefined &&
+	            Game.map.getRoomLinearDistance(origin.pos.roomName, destination.pos.roomName) > 2)) {
+	            allowedRooms = this.findAllowedRooms(origin.pos.roomName, destination.pos.roomName, options);
+	        }
+	        let callback = (roomName) => {
+	            if (options.roomCallback) {
+	                let outcome = options.roomCallback(roomName, options.ignoreCreeps);
+	                if (outcome !== undefined) {
+	                    return outcome;
+	                }
+	            }
+	            if (allowedRooms) {
+	                if (!allowedRooms[roomName]) {
+	                    return false;
+	                }
+	            }
+	            else if (this.memory.hostileRooms[roomName] && !options.allowHostile) {
+	                return false;
+	            }
+	            let room = Game.rooms[roomName];
+	            if (!room) {
+	                return;
+	            }
+	            let matrix;
+	            if (options.ignoreStructures) {
+	                matrix = new PathFinder.CostMatrix();
+	                if (!options.ignoreCreeps) {
+	                    Traveler.addCreepsToMatrix(room, matrix);
+	                }
+	            }
+	            else if (options.ignoreCreeps || roomName !== origin.pos.roomName) {
+	                matrix = this.getStructureMatrix(room);
+	            }
+	            else {
+	                matrix = this.getCreepMatrix(room);
+	            }
+	            for (let obstacle of options.obstacles) {
+	                matrix.set(obstacle.pos.x, obstacle.pos.y, 0xff);
+	            }
+	            return matrix;
+	        };
+	        return PathFinder.search(origin.pos, { pos: destination.pos, range: options.range }, {
+	            maxOps: options.maxOps,
+	            plainCost: options.ignoreRoads ? 1 : 2,
+	            roomCallback: callback,
+	            swampCost: options.ignoreRoads ? 5 : 10,
+	        });
+	    }
+	    travelTo(creep, destination, options = {}) {
+	        // register hostile rooms entered
+	        if (creep.room.controller) {
+	            if (creep.room.controller.owner && !creep.room.controller.my) {
+	                this.memory.hostileRooms[creep.room.name] = creep.room.controller.level;
+	            }
+	            else {
+	                this.memory.hostileRooms[creep.room.name] = undefined;
+	            }
+	        }
+	        // initialize data object
+	        if (!creep.memory._travel) {
+	            creep.memory._travel = { stuck: 0, tick: Game.time, count: 0 };//cpu
+	        }
+	        let travelData = creep.memory._travel;
+	        if (creep.fatigue > 0) {
+	            travelData.tick = Game.time;
+	            return ERR_BUSY;
+	        }
+	        if (!destination) {
+	            return ERR_INVALID_ARGS;
+	        }
+	        // manage case where creep is nearby destination
+	        let rangeToDestination = creep.pos.getRangeTo(destination);
+	        if (rangeToDestination <= 1) {
+	            if (rangeToDestination === 1 && !(options.range >= 1)) {
+	                if (options.returnData) {
+	                    options.returnData.nextPos = destination.pos;
+	                }
+	                return creep.move(creep.pos.getDirectionTo(destination));
+	            }
+	            return OK;
+	        }
+	        // check if creep is stuck
+	        let hasMoved = true;
+	        if (travelData.prev) {
+	            travelData.prev = Traveler.initPosition(travelData.prev);
+	            if (creep.pos.inRangeTo(travelData.prev, 0)) {
+	                hasMoved = false;
+	                travelData.stuck++;
+	            }
+	            else {
+	                travelData.stuck = 0;
+	            }
+	        }
+	        // handle case where creep is stuck
+	        if (travelData.stuck >= DEFAULT_STUCK_VALUE && !options.ignoreStuck) {
+	            options.ignoreCreeps = false;
+	            delete travelData.path;
+	        }
+	        // handle case where creep wasn't traveling last tick and may have moved, but destination is still the same
+	        if (Game.time - travelData.tick > 1 && hasMoved) {
+	            delete travelData.path;
+	        }
+	        travelData.tick = Game.time;
+	        // delete path cache if destination is different
+	        if (!travelData.dest || travelData.dest.x !== destination.pos.x || travelData.dest.y !== destination.pos.y ||
+	            travelData.dest.roomName !== destination.pos.roomName) {
+	            delete travelData.path;
+	        }
+	        // pathfinding
+	        if (!travelData.path) {
+	            if (creep.spawning) {
+	                return ERR_BUSY;
+	            }
+	            travelData.dest = destination.pos;
+	            travelData.prev = undefined;
+	            // let cpu = Game.cpu.getUsed();
+	            let ret = this.findTravelPath(creep, destination, options);
+	            // travelData.cpu += (Game.cpu.getUsed() - cpu);
+	            travelData.count++;
+	            // if (travelData.cpu > REPORT_CPU_THRESHOLD) {
+	            //     console.log(`TRAVELER: heavy cpu use: ${creep.name}, cpu: ${_.round(travelData.cpu, 2)},\n` +
+	            //         `origin: ${creep.pos}, dest: ${destination.pos}`);
+	            // }
+	            if (ret.incomplete) {
+	                console.log(`TRAVELER: incomplete path for ${creep.name}`);
+	                if (ret.ops < 2000 && options.useFindRoute === undefined && travelData.stuck < DEFAULT_STUCK_VALUE) {
+	                    options.useFindRoute = false;
+	                    ret = this.findTravelPath(creep, destination, options);
+	                    console.log(`attempting path without findRoute was ${ret.incomplete ? "not" : ""} successful`);
+	                }
+	            }
+	            travelData.path = Traveler.serializePath(creep.pos, ret.path);
+	            travelData.stuck = 0;
+	        }
+	        if (!travelData.path || travelData.path.length === 0) {
+	            return ERR_NO_PATH;
+	        }
+	        // consume path and move
+	        if (travelData.prev && travelData.stuck === 0) {
+	            travelData.path = travelData.path.substr(1);
+	        }
+	        travelData.prev = creep.pos;
+	        let nextDirection = parseInt(travelData.path[0], 10);
+	        if (options.returnData) {
+	            options.returnData.nextPos = Traveler.positionAtDirection(creep.pos, nextDirection);
+	        }
+	        return creep.move(nextDirection);
+	    }
+	    getStructureMatrix(room) {
+	        this.refreshMatrices();
+	        if (!this.structureMatrixCache[room.name]) {
+	            let matrix = new PathFinder.CostMatrix();
+	            this.structureMatrixCache[room.name] = Traveler.addStructuresToMatrix(room, matrix, 1);
+	        }
+	        return this.structureMatrixCache[room.name];
+	    }
+	    static initPosition(pos) {
+	        return new RoomPosition(pos.x, pos.y, pos.roomName);
+	    }
+	    static addStructuresToMatrix(room, matrix, roadCost) {
+	        for (let structure of room.find(FIND_STRUCTURES)) {
+	            if (structure instanceof StructureRampart) {
+	                if (!structure.my) {
+	                    matrix.set(structure.pos.x, structure.pos.y, 0xff);
+	                }
+	            }
+	            else if (structure instanceof StructureRoad) {
+	                matrix.set(structure.pos.x, structure.pos.y, roadCost);
+	            }
+	            else if (structure.structureType !== STRUCTURE_CONTAINER) {
+	                // Can't walk through non-walkable buildings
+	                matrix.set(structure.pos.x, structure.pos.y, 0xff);
+	            }
+	        }
+	        for (let site of room.find(FIND_CONSTRUCTION_SITES)) {
+	            if (site.structureType === STRUCTURE_CONTAINER || site.structureType === STRUCTURE_ROAD) {
+	                continue;
+	            }
+	            matrix.set(site.pos.x, site.pos.y, 0xff);
+	        }
+	        return matrix;
+	    }
+	    getCreepMatrix(room) {
+	        this.refreshMatrices();
+	        if (!this.creepMatrixCache[room.name]) {
+	            this.creepMatrixCache[room.name] = Traveler.addCreepsToMatrix(room, this.getStructureMatrix(room).clone());
+	        }
+	        return this.creepMatrixCache[room.name];
+	    }
+	    static addCreepsToMatrix(room, matrix) {
+	        room.find(FIND_CREEPS).forEach((creep) => matrix.set(creep.pos.x, creep.pos.y, 0xff));
+	        return matrix;
+	    }
+	    static serializePath(startPos, path) {
+	        let serializedPath = "";
+	        let lastPosition = startPos;
+	        for (let position of path) {
+	            if (position.roomName === lastPosition.roomName) {
+	                serializedPath += lastPosition.getDirectionTo(position);
+	            }
+	            lastPosition = position;
+	        }
+	        return serializedPath;
+	    }
+	    refreshMatrices() {
+	        if (Game.time !== this.currentTick) {
+	            this.currentTick = Game.time;
+	            this.structureMatrixCache = {};
+	            this.creepMatrixCache = {};
+	        }
+	    }
+	    static positionAtDirection(origin, direction) {
+	        let offsetX = [0, 0, 1, 1, 1, 0, -1, -1, -1];
+	        let offsetY = [0, -1, -1, 0, 1, 1, 1, 0, -1];
+	        return new RoomPosition(origin.x + offsetX[direction], origin.y + offsetY[direction], origin.roomName);
+	    }
+	}
+	// exports.Traveler = Traveler;
+
+	// uncomment this to have an instance of traveler available through import
+	// exports.traveler = new Traveler();
+
+	// uncomment to assign an instance to global
+	// global.traveler = new Traveler();
+
+	// uncomment this block to assign a function to Creep.prototype: creep.travelTo(destination)
+	const traveler = new Traveler();
+	Creep.prototype.travelTo = function (destination, options) {
+	    return traveler.travelTo(this, destination, options);
+	};
+	module.exports = traveler;
 
 /***/ }
 /******/ ]);

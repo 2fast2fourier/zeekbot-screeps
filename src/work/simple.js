@@ -42,7 +42,7 @@ class SimpleWorker {
         }
         if(creep.memory.avoidUntil > Game.time && Game.cpu.bucket > 5000){
             var range = 6;
-            return creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
+            var result = creep.moveTo(target, { reusePath: 25, costCallback: (roomName, costMatrix) => {
                 var avoidList = this.catalog.getAvoid({ roomName });
                 if(!avoidList){
                     return;
@@ -63,19 +63,25 @@ class SimpleWorker {
                     }
                 }
             }});
+            this.catalog.profileAdd('avoid', Game.cpu.getUsed() - start);
+            return result;
         }
 
-        if(creep.memory.lastX != creep.pos.x || creep.memory.lastY != creep.pos.y){
-            creep.memory.lastX = creep.pos.x;
-            creep.memory.lastY = creep.pos.y;
-            creep.memory.moveTicks = 0;
-        }else if(creep.memory.moveTicks >= 3){
-            delete creep.memory._move;
+        if(this.simpleMove){
+            if(creep.memory.lastX != creep.pos.x || creep.memory.lastY != creep.pos.y){
+                creep.memory.lastX = creep.pos.x;
+                creep.memory.lastY = creep.pos.y;
+                creep.memory.moveTicks = 0;
+            }else if(creep.memory.moveTicks >= 3){
+                delete creep.memory._move;
+            }else{
+                creep.memory.moveTicks++;
+            }
+            var result = creep.moveTo(target, { reusePath: 50 });
         }else{
-            creep.memory.moveTicks++;
+            var result = creep.travelTo(target, { allowSK: true });
         }
         
-        var result = creep.moveTo(target, { reusePath: 50 });
         this.catalog.profileAdd('move', Game.cpu.getUsed() - start);
         this.catalog.profileAdd('movedCreeps', 1);
         return result;
@@ -83,7 +89,12 @@ class SimpleWorker {
 
     orMove(creep, target, result){
         if(result == ERR_NOT_IN_RANGE){
-            this.move(creep, target);
+            if(this.move(creep, target) == OK){
+                this.catalog.profileAdd('actions', 0.2);
+            }
+        }
+        if(result == OK){
+            this.catalog.profileAdd('actions', 0.2);
         }
         return result;
     }

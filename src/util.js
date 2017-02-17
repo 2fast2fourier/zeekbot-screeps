@@ -101,6 +101,50 @@ function getObjects(idList){
     return _.map(idList, entity => Game.getObjectById(entity));
 }
 
+function cacheMinDistance(roomA, roomB){
+    if(roomA.name == roomB.name){
+        _.set(Memory.cache.dist, roomA.name + '-' + roomB.name, 0);
+        return 0;
+    }
+    var roomRoute = Game.map.findRoute(roomA, roomB);
+    if(_.isNumber(roomRoute) || roomRoute.length < 1){
+        _.set(Memory.cache, ['dist', roomA.name + '-' + roomB.name], 999);
+        console.log('no route found:', roomA.name, roomB.name);
+        return 999;
+    }else{
+        var cost = 0;
+        var lastExit = -1;
+        _.forEach(roomRoute, step => {
+            if(lastExit < 0){
+                lastExit = step.exit;
+                return;
+            }
+            if((step.exit + 4) % 8 == lastExit){
+                cost += 50;
+            }else{
+                cost += 20;
+            }
+            lastExit = step.exit;
+        });
+        _.set(Memory.cache, ['dist', roomA.name + '-' + roomB.name], cost);
+    }
+    return cost;
+}
+
+function getMinDistance(roomA, roomB){
+    if(!roomA || !roomB){
+        return 0;
+    }
+    var dist = _.get(Memory.cache.dist, roomA.name + '-' + roomB.name, -1);
+    if(dist < 0){
+        dist = _.get(Memory.cache.dist, roomB.name + '-' + roomA.name, -1);
+        if(dist < 0){
+            dist = cacheMinDistance(roomA, roomB);
+        }
+    }
+    return dist;
+}
+
 function cacheRoomPos(pos){
     console.log('cacheRoomPos', pos.roomName);
     var roomParts = roomRegex.exec(pos.roomName);
@@ -145,7 +189,8 @@ function getRealDistance(entityA, entityB){
     }
     var posA = calculateRealPosition(entityA.pos);
     var posB = calculateRealPosition(entityB.pos);
-    return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
+    var minDist = getMinDistance(entityA.room, entityB.room);
+    return Math.max(minDist, Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y)));
 }
 
 function notify(type, message){

@@ -44,6 +44,7 @@ class KeepWorker extends BaseWorker {
         }else if(creep.pos.getRangeTo(target) > targetRange){
             this.move(creep, target);
         }else if(creep.pos.getRangeTo(target) < targetRange){
+            //TODO use pathfinder flee
             creep.move((creep.pos.getDirectionTo(target)+4)%8);
         }
     }

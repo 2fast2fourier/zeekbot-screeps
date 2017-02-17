@@ -14,19 +14,20 @@ class Production {
         if(!Util.interval(25, 2)){
             return;
         }
-        var resources = _.filter(_.values(REACTIONS.X), val => val != 'XUHO2');
-        resources.push('G');
-        resources.push('UO');
+        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
+        var resourceList = _.values(REACTIONS.X);//_.filter(, val => val != 'XUHO2');
+        var resources = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
+        resources.G = 5000;
+        resources.UO = 5000;
+        resources.XUHO2 = 5000;
 
         var reactions = {};
         var minCapacity = _.size(Memory.production.labs) * 5;
-        var targetAmount = _.size(this.catalog.buildings.terminal) * 5000;
-        _.forEach(resources, (type) => {
-            this.generateReactions(type, targetAmount - this.catalog.resources[type].total, reactions, true);
+        _.forEach(resources, (amount, type) => {
+            this.generateReactions(type, amount - this.catalog.resources[type].total, reactions, true);
         });
-        // _.forEach(reactions, (data, type) => console.log(type, data.capacity, data.current, data.deficit, data.current / targetAmount));
 
-        Memory.stats.global.reaction = _.sum(_.map(reactions, 'deficit'));
+        Memory.stats.global.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
 
         _.forEach(Memory.reaction, (data, type)=>{
             var deficit = _.get(reactions, [type, 'deficit'], 0);

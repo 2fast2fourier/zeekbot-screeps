@@ -3,28 +3,22 @@
 module.exports = {
     miner: {
         versions: {
-            boost: {
-                allocation: 7,
-                critical: true,
-                parts: { move: 2, carry: 2, work: 2},
-                boost: { UO: 2 }
-            },
-            milli: {
+            energy: {
                 allocation: 7,
                 critical: true,
                 parts: { move: 4, carry: 2, work: 8 }
             },
-            boostmineral: {
-                allocation: 5,
-                quota: 'mine-mineral',
-                parts: { move: 4, carry: 2, work: 4},
-                boost: { UO: 4 },
-                rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
+            milli: {
+                allocation: 7,
+                max: 0,
+                parts: { move: 4, carry: 2, work: 8 }
             },
             mineral: {
                 allocation: 5,
                 quota: 'mine-mineral',
-                parts: { move: 4, carry: 2, work: 8 },
+                parts: { move: 5, carry: 2, work: 8 },
+                boostOptional: true,
+                boost: { UO: 8 },
                 rules: { mine: { subtype: 'mineral' }, drop: { priority: 5 } }
             }
         },
@@ -187,6 +181,7 @@ module.exports = {
             melee: {
                 critical: true,
                 quota: 'keep',
+                memory: { ignoreHealth: true },
                 parts: { tough: 14, move: 17, attack: 15, heal: 4 },
                 actions: { selfheal: {}, assignRoom: { type: 'keep' } }
             },

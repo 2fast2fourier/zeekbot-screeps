@@ -7,6 +7,7 @@ var Catalog = require('./catalog');
 var Misc = require('./misc');
 var Production = require('./production');
 var Util = require('./util');
+var Traveller = require('./traveller');
 
 module.exports.loop = function () {
     PathFinder.use(true);

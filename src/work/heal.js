@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class HealWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'heal', { chatty: true }); }
+    constructor(catalog){ super(catalog, 'heal', { chatty: true, simpleMove: true }); }
 
     calculateAllocation(creep, opts){
         return Math.min(creep.getActiveBodyparts(HEAL), 1);
@@ -18,8 +18,8 @@ class HealWorker extends BaseWorker {
         if(range > 1 && range <= 3){
             creep.rangedHeal(target);
             this.move(creep, target);
-        }else if(creep.heal(target) == ERR_NOT_IN_RANGE){
-            this.move(creep, target);
+        }else{
+            this.orMove(creep, target, creep.heal(target));
         }
     }
 

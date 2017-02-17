@@ -31,8 +31,8 @@ class ReserveWorker extends BaseWorker {
             if(this.orMove(creep, target, creep.claimController(target)) == OK){
                 job.flag.remove();
             }
-        }else if(creep.reserveController(target) == ERR_NOT_IN_RANGE){
-            this.move(creep, target);
+        }else{
+            this.orMove(creep, target, creep.reserveController(target));
         }
     }
 

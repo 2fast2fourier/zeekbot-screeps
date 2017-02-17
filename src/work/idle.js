@@ -3,7 +3,7 @@
 var BaseWorker = require('./base');
 
 class IdleWorker extends BaseWorker {
-    constructor(catalog){ super(catalog, 'idle', { idleTimer: 5 }); }
+    constructor(catalog){ super(catalog, 'idle', { idleTimer: 10 }); }
 
     calculateAllocation(creep, opts){
         return 1;

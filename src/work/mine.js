@@ -14,10 +14,11 @@ class MineWorker extends BaseWorker {
     }
 
     calculateAllocation(creep, opts){
-        if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
-            return 8 * creep.getActiveBodyparts(WORK);
-        }
-        return creep.getActiveBodyparts(WORK);
+        // if(creep.memory.boosted && creep.memory.boosted.XUHO2 > 0){
+        //     return 8 * creep.getActiveBodyparts(WORK);
+        // }
+        // return creep.getActiveBodyparts(WORK);
+        return 8;
     }
 
     calculateBid(creep, opts, job, allocation, distance){

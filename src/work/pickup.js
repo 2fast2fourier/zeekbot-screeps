@@ -48,6 +48,7 @@ class PickupWorker extends BaseWorker {
             this.move(creep, target);
         }else if(result == OK){
             creep.memory.lastSource = target.id;
+            this.catalog.profileAdd('actions', 0.2);
         }
     }
 
