@@ -83,6 +83,7 @@ class Cluster {
 
     static createCluster(id){
         let data = {
+            assignments: {},
             quota: { energyminer: 1, spawnhauler: 1, build: 1, upgrade: 1 },
             work: {},
             tags: {}
@@ -93,7 +94,7 @@ class Cluster {
 
     static addRoom(clusterId, roomName, role){
         _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
-        _.set(Memory, ['rooms', roomName, 'role'], clusterId);
+        _.set(Memory, ['rooms', roomName, 'role'], role);
     }
 
     addTag(tag, id){
@@ -149,13 +150,13 @@ class Cluster {
         return this._roleRooms[role] || [];
     }
 
-    updateQuota(quota){
-        // console.log('quotas', this.id, JSON.stringify(quota));
-        this.quota = quota;
-        Memory.clusters[this.id].quota = quota;
+    update(type, value){
+        this[type] = value;
+        Memory.clusters[this.id][type] = value;
     }
 
 }
+
 Cluster.prototype.ROLE_CORE = 'core';
 Cluster.prototype.ROLE_HARVEST = 'harvest';
 Cluster.prototype.ROLE_RESERVE = 'reserve';

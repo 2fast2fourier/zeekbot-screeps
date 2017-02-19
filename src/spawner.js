@@ -186,9 +186,9 @@ class Spawner {
         }
 
         if(config.assignRoom){
-            //TODO assignments from generated roomLists
-            memory.room = _.first(cluster.getRoomsByRole('core')).name;
+            memory.room = Spawner.getRoomAssignment(cluster, type, config);
             memory.roomtype = config.assignRoom;
+            console.log('Assigned', type, 'to room', memory.room, '-', memory.roomtype);
         }
 
         if(config.memory){
@@ -215,6 +215,33 @@ class Spawner {
             cost += prices[name] * count;
         });
         return cost;
+    }
+
+    static getRoomAssignment(cluster, spawnType, config){
+        return _.first(cluster.getRoomsByRole('core')).name;
+        let type = config.assignRoom;
+
+        let assignments = _.reduce(Game.creeps, (result, creep)=>{
+            if(creep.memory.room && creep.memory.roomtype == type){
+                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
+            }
+            return result;
+        }, {});
+        
+        var least = Infinity;
+        var targetRoom = false;
+        _.forEach(cluster.assignments[type], (target, roomName) => {
+            var assigned = _.get(assignments, roomName, 0) / target;
+            if(assigned < least){
+                least = assigned;
+                targetRoom = roomName;
+            }
+        });
+        if(targetRoom){
+            return targetRoom;
+        }else{
+            return false;
+        }
     }
 
     // static resetBehavior(catalog){

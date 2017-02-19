@@ -47,6 +47,15 @@ module.exports = {
         },
         // behavior: { avoid: {} }
     },
+    harvesthauler: {
+        quota: 'harvesthauler',
+        parts: haulerParts,
+        work: {
+            pickup: { subtype: 'harvest' },
+            deliver: { subtype: 'storage' }
+        },
+        // behavior: { avoid: {} }
+    },
     builderworker: {
         quota: 'build',
         maxQuota: 10000,
@@ -58,7 +67,7 @@ module.exports = {
             nano: { move: 4, carry: 2, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, build: {} },
+        work: { pickup: {}, build: {}, repair: { priority: 99 } },
         // behavior: { avoid: {} }
     },
     upgradeworker: {
@@ -87,5 +96,19 @@ module.exports = {
         },
         work: { pickup: {}, repair: {} },
         behavior: { repair: {} }// avoid: {}, 
+    },
+    observer: {
+        quota: 'observe',
+        parts: { pico: { tough: 1, move: 1 } },
+        work: { observe: {} }
+    },
+    reserver: {
+        quota: 'reserve',
+        allocation: 'claim',
+        parts: {
+            nano: { claim: 2, move: 2 },
+            pico: { claim: 1, move: 1 }
+        },
+        work: { reserve: {} }
     }
 }

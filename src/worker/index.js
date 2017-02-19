@@ -6,8 +6,10 @@ const workerCtors = {
     build: require('./build'),
     deliver: require('./deliver'),
     mine: require('./mine'),
+    observe: require('./observe'),
     pickup: require('./pickup'),
     repair: require('./repair'),
+    reserve: require('./reserve'),
     upgrade: require('./upgrade')
 };
 
@@ -114,9 +116,20 @@ class Worker {
 
     static generateQuota(workers, cluster){
         var quota = {};
+        var assignments = {};
+        let cores = cluster.getRoomsByRole('core');
+
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-        quota.spawnhauler = _.size(cluster.getRoomsByRole('core')) + 1;
-        cluster.updateQuota(quota);
+
+        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
+        quota.spawnhauler = _.sum(assignments.spawn) + 1;
+
+        if(_.size(cluster.structures.storage) > 0){
+            quota.harvesthauler = _.size(cluster.getRoomsByRole('harvest')) * 2;
+        }
+
+        cluster.update('quota', quota);
+        cluster.update('assignments', assignments);
     }
 }
 

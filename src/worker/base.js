@@ -10,15 +10,21 @@ class BaseWorker {
         this.jobs = {};
     }
 
+    genTarget(cluster, subtype, id, args){
+        if(args){
+            return Game.getObjectById(args.id);
+        }else{
+            return Game.getObjectById(id);
+        }
+    }
+
     parseJob(cluster, subtype, id, allocation){
         let args = false;
         let target;
         if(this.args){
             args = _.zipObject(this.args, id.split('-'));
-            target = Game.getObjectById(args.id);
-        }else{
-            target = Game.getObjectById(id);
         }
+        target = this.genTarget(cluster, subtype, id, args);
         let capacity = 0;
         if(target){
             capacity = this.calculateCapacity(cluster, subtype, id, target, args);
@@ -34,13 +40,16 @@ class BaseWorker {
         };
     }
 
-    createJob(cluster, subtype, target, args){
-        let id;
+    createId(cluster, subtype, target, args){
         if(this.args){
-            id = _.map(this.args, argName => argName == 'id' ? target.id : args[argName]).join('-');
+            return _.map(this.args, argName => argName == 'id' ? target.id : args[argName]).join('-');
         }else{
-            id = target.id
+            return target.id
         }
+    }
+
+    createJob(cluster, subtype, target, args){
+        let id = this.createId(cluster, subtype, target, args);
         return {
             capacity: this.calculateCapacity(cluster, subtype, id, target, args),
             allocation: 0,
@@ -89,7 +98,7 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
-            return creep.travelTo(target, { allowSK: true, ignoreCreeps: creep.pos.roomName != target.pos.roomName });
+            return creep.travelTo(target, { allowSK: true, ignoreCreeps: false });
         }
     }
 
