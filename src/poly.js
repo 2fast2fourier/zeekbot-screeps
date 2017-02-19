@@ -284,4 +284,13 @@ module.exports = function(){
         return flagsPrefix[prefix];
     }
 
+    Structure.prototype.getMaxHits = function(){
+        //TODO settings
+        return Math.min(this.hitsMax, 250000);
+    }
+
+    Structure.prototype.getDamage = function(){
+        return Math.max(0, this.getMaxHits() - this.hits);
+    }
+
 };

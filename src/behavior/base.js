@@ -1,35 +1,34 @@
 "use strict";
 
 class BaseAction {
-    constructor(catalog, type){
-        this.catalog = catalog;
+    constructor(type){
         this.type = type;
     }
 
-    preWork(creep, opts){}
+    preWork(cluster, creep, opts){}
 
-    shouldBlock(creep, opts){
+    shouldBlock(cluster, creep, opts){
         return false;
     }
 
-    postWork(creep, opts, action){}
+    postWork(cluster, creep, opts, action){}
 
-    blocked(creep, opts, block){}
+    blocked(cluster, creep, opts, block){}
 
     hasJob(creep){
-        return creep.memory.jobId && creep.memory.jobType;
+        return creep.memory.job && creep.memory.jobType;
     }
 
-    getJobTarget(creep){
-        var job = this.catalog.jobs.getJob(creep.memory.jobType, creep.memory.jobId);
-        if(job && job.target){
-            return job.target;
-        }
-        if(creep.memory.jobId){
-            return Game.getObjectById(creep.memory.jobId);
-        }
-        return false;
-    }
+    // getJobTarget(creep){
+    //     var job = this.catalog.jobs.getJob(creep.memory.jobType, creep.memory.jobId);
+    //     if(job && job.target){
+    //         return job.target;
+    //     }
+    //     if(creep.memory.jobId){
+    //         return Game.getObjectById(creep.memory.jobId);
+    //     }
+    //     return false;
+    // }
 
 }
 

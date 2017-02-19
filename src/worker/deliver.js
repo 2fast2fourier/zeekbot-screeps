@@ -3,16 +3,21 @@
 const BaseWorker = require('./base');
 
 class DeliverWorker extends BaseWorker {
-    constructor(){ super('deliver', { args: ['id', 'resource'] }); }
+    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile'] }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
-        return target.getResource(args.resource);
+        return target.getAvailableCapacity();
     }
 
     spawn(cluster, subtype){
         var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_TOWER]), struct => struct.getAvailableCapacity() > 0);
         return this.jobsForTargets(cluster, subtype, structures, { resource: RESOURCE_ENERGY });
+    }
+
+    stockpile(cluster, subtype){
+        var tagged = cluster.getTaggedStructures();
+        return this.jobsForTargets(cluster, subtype, tagged.stockpile, { resource: RESOURCE_ENERGY });
     }
 
     storage(cluster, subtype){
@@ -21,6 +26,10 @@ class DeliverWorker extends BaseWorker {
     }
 
     /// Creep ///
+
+    allocate(cluster, creep, opts, job){
+        return creep.getResource(job.args.resource);
+    }
 
     jobValid(cluster, job){
         return super.jobValid(cluster, job) && job.target.getAvailableCapacity() > 0;
@@ -34,7 +43,7 @@ class DeliverWorker extends BaseWorker {
         return creep.getStored() > 0;
     }
 
-    calculateBid(cluster, creep, opts, job, allocation, distance){
+    calculateBid(cluster, creep, opts, job, distance){
         if(creep.getResource(job.args.resource) == 0){
             return false;
         }
@@ -46,6 +55,7 @@ class DeliverWorker extends BaseWorker {
             this.move(creep, target);
         }else{
             creep.transfer(target, job.args.resource);
+            creep.memory.lastDeliver = target.id;
         }
     }
 

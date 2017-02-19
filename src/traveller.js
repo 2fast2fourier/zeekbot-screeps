@@ -268,7 +268,7 @@ class Traveler {
         return this.creepMatrixCache[room.name];
     }
     static addCreepsToMatrix(room, matrix) {
-        room.find(FIND_CREEPS).forEach((creep) => matrix.set(creep.pos.x, creep.pos.y, 0xff));
+        room.find(FIND_CREEPS).forEach((creep) => matrix.set(creep.pos.x, creep.pos.y, creep.memory.sitting || 0xff));
         return matrix;
     }
     static serializePath(startPos, path) {

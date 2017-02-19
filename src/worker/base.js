@@ -89,7 +89,7 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
-            return creep.travelTo(target, { allowSK: true });
+            return creep.travelTo(target, { allowSK: true, ignoreCreeps: creep.pos.roomName != target.pos.roomName });
         }
     }
 
@@ -160,7 +160,6 @@ class BaseWorker {
         }
         let subtype = _.get(opts, 'subtype', this.type);
         let jobs = this.generateJobs(cluster, subtype);
-        let allocation = this.allocate(cluster, creep, opts);
         let lowestBid = Infinity;
         return _.reduce(jobs, (result, job) =>{
             if(job.capacity <= _.get(this.hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
@@ -170,10 +169,11 @@ class BaseWorker {
             if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
                 return result;
             }
-            let bid = this.calculateBid(cluster, creep, opts, job, allocation, distance);
+            let bid = this.calculateBid(cluster, creep, opts, job, distance);
             if(bid !== false){
                 bid += _.get(opts, 'priority', 0);
                 if(bid < lowestBid){
+                    let allocation = this.allocate(cluster, creep, opts, job);
                     lowestBid = bid;
                     return { allocation, bid, job, type: this.type, subtype };
                 }

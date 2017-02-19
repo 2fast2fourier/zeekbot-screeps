@@ -12,7 +12,8 @@ class PickupWorker extends BaseWorker {
 
     pickup(cluster, subtype){
         var energy = cluster.findAll(FIND_DROPPED_ENERGY);
-        return this.jobsForTargets(cluster, subtype, energy, { resource: RESOURCE_ENERGY });
+        var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
+        return this.jobsForTargets(cluster, subtype, energy.concat(storage), { resource: RESOURCE_ENERGY });
     }
 
     mineral(cluster, subtype){
@@ -21,6 +22,10 @@ class PickupWorker extends BaseWorker {
     }
 
     /// Creep ///
+
+    allocate(cluster, creep, opts, job){
+        return creep.getAvailableCapacity();
+    }
 
     jobValid(cluster, job){
         return super.jobValid(cluster, job) && job.target.getResource(job.args.resource) > 0;
@@ -34,8 +39,11 @@ class PickupWorker extends BaseWorker {
         return creep.getAvailableCapacity() > 0;
     }
 
-    calculateBid(cluster, creep, opts, job, allocation, distance){
-        return distance / 50;
+    calculateBid(cluster, creep, opts, job, distance){
+        if(job.target.id == creep.memory.lastDeliver){
+            return false;
+        }
+        return distance / 50 + creep.getStored() / creep.getCapacity();
     }
 
     process(cluster, creep, opts, job, target){

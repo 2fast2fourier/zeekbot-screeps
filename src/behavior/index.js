@@ -8,14 +8,14 @@ var MinecartAction = require('./minecart');
 var Repair = require('./repair');
 var SelfHeal = require('./selfheal');
 
-module.exports = function(catalog){
+module.exports = function(){
     return {
-        assignRoom: new AssignRoomAction(catalog),
-        avoid: new Avoid(catalog),
-        boost: new Boost(catalog),
-        energy: new Energy(catalog),
-        minecart: new MinecartAction(catalog),
-        repair: new Repair(catalog),
-        selfheal: new SelfHeal(catalog)
+        // assignRoom: new AssignRoomAction(),
+        // avoid: new Avoid(),
+        // boost: new Boost(),
+        energy: new Energy(),
+        minecart: new MinecartAction(),
+        repair: new Repair(),
+        selfheal: new SelfHeal()
     };
 };

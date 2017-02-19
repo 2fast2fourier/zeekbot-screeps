@@ -16,8 +16,8 @@ class BuildWorker extends BaseWorker {
 
     /// Creep ///
 
-    calculateBid(cluster, creep, opts, job, allocation, distance){
-        return distance / 50;
+    calculateBid(cluster, creep, opts, job, distance){
+        return distance / 50 + (1 - job.target.progress / job.target.progressTotal);
     }
 
     allocate(cluster, creep, opts){

@@ -13,8 +13,8 @@ class Startup {
         }
 
         if(Game.interval(STAT_INTERVAL)){
-            Startup.shortStats();
             Startup.longStats();
+            Startup.shortStats();
         }
     }
 
@@ -56,7 +56,11 @@ class Startup {
     }
 
     static shortStats(){
-
+        _.forEach(Memory.stats.profile, (value, type)=>console.log(type+':', value));
+        Memory.stats = {
+            profile: {},
+            profileCount: {}
+        }
     }
 
     static longStats(){

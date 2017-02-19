@@ -3,21 +3,21 @@
 var BaseAction = require('./base');
 
 class SelfHealAction extends BaseAction {
-    constructor(catalog){
-        super(catalog, 'selfheal');
+    constructor(){
+        super('selfheal');
     }
 
-    shouldBlock(creep, opts){
+    shouldBlock(cluster, creep, opts){
         return opts.block && creep.hits < creep.hitsMax - 200;
     }
 
-    postWork(creep, opts, action){
+    postWork(cluster, creep, opts, action){
         if(!action && creep.hits < creep.hitsMax){
             creep.heal(creep);
         }
     }
 
-    blocked(creep, opts, block){
+    blocked(cluster, creep, opts, block){
         if(creep.hits < creep.hitsMax){
             creep.heal(creep);
         }

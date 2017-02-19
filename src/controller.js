@@ -1,49 +1,50 @@
 "use strict";
 
-var Util = require('./util');
+// var Util = require('./util');
 
-var prices = {
-    X: 0.45
-}
+// var prices = {
+//     X: 0.45
+// }
 
 class Controller {
 
-    static control(catalog){
-        var towers = catalog.buildings.tower;
-        var targets = _.map(catalog.jobs.jobs['defend'], 'target');
-        var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
-        var repairTargets = _.filter(Util.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-        towers.forEach((tower, ix) => {
-            if(!Controller.towerDefend(tower, catalog, targets)){
-                if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
-                    Controller.towerRepair(tower, catalog, repairTargets);
-                }
-            }
-        });
+    static control(cluster){
+        
+        // var towers = catalog.buildings.tower;
+        // var targets = _.map(catalog.jobs.jobs['defend'], 'target');
+        // var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
+        // var repairTargets = _.filter(Game.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
+        // towers.forEach((tower, ix) => {
+        //     if(!Controller.towerDefend(tower, catalog, targets)){
+        //         if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
+        //             Controller.towerRepair(tower, catalog, repairTargets);
+        //         }
+        //     }
+        // });
 
 
-        if(Util.interval(10, 1)){
-            Memory.transfer.reactions = {};
-            _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
-            _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
-        }
+        // if(Util.interval(10, 1)){
+        //     Memory.transfer.reactions = {};
+        //     _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
+        //     _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
+        // }
 
-        if(Util.interval(10, 1) || Memory.boost.update){
-            Memory.boost.stored = {};
-            Memory.boost.labs = {};
-            Memory.boost.rooms = {};
-            _.forEach(Memory.production.boosts, Controller.boost);
-            Memory.boost.update = false;
-        }
+        // if(Util.interval(10, 1) || Memory.boost.update){
+        //     Memory.boost.stored = {};
+        //     Memory.boost.labs = {};
+        //     Memory.boost.rooms = {};
+        //     _.forEach(Memory.production.boosts, Controller.boost);
+        //     Memory.boost.update = false;
+        // }
         
 
-        if(Util.interval(20, 1)){
-            if(!Controller.levelTerminals(catalog)){
-                Controller.sellOverage(catalog);
-            }
-        }
+        // if(Util.interval(20, 1)){
+        //     if(!Controller.levelTerminals(catalog)){
+        //         Controller.sellOverage(catalog);
+        //     }
+        // }
         if(Util.interval(50, 1)){
-            var buildFlags = catalog.getFlagsByPrefix('Build');
+            var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(catalog, flag));
         }
 
@@ -51,16 +52,16 @@ class Controller {
         //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
         // }
 
-        var ix = 0;
-        _.forEach(Memory.watch, (time, roomName)=>{
-            if(Game.time > time){
-                console.log('Ending watch for:', roomName);
-                delete Memory.watch[roomName];
-            }else if(ix < catalog.buildings.observer.length){
-                catalog.buildings.observer[ix].observeRoom(roomName);
-                ix++;
-            }
-        });
+        // var ix = 0;
+        // _.forEach(Memory.watch, (time, roomName)=>{
+        //     if(Game.time > time){
+        //         console.log('Ending watch for:', roomName);
+        //         delete Memory.watch[roomName];
+        //     }else if(ix < catalog.buildings.observer.length){
+        //         catalog.buildings.observer[ix].observeRoom(roomName);
+        //         ix++;
+        //     }
+        // });
     }
 
     static buildFlag(catalog, flag){

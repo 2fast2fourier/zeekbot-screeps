@@ -7,15 +7,19 @@ const workerCtors = {
     deliver: require('./deliver'),
     mine: require('./mine'),
     pickup: require('./pickup'),
+    repair: require('./repair'),
     upgrade: require('./upgrade')
 };
+
+const Behavior = require('../behavior');
 
 class Worker {
     static process(cluster){
         const workers = _.mapValues(workerCtors, ctor => new ctor());
+        const behaviors = Behavior();
         const creeps = _.filter(cluster.creeps, 'ticksToLive');
-        _.forEach(creeps, Worker.validate.bind(this, workers, cluster));
-        _.forEach(creeps, Worker.work.bind(this, workers, cluster));
+        _.forEach(creeps, Worker.validate.bind(this, workers, behaviors, cluster));
+        _.forEach(creeps, Worker.work.bind(this, workers, behaviors, cluster));
 
         if(Game.interval(20) || cluster.requestedQuota){
             Worker.generateQuota(workers, cluster);
@@ -23,7 +27,26 @@ class Worker {
     }
 
     //hydrate, validate, and end jobs
-    static validate(workers, cluster, creep){
+    static validate(workers, behaviors, cluster, creep){
+        if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
+            creep.memory.sitting = Math.min( 256, creep.memory.sitting * 2);
+        }else{
+            creep.memory.sitting = 1;
+        }
+        creep.memory.lx = creep.pos.x;
+        creep.memory.ly = creep.pos.y;
+
+        var behave = _.get(config, [creep.memory.type, 'behavior'], false);
+        if(behave){
+            creep.blocked = _.reduce(behave, (result, opts, type)=>{
+                behaviors[type].preWork(cluster, creep, opts);
+                if(result){
+                    return result;
+                }
+                return behaviors[type].shouldBlock(cluster, creep, opts);
+            }, false);
+        }
+
         let id = creep.memory.job;
         let type = creep.memory.jobType;
         if(id && type){
@@ -46,7 +69,7 @@ class Worker {
     }
 
     //bid and work jobs
-    static work(workers, cluster, creep){
+    static work(workers, behaviors, cluster, creep){
         const workConfig = config[creep.memory.type].work;
         if(!creep.memory.job){
             var lowestBid = Infinity;
@@ -74,11 +97,17 @@ class Worker {
                 // console.log('starting', bidder.job.type, creep.name, bidder.job.id);
             }
         }
-        
-        if(creep.memory.job && creep.job){
-            let job = creep.job;
-            let type = job.type;
-            let result = workers[type].process(cluster, creep, workConfig[type], job, job.target);
+        var behave = _.get(config, [creep.memory.type, 'behavior'], false);
+        if(creep.blocked){
+            behaviors[creep.blocked.type].blocked(cluster, creep, behave[creep.blocked.type], creep.blocked.data);
+        }else{
+            let action = false;
+            if(creep.memory.job && creep.job){
+                let job = creep.job;
+                let type = job.type;
+                action = workers[type].process(cluster, creep, workConfig[type], job, job.target);
+            }
+            _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }
 
     }
@@ -86,7 +115,7 @@ class Worker {
     static generateQuota(workers, cluster){
         var quota = {};
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-        quota.spawnhauler = 1;
+        quota.spawnhauler = _.size(cluster.roleRooms.core) + 1;
         cluster.updateQuota(quota);
     }
 }

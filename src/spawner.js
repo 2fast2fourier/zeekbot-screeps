@@ -118,18 +118,19 @@ class Spawner {
     static getAllocation(config, version){
         let alloc = _.get(config, 'allocation', 1);
         if(_.isString(alloc)){
-            return _.get(config, ['parts', version, alloc], 1);
+            alloc = _.get(config, ['parts', version, alloc], 1);
         }
-        return alloc;
+        alloc *= _.get(config, 'allocationMulti', 1);
+        return Math.min(alloc, _.get(config, 'allocationMax', Infinity));
     }
 
     static calculateRemainingQuota(cluster, type, config, allocation, version){
-        var capacity = _.get(cluster.quota, config.quota, 0);
-        var typeAlloc = Spawner.getAllocation(config, version);
-        var curAlloc = _.get(allocation, config.quota, 0);
-        var creepsNeeded = Math.ceil(capacity/typeAlloc);
-        var existing = Math.ceil(curAlloc/typeAlloc);
-        return Math.min(creepsNeeded, _.get(config, 'max', Infinity)) - existing;
+        var perCreep = Spawner.getAllocation(config, version);
+        var quota = Math.min(_.get(cluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
+        var allocated = _.get(allocation, config.quota, 0);
+        let unmetQuota = quota - allocated;
+        var creepsNeeded = Math.ceil(unmetQuota/perCreep);
+        return creepsNeeded;
     }
 
     static calculateSpawnLimit(cluster, type, config){

@@ -8,6 +8,7 @@ class Cluster {
         this.roleRooms = {};
         this.spawns = [];
         this.maxSpawn = 0;
+        this.maxRCL = 0;
         this._foundAll = {};
         this.creeps = creeps;
         // console.log(JSON.stringify(this));
@@ -21,6 +22,7 @@ class Cluster {
             if(room.energyCapacityAvailable > this.maxSpawn){
                 this.maxSpawn = room.energyCapacityAvailable;
             }
+            this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
         });
     }
 
@@ -34,13 +36,36 @@ class Cluster {
             spawn.cluster = spawn.room.cluster;
             spawn.cluster.spawns.push(spawn);
         }, {});
+        if(Game.interval(25)){
+            Cluster.processClusterFlags();
+        }
+    }
+
+    static processClusterFlags(){
+        let flags = Flag.getByPrefix('tag');
+        _.forEach(flags, flag=>{
+            if(flag.room && flag.room.cluster){
+                let parts = flag.name.split('-');
+                let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType == parts[1]));
+                if(target){
+                    console.log('Tagging', target, parts[2], 'for cluster', flag.room.cluster.id);
+                    flag.room.cluster.addTag(parts[2], target.id);
+                }else{
+                    console.log('Could not find structure', parts[1], 'to tag', parts[2]);
+                }
+            }else{
+                console.log('Cannot tag this room!', flag.pos.roomName, flag.name);
+            }
+            flag.remove();
+        });
     }
 
     static createCluster(id){
         let data = {
             quota: { energyminer: 1, spawnhauler: 1, build: 1, upgrade: 1 },
             roles: {},
-            work: {}
+            work: {},
+            tags: {}
         };
         _.set(Memory, ['clusters', id], data);
         Game.clusters[id] = new Cluster(id, data, []);
@@ -48,6 +73,15 @@ class Cluster {
 
     static addRoom(clusterId, roomName, role){
         Memory.clusters[clusterId].roles[roomName] = role;
+    }
+
+    addTag(tag, id){
+        if(!this.tags[tag]){
+            this.tags[tag] = [];
+        }
+        if(!_.includes(this.tags[tag], id)){
+            this.tags[tag].push(id);
+        }
     }
 
     findAll(type){
@@ -67,8 +101,15 @@ class Cluster {
         return _.filter(this.findAll(FIND_STRUCTURES), struct => _.includes(types, struct.structureType));
     }
 
+    getTaggedStructures(){
+        if(!this._tagged){
+            this._tagged = _.mapValues(this.tags, (list, tag)=>Game.getObjects(list));
+        }
+        return this._tagged;
+    }
+
     updateQuota(quota){
-        console.log('quotas', this.id, JSON.stringify(quota));
+        // console.log('quotas', this.id, JSON.stringify(quota));
         this.quota = quota;
         Memory.clusters[this.id].quota = quota;
     }

@@ -27,12 +27,12 @@ class MineWorker extends BaseWorker {
         return creep.getActiveBodyparts('work');
     }
 
-    calculateBid(cluster, creep, opts, job, allocation, distance){
+    calculateBid(cluster, creep, opts, job, distance){
         return distance / 50;
     }
 
     process(cluster, creep, opts, job, target){
-        if(creep.getStored() > creep.getCapacity() / 2){
+        if(creep.getStored() >= creep.getCapacity() * 0.9){
             _.forEach(creep.getResourceList(), (amount, type)=>creep.drop(type, amount));
         }
         this.orMove(creep, target, creep.harvest(target));
