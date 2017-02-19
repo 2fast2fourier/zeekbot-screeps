@@ -84,7 +84,7 @@ class Controller {
         var type = args[1];
         if(!_.has(CONSTRUCTION_COST, type)){
             console.log('unknown buildflag', type);
-            Game.note('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + pos);
+            Game.note('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + flag.pos);
             flag.remove();
         }
         var gcl = _.get(flag, 'room.controller.level', 0);
@@ -94,7 +94,7 @@ class Controller {
             if(result == OK){
                 flag.remove();
             }else{
-                Game.note('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + pos);
+                Game.note('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + flag.pos);
             }
         }
     }

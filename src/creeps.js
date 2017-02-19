@@ -3,7 +3,7 @@
 var haulerParts = {
     full: { carry: 32, move: 16 },//2400
     micro: { carry: 20, move: 10 },//1500
-    milli: { carry: 10, move: 10 },//1000
+    milli: { carry: 16, move: 8 },//1200
     micro: { carry: 8, move: 8 },//800
     nano: { carry: 5, move: 5 },//550
     pico: { carry: 3, move: 3 }//300
@@ -50,6 +50,7 @@ module.exports = {
     harvesthauler: {
         quota: 'harvesthauler',
         parts: haulerParts,
+        assignRoom: 'harvest',
         work: {
             pickup: { subtype: 'harvest' },
             deliver: { subtype: 'storage' }

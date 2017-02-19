@@ -7,6 +7,9 @@ class UpgradeWorker extends BaseWorker {
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
+        if(target.level < 8 && target.progress < 10000){
+            return 5;
+        }
         if(cluster.maxRCL == 8){
             return 15;
         }
@@ -21,6 +24,10 @@ class UpgradeWorker extends BaseWorker {
     }
 
     /// Creep ///
+
+    allocate(cluster, creep, opts){
+        return creep.getActiveBodyparts('work');
+    }
 
     calculateBid(cluster, creep, opts, job, distance){
         return distance / 50 + (1 - creep.carry.energy / creep.carryCapacity);

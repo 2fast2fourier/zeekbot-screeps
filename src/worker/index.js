@@ -118,14 +118,17 @@ class Worker {
         var quota = {};
         var assignments = {};
         let cores = cluster.getRoomsByRole('core');
+        let harvest = cluster.getRoomsByRole('harvest');
 
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
         assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
+        assignments.harvest = _.zipObject(_.map(harvest, 'name'), new Array(harvest.length).fill(2));
+
         quota.spawnhauler = _.sum(assignments.spawn) + 1;
 
         if(_.size(cluster.structures.storage) > 0){
-            quota.harvesthauler = _.size(cluster.getRoomsByRole('harvest')) * 2;
+            quota.harvesthauler = _.sum(assignments.spawn);
         }
 
         cluster.update('quota', quota);

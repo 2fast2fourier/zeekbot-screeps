@@ -1101,7 +1101,7 @@ module.exports =
 	        var type = args[1];
 	        if(!_.has(CONSTRUCTION_COST, type)){
 	            console.log('unknown buildflag', type);
-	            Game.note('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + pos);
+	            Game.note('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + flag.pos);
 	            flag.remove();
 	        }
 	        var gcl = _.get(flag, 'room.controller.level', 0);
@@ -1111,7 +1111,7 @@ module.exports =
 	            if(result == OK){
 	                flag.remove();
 	            }else{
-	                Game.note('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + pos);
+	                Game.note('buildFlagFailed', 'Failed to buildFlag: ' + type + '-' + flag.pos);
 	            }
 	        }
 	    }
@@ -1642,7 +1642,7 @@ module.exports =
 	var haulerParts = {
 	    full: { carry: 32, move: 16 },//2400
 	    micro: { carry: 20, move: 10 },//1500
-	    milli: { carry: 10, move: 10 },//1000
+	    milli: { carry: 16, move: 8 },//1200
 	    micro: { carry: 8, move: 8 },//800
 	    nano: { carry: 5, move: 5 },//550
 	    pico: { carry: 3, move: 3 }//300
@@ -1689,6 +1689,7 @@ module.exports =
 	    harvesthauler: {
 	        quota: 'harvesthauler',
 	        parts: haulerParts,
+	        assignRoom: 'harvest',
 	        work: {
 	            pickup: { subtype: 'harvest' },
 	            deliver: { subtype: 'storage' }
@@ -1876,14 +1877,17 @@ module.exports =
 	        var quota = {};
 	        var assignments = {};
 	        let cores = cluster.getRoomsByRole('core');
+	        let harvest = cluster.getRoomsByRole('harvest');
 
 	        _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
 	        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
+	        assignments.harvest = _.zipObject(_.map(harvest, 'name'), new Array(harvest.length).fill(2));
+
 	        quota.spawnhauler = _.sum(assignments.spawn) + 1;
 
 	        if(_.size(cluster.structures.storage) > 0){
-	            quota.harvesthauler = _.size(cluster.getRoomsByRole('harvest')) * 2;
+	            quota.harvesthauler = _.sum(assignments.spawn);
 	        }
 
 	        cluster.update('quota', quota);
@@ -2390,6 +2394,9 @@ module.exports =
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
+	        if(target.level < 8 && target.progress < 10000){
+	            return 5;
+	        }
 	        if(cluster.maxRCL == 8){
 	            return 15;
 	        }
@@ -2404,6 +2411,10 @@ module.exports =
 	    }
 
 	    /// Creep ///
+
+	    allocate(cluster, creep, opts){
+	        return creep.getActiveBodyparts('work');
+	    }
 
 	    calculateBid(cluster, creep, opts, job, distance){
 	        return distance / 50 + (1 - creep.carry.energy / creep.carryCapacity);
