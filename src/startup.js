@@ -3,6 +3,8 @@
 let VERSION = 1;
 let STAT_INTERVAL = 100;
 
+const Cluster = require('./cluster');
+
 class Startup {
     static start(){
         var ver = _.get(Memory, 'ver', 0);
@@ -25,11 +27,13 @@ class Startup {
         switch(ver){
             case 1:
             Memory.clusters = {};
+            Memory.uid = 1;
             if(Memory.memoryVersion){
                 console.log('Converting last-gen memory!');
                 Startup.convert();
                 delete Memory.memoryVersion;
             }
+            Memory.stats = { profile: {}, profileCount: {}};
             Memory.jobs = {};
             //TODO init memory
             // case 2:
@@ -51,12 +55,46 @@ class Startup {
         Game.notify('Successfully migrated from version '+ver+' to '+version);
     }
 
-    shortStats(){
+    static shortStats(){
 
     }
 
-    longStats(){
+    static longStats(){
 
+    }
+
+    static processFlags(){
+        let flags = Flag.getByPrefix('act');
+        // console.log(flags, Flag.getByPrefix);
+        _.forEach(flags, flag =>{
+            let parts = flag.name.split('-');
+            switch(parts[1]){
+                case 'newcluster':
+                    if(!parts[2]){
+                        console.log('Missing cluster name!');
+                    }else{
+                        Cluster.createCluster(parts[2]);
+                        console.log('Created cluster:', parts[2]);
+                    }
+                    flag.remove();
+                    break;
+                case 'cluster':
+                    let cluster = Game.clusters[parts[2]];
+                    if(!cluster){
+                        console.log('Invalid cluster name!', parts[2]);
+                    }else{
+                        let role = parts.length > 3 ? parts[3] : 'harvest';
+                        Cluster.addRoom(cluster.id, flag.pos.roomName, role);
+                        console.log('Added', flag.pos.roomName, 'to cluster', cluster.id, 'role:', role);
+                    }
+                    flag.remove();
+                    break;
+                default:
+                    console.log('Unknown action:', parts[1]);
+                    flag.remove();
+                    break;
+            }
+        });
     }
 }
 

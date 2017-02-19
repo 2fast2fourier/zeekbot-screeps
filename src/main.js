@@ -1,16 +1,49 @@
 "use strict";
 
-var Startup = require('./startup');
 var Poly = require('./poly');
+var Startup = require('./startup');
 var Traveller = require('./traveller');
+var Cluster = require('./cluster');
+var Spawner = require('./spawner');
+var Worker = require('./worker');
+// var Production = require('./production');
 
 module.exports.loop = function () {
+    //// Startup ////
     PathFinder.use(true);
+    Poly();
     Startup.start();
-    Game.profile('memory', Game.cpu.getUsed());
     
-    Misc.mourn();
+    for(var name in Memory.creeps) {
+        if(!Game.creeps[name]) {
+            delete Memory.creeps[name];
+        }
+    }
+    Game.profile('memory', Game.cpu.getUsed());
+    Cluster.init();
 
+    if(Game.interval(10)){
+        Startup.processFlags();
+    }
+
+    //// Process ////
+
+    _.forEach(Game.clusters, (cluster, name) =>{
+        Worker.process(cluster);
+    });
+
+    if(Game.interval(5)){
+        _.forEach(Game.clusters, (cluster, name) =>{
+            Spawner.process(cluster);
+        });
+    }
+
+    // if(Game.interval(20)){
+        //TODO fix production to not rely on catalog
+    //     Production.process();
+    // }
+    
+    //// Wrapup ////
     Game.finishProfile();
     Game.profile('cpu', Game.cpu.getUsed());
 
