@@ -67,7 +67,7 @@ module.exports = {
         parts: {
             micro: { move: 7, carry: 4, work: 10 },//1550
             milli: { move: 10, carry: 6, work: 4 },//1200
-            micro: { move: 7, carry: 5, work: 2 },//800
+            micro: { move: 4, carry: 4, work: 4 },//800
             nano: { move: 3, carry: 4, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },

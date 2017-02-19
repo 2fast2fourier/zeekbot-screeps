@@ -10,14 +10,14 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.maxRCL == 8){
             return 15;
         }
-        if(cluster.maxRCL > 3){
+        if(cluster.maxRCL > 2){
             return 10;
         }
         return 5;
     }
 
     upgrade(cluster, subtype){
-        return this.jobsForTargets(cluster, subtype, _.map(cluster.roleRooms.core, 'controller'));
+        return this.jobsForTargets(cluster, subtype, _.map(cluster.getRoomsByRole('core'), 'controller'));
     }
 
     /// Creep ///

@@ -43,6 +43,7 @@ module.exports = function(){
 
     Game.note = function note(type, message){
         if(_.get(Memory, ['notify', type], 0) < Game.time){
+            console.log(message);
             Game.notify(message);
             _.set(Memory, ['notify', type], Game.time + 5000);
         }
@@ -166,6 +167,14 @@ module.exports = function(){
     Room.prototype.lookForRadius = function lookForRadius(pos, type, radius){
         return _.map(this.lookForAtArea(type, Math.max(0, pos.y - radius), Math.max(0, pos.x - radius), Math.min(49, pos.y + radius), Math.min(49, pos.x + radius), true), type);
     };
+
+    Room.prototype.hasCluster = function(){
+        return this.memory.cluster && Game.clusters[this.memory.cluster];
+    }
+
+    Room.prototype.getCluster = function(){
+        return Game.clusters[this.memory.cluster];
+    }
 
     ///
     /// Position Helpers

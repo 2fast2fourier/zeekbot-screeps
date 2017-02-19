@@ -115,7 +115,7 @@ class Worker {
     static generateQuota(workers, cluster){
         var quota = {};
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-        quota.spawnhauler = _.size(cluster.roleRooms.core) + 1;
+        quota.spawnhauler = _.size(cluster.getRoomsByRole('core')) + 1;
         cluster.updateQuota(quota);
     }
 }

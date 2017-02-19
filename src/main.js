@@ -3,7 +3,9 @@
 var Poly = require('./poly');
 var Startup = require('./startup');
 var Traveller = require('./traveller');
+
 var Cluster = require('./cluster');
+var Controller = require('./controller');
 var Spawner = require('./spawner');
 var Worker = require('./worker');
 // var Production = require('./production');
@@ -30,13 +32,14 @@ module.exports.loop = function () {
 
     _.forEach(Game.clusters, (cluster, name) =>{
         Worker.process(cluster);
+        
+        if(Game.interval(5)){
+            Spawner.process(cluster);
+        }
+
+        Controller.control(cluster);
     });
 
-    if(Game.interval(5)){
-        _.forEach(Game.clusters, (cluster, name) =>{
-            Spawner.process(cluster);
-        });
-    }
 
     // if(Game.interval(20)){
         //TODO fix production to not rely on catalog

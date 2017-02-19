@@ -48,7 +48,7 @@ class Spawner {
     }
 
     static attemptSpawn(cluster, spawnlist, type, count){
-        _.find(cluster.spawns, spawn =>{
+        _.find(cluster.structures.spawn, spawn =>{
             if(Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
                 Spawner.spawnCreep(cluster, spawn, spawnlist, type);
             }
@@ -187,7 +187,7 @@ class Spawner {
 
         if(config.assignRoom){
             //TODO assignments from generated roomLists
-            memory.room = _.first(cluster.roleRooms.core).name;
+            memory.room = _.first(cluster.getRoomsByRole('core')).name;
             memory.roomtype = config.assignRoom;
         }
 
