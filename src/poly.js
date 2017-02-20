@@ -270,7 +270,7 @@ module.exports = function(){
     }
 
     RoomPosition.prototype.getLinearDistance = function getLinearDistance(entity){
-        var target = entity.getPos();
+        var target = entity instanceof RoomPosition ? entity : entity.pos;
         var posA = this.getWorldPosition();
         var posB = target.getWorldPosition();
         return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));

@@ -4,6 +4,7 @@ const config = require('../creeps');
 
 const workerCtors = {
     build: require('./build'),
+    defend: require('./defend'),
     deliver: require('./deliver'),
     mine: require('./mine'),
     observe: require('./observe'),
@@ -128,7 +129,7 @@ class Worker {
         quota.spawnhauler = _.sum(assignments.spawn) + 1;
 
         if(_.size(cluster.structures.storage) > 0){
-            quota.harvesthauler = _.sum(assignments.spawn);
+            quota.harvesthauler = _.sum(assignments.harvest);
         }
 
         cluster.update('quota', quota);

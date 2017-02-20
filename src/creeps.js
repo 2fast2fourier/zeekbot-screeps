@@ -10,6 +10,16 @@ var haulerParts = {
 };
 
 module.exports = {
+    defender: {
+        quota: 'defend',
+        critical: true,
+        parts: {
+            micro: { tough: 3, move: 11, ranged_attack: 8 },
+            nano: { tough: 5, move: 10, ranged_attack: 5 },
+            pico: { tough: 5, move: 7, ranged_attack: 2 }
+        },
+        work: { defend: {} }
+    },
     energyminer: {
         quota: 'energy-mine',
         critical: true,
@@ -22,7 +32,7 @@ module.exports = {
             pico: { move: 1, carry: 1, work: 2 }//300
         },
         work: { mine: { subtype: 'energy' } },
-        behavior: { minecart: {} }// avoid: {}, 
+        behavior: { minecart: {} }// avoid: {},
     },
     spawnhauler: {
         quota: 'spawnhauler',
@@ -76,8 +86,8 @@ module.exports = {
         allocation: 'work',
         parts: {
             micro: { move: 7, carry: 4, work: 10 },//1550
-            milli: { move: 10, carry: 6, work: 4 },//1200
-            micro: { move: 4, carry: 4, work: 4 },//800
+            milli: { move: 6, carry: 6, work: 5 },//1200
+            micro: { move: 4, carry: 2, work: 5 },//800
             nano: { move: 3, carry: 4, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },

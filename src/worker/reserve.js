@@ -42,6 +42,19 @@ class ReserveWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
+        if(Game.interval(25)){
+            let flag = Game.flags['Claim'];
+            if(flag && creep.pos.getRangeTo(target) <= 1 && flag.pos.roomName == target.pos.roomName){
+                let result = creep.claimController(target);
+                if(result == OK){
+                    console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
+                    cluster.changeRole(target.pos.roomName, 'core');
+                }else{
+                    console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);
+                }
+                flag.remove();
+            }
+        }
         this.orMove(creep, target, creep.reserveController(target));
     }
 

@@ -48,12 +48,13 @@ class Spawner {
     }
 
     static attemptSpawn(cluster, spawnlist, type, count){
+        var spawned = false;
         _.find(cluster.structures.spawn, spawn =>{
             if(Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-                Spawner.spawnCreep(cluster, spawn, spawnlist, type);
+                spawned = Spawner.spawnCreep(cluster, spawn, spawnlist, type);
             }
         });
-        return true;
+        return spawned;
     }
 
     static generateSpawnList(cluster){

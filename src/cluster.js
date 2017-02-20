@@ -97,6 +97,10 @@ class Cluster {
         _.set(Memory, ['rooms', roomName, 'role'], role);
     }
 
+    changeRole(roomName, newRole){
+        Cluster.addRoom(this.id, roomName, newRole);
+    }
+
     addTag(tag, id){
         if(!this.tags[tag]){
             this.tags[tag] = [];
