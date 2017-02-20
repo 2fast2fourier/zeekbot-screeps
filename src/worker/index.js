@@ -124,7 +124,7 @@ class Worker {
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
         assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
-        assignments.harvest = _.zipObject(_.map(harvest, 'name'), new Array(harvest.length).fill(2));
+        assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
 
         quota.spawnhauler = _.sum(assignments.spawn) + 1;
 

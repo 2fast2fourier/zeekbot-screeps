@@ -1,10 +1,6 @@
 "use strict";
 
-// var Util = require('./util');
-
-// var prices = {
-//     X: 0.45
-// }
+const Util = require('./util');
 
 class Controller {
 
@@ -18,6 +14,15 @@ class Controller {
                 }
             }
         });
+
+        if(Game.interval(10)){
+            Controller.linkTransfer(cluster);
+        }
+
+        if(Game.interval(50, 1)){
+            var buildFlags = Flag.getByPrefix('Build');
+            _.forEach(buildFlags, flag => Controller.buildFlag(cluster, flag));
+        }
         
         // var towers = catalog.buildings.tower;
         // var targets = _.map(catalog.jobs.jobs['defend'], 'target');
@@ -31,10 +36,8 @@ class Controller {
         //     }
         // });
 
-
         // if(Util.interval(10, 1)){
         //     Memory.transfer.reactions = {};
-        //     _.forEach(Memory.linkTransfer, (target, source) => Controller.linkTransfer(source, target, catalog));
         //     _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
         // }
 
@@ -52,11 +55,6 @@ class Controller {
         //         Controller.sellOverage(catalog);
         //     }
         // }
-
-        if(Game.interval(50, 1)){
-            var buildFlags = Flag.getByPrefix('Build');
-            _.forEach(buildFlags, flag => Controller.buildFlag(cluster, flag));
-        }
 
         // if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
         //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
@@ -99,6 +97,20 @@ class Controller {
         }
     }
 
+    static linkTransfer(cluster){
+        let tags = cluster.getTaggedStructures();
+        let linkInput = _.groupBy(tags.input, 'pos.roomName');
+        _.forEach(tags.output, target => {
+            if(target.energy < target.energyCapacity - 50){
+                let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0);
+                if(sources.length > 0){
+                    let source = _.first(_.sortBy(sources, src => -src.energy));
+                    source.transferEnergy(target, Math.min(source.energy, target.energyCapacity - target.energy));
+                }
+            }
+        });
+    }
+
     // static towerDefend(tower, catalog, targets) {
     //     var hostiles = _.filter(targets, target => tower.pos.roomName == target.pos.roomName);
     //     if(hostiles.length == 0){
@@ -133,28 +145,6 @@ class Controller {
     //     if(targets.length > 0) {
     //         var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
     //         tower.repair(damaged[0]);
-    //     }
-    // }
-
-    // static linkTransfer(sourceId, targetId, catalog){
-    //     var minimumNeed = 50;
-    //     var source = Game.getObjectById(sourceId);
-    //     var target;
-    //     if(_.isObject(targetId)){
-    //         target = Game.getObjectById(targetId.target);
-    //         minimumNeed = targetId.minimumNeed || 50;
-    //     }else{
-    //         target = Game.getObjectById(targetId);
-    //     }
-    //     if(!source || !target){
-    //         Util.notify('invalidlink', 'invalid linkTransfer: ' + source + ' ' + target);
-    //         console.log('invalid linkTransfer', source, target);
-    //         return false;
-    //     }
-    //     var need = catalog.getAvailableCapacity(target);
-    //     var sourceEnergy = catalog.getResource(source, RESOURCE_ENERGY);
-    //     if(source && need >= minimumNeed && source.cooldown == 0 && need > 0 && sourceEnergy > 0){
-    //         source.transferEnergy(target, Math.min(sourceEnergy, need));
     //     }
     // }
 

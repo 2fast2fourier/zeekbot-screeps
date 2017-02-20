@@ -69,7 +69,6 @@ class Startup {
 
     static processFlags(){
         let flags = Flag.getByPrefix('act');
-        // console.log(flags, Flag.getByPrefix);
         _.forEach(flags, flag =>{
             let parts = flag.name.split('-');
             switch(parts[1]){
@@ -87,7 +86,7 @@ class Startup {
                     let cluster = Game.clusters[parts[2]];
                     if(!cluster){
                         console.log('Invalid cluster name!', parts[2]);
-                    }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != parts[2]){
+                    }else if(_.get(Memory, ['rooms', flag.pos.roomName, 'cluster'], false) != parts[2]){
                         let role = parts.length > 3 ? parts[3] : 'harvest';
                         Cluster.addRoom(cluster.id, flag.pos.roomName, role);
                         console.log('Added', flag.pos.roomName, 'to cluster', cluster.id, 'role:', role);

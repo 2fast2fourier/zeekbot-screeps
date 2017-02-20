@@ -98,6 +98,7 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
+            // return creep.moveTo(target, { reusePath: 50 });
             return creep.travelTo(target, { allowSK: true, ignoreCreeps: false });
         }
     }

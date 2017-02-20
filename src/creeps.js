@@ -20,6 +20,17 @@ module.exports = {
         },
         work: { defend: {} }
     },
+    spawnhauler: {
+        quota: 'spawnhauler',
+        critical: true,
+        assignRoom: 'spawn',
+        parts: haulerParts,
+        work: { 
+            pickup: { local: true },
+            deliver: { subtype: 'spawn', local: true }
+        },
+        // behavior: { avoid: {} }
+    },
     energyminer: {
         quota: 'energy-mine',
         critical: true,
@@ -33,17 +44,6 @@ module.exports = {
         },
         work: { mine: { subtype: 'energy' } },
         behavior: { minecart: {} }// avoid: {},
-    },
-    spawnhauler: {
-        quota: 'spawnhauler',
-        critical: true,
-        assignRoom: 'spawn',
-        parts: haulerParts,
-        work: { 
-            pickup: { local: true },
-            deliver: { subtype: 'spawn', local: true }
-        },
-        // behavior: { avoid: {} }
     },
     stockpilehauler: {
         quota: 'stockpile-deliver',
@@ -116,7 +116,9 @@ module.exports = {
     reserver: {
         quota: 'reserve',
         allocation: 'claim',
+        allocationMax: 2,
         parts: {
+            micro: { claim: 4, move: 4 },
             nano: { claim: 2, move: 2 },
             pico: { claim: 1, move: 1 }
         },

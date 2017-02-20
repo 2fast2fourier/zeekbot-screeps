@@ -7,7 +7,7 @@ class UpgradeWorker extends BaseWorker {
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
-        if(cluster.maxRCL >= 5){
+        if(cluster.maxRCL == 8){
             return 15;
         }
         if(cluster.maxRCL > 2){

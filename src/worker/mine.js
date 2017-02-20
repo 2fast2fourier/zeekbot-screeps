@@ -32,10 +32,11 @@ class MineWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(creep.getStored() >= creep.getCapacity() * 0.9){
-            _.forEach(creep.getResourceList(), (amount, type)=>creep.drop(type, amount));
+        if(creep.pos.getRangeTo(target) > 1){
+            this.move(creep, target);
+        }else{
+            creep.harvest(target);
         }
-        this.orMove(creep, target, creep.harvest(target));
     }
 
 }

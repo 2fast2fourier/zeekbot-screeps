@@ -219,7 +219,6 @@ class Spawner {
     }
 
     static getRoomAssignment(cluster, spawnType, config){
-        return _.first(cluster.getRoomsByRole('core')).name;
         let type = config.assignRoom;
 
         let assignments = _.reduce(Game.creeps, (result, creep)=>{

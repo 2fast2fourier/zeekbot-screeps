@@ -62,6 +62,7 @@ class Cluster {
         }
     }
 
+    //tag-container-stockpile
     static processClusterFlags(){
         let flags = Flag.getByPrefix('tag');
         _.forEach(flags, flag=>{

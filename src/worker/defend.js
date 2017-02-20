@@ -9,11 +9,11 @@ class DefendWorker extends BaseWorker {
 
     defend(cluster, subtype){
         let hostiles = cluster.findAll(FIND_HOSTILE_CREEPS);
-        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => target.room.memory.role != 'core' && _.get(target, 'owner.username', false) != 'Source Keeper'));
+        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) != 'Source Keeper'));
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
-        return 2;
+        return 1;
     }
 
     /// Creep ///
