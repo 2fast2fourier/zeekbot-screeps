@@ -1,8 +1,8 @@
 "use strict";
 
 var haulerParts = {
-    full: { carry: 32, move: 16 },//2400
-    micro: { carry: 20, move: 10 },//1500
+    mega: { carry: 32, move: 16 },//2400
+    kilo: { carry: 24, move: 12 },//1500
     milli: { carry: 16, move: 8 },//1200
     micro: { carry: 8, move: 8 },//800
     nano: { carry: 5, move: 5 },//550
@@ -47,9 +47,8 @@ module.exports = {
     },
     stockpilehauler: {
         quota: 'stockpile-deliver',
-        maxQuota: 4000,
         allocation: 'carry',
-        allocationMulti: 200,
+        allocationMulti: 50,
         parts: haulerParts,
         work: { 
             pickup: {},
@@ -59,6 +58,7 @@ module.exports = {
     },
     harvesthauler: {
         quota: 'harvesthauler',
+        allocation: 'carry',
         parts: haulerParts,
         assignRoom: 'harvest',
         work: {
@@ -66,6 +66,17 @@ module.exports = {
             deliver: { subtype: 'storage' }
         },
         // behavior: { avoid: {} }
+    },
+    reserver: {
+        quota: 'reserve',
+        allocation: 'claim',
+        allocationMax: 2,
+        parts: {
+            micro: { claim: 4, move: 4 },
+            nano: { claim: 2, move: 2 },
+            pico: { claim: 1, move: 1 }
+        },
+        work: { reserve: {} }
     },
     builderworker: {
         quota: 'build',
@@ -85,22 +96,22 @@ module.exports = {
         quota: 'upgrade',
         allocation: 'work',
         parts: {
-            micro: { move: 7, carry: 4, work: 10 },//1550
+            kilo: { move: 6, carry: 2, work: 10 },//1400
             milli: { move: 6, carry: 6, work: 5 },//1200
             micro: { move: 4, carry: 2, work: 5 },//800
             nano: { move: 3, carry: 4, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: {}, upgrade: {} },
-        // behavior: { avoid: {} }
+        behavior: { energy: {} }
     },
     repairworker: {
         quota: 'repair',
         allocation: 'work',
         allocationMulti: 10000,
-        maxQuota: 40000,
+        maxQuota: 200000,
         parts: {
-            milli: { move: 10, carry: 6, work: 4 },//1200
+            milli: { move: 6, carry: 7, work: 5 },//1150
             micro: { move: 7, carry: 5, work: 2 },//800
             nano: { move: 5, carry: 4, work: 1 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
@@ -112,16 +123,5 @@ module.exports = {
         quota: 'observe',
         parts: { pico: { tough: 1, move: 1 } },
         work: { observe: {} }
-    },
-    reserver: {
-        quota: 'reserve',
-        allocation: 'claim',
-        allocationMax: 2,
-        parts: {
-            micro: { claim: 4, move: 4 },
-            nano: { claim: 2, move: 2 },
-            pico: { claim: 1, move: 1 }
-        },
-        work: { reserve: {} }
     }
 }

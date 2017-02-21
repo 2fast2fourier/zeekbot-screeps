@@ -67,38 +67,56 @@ class Startup {
 
     }
 
-    static processFlags(){
-        let flags = Flag.getByPrefix('act');
-        _.forEach(flags, flag =>{
-            let parts = flag.name.split('-');
-            switch(parts[1]){
-                case 'newcluster':
-                    if(!parts[2]){
-                        console.log('Missing cluster name!');
-                    }else{
-                        Cluster.createCluster(parts[2]);
-                        console.log('Created cluster:', parts[2]);
-                    }
-                    flag.remove();
-                    break;
-                case 'cluster':
-                //act-cluster-Home-harvest
-                    let cluster = Game.clusters[parts[2]];
-                    if(!cluster){
-                        console.log('Invalid cluster name!', parts[2]);
-                    }else if(_.get(Memory, ['rooms', flag.pos.roomName, 'cluster'], false) != parts[2]){
-                        let role = parts.length > 3 ? parts[3] : 'harvest';
-                        Cluster.addRoom(cluster.id, flag.pos.roomName, role);
-                        console.log('Added', flag.pos.roomName, 'to cluster', cluster.id, 'role:', role);
-                    }
-                    flag.remove();
-                    break;
-                default:
-                    console.log('Unknown action:', parts[1]);
-                    flag.remove();
-                    break;
-            }
-        });
+    static processActions(){
+        if(!Memory.action){
+            return;
+        }
+        console.log('Processing:', Memory.action);
+        let parts = Memory.action.split('-');
+        let roomName = parts[0];
+        let room = Game.rooms[roomName];
+        if(!room){
+            delete Memory.action;
+            console.log('Invalid room:', roomName);
+            return;
+        }
+        switch(parts[1]){
+            case 'newcluster':
+                if(!parts[2]){
+                    console.log('Missing cluster name!');
+                }else{
+                    Cluster.createCluster(parts[2]);
+                    console.log('Created cluster:', parts[2]);
+                }
+                break;
+            case 'cluster':
+            //room-cluster-Home-harvest
+                let cluster = Game.clusters[parts[2]];
+                if(!cluster){
+                    console.log('Invalid cluster name!', parts[2]);
+                }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != parts[2]){
+                    let role = parts.length > 3 ? parts[3] : 'harvest';
+                    Cluster.addRoom(cluster.id, roomName, role);
+                    console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
+                }
+                break;
+            case 'reassign':
+                if(!parts[2]){
+                    console.log('Missing cluster name!');
+                }else{
+                    Cluster.addRoom(parts[2], roomName, parts[3]);
+                    _.forEach(room.find(FIND_MY_CREEPS), creep => {
+                        creep.memory.cluster = parts[2];
+                    });
+                    console.log('Reassigned room to cluster:', parts[2], roomName, parts[3]);
+                }
+                break;
+            default:
+                console.log('Unknown action:', parts[1]);
+                break;
+        }
+        console.log('Finished:', Memory.action);
+        delete Memory.action;
     }
 }
 

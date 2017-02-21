@@ -50,7 +50,7 @@ class Spawner {
     static attemptSpawn(cluster, spawnlist, type, count){
         var spawned = false;
         _.find(cluster.structures.spawn, spawn =>{
-            if(Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
+            if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
                 spawned = Spawner.spawnCreep(cluster, spawn, spawnlist, type);
             }
         });
@@ -73,11 +73,11 @@ class Spawner {
             let maxCost = 0;
             let version = false;
             let partSet = false;
-            _.forEach(config.parts, (parts, type) => {
+            _.forEach(config.parts, (parts, ver) => {
                 let cost = Spawner.calculateCost(parts);
                 if(cost > maxCost && cost <= cluster.maxSpawn){
                     maxCost = cost;
-                    version = type;
+                    version = ver;
                     partSet = parts;
                 }
             });

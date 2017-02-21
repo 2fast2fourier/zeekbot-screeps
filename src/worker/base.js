@@ -2,6 +2,7 @@
 
 class BaseWorker {
     constructor(type, opts){
+        this.range = 1;
         if(opts){
             Object.assign(this, opts);
         }
@@ -99,7 +100,7 @@ class BaseWorker {
             return creep.moveTo(target, { reusePath: 50 });
         }else{
             // return creep.moveTo(target, { reusePath: 50 });
-            return creep.travelTo(target, { allowSK: true, ignoreCreeps: false });
+            return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, range: this.range });
         }
     }
 

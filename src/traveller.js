@@ -4,7 +4,7 @@
  */
 // const REPORT_CPU_THRESHOLD = 50;
 const DEFAULT_MAXOPS = 40000;
-const DEFAULT_STUCK_VALUE = 5;
+const DEFAULT_STUCK_VALUE = 3;
 class Traveler {
     constructor() {
         // change this memory path to suit your needs
@@ -209,6 +209,7 @@ class Traveler {
                     console.log(`attempting path without findRoute was ${ret.incomplete ? "not" : ""} successful`);
                 }
             }
+            travelData.end = _.last(ret.path);
             travelData.path = Traveler.serializePath(creep.pos, ret.path);
             travelData.stuck = 0;
         }
@@ -268,7 +269,12 @@ class Traveler {
         return this.creepMatrixCache[room.name];
     }
     static addCreepsToMatrix(room, matrix) {
-        room.find(FIND_MY_CREEPS).forEach((creep) => matrix.set(creep.pos.x, creep.pos.y, creep.memory.sitting || 0xff));
+        room.find(FIND_MY_CREEPS).forEach((creep) => {
+            if(creep.memory._travel && creep.memory._travel.end && creep.memory._travel.tick >= Game.time - 1){
+                matrix.set(creep.memory._travel.end.x, creep.memory._travel.end.y, 0x10);
+            }
+            matrix.set(creep.pos.x, creep.pos.y, creep.memory.sitting || 0xff);
+        });
         return matrix;
     }
     static serializePath(startPos, path) {

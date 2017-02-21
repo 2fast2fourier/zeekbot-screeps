@@ -7,10 +7,17 @@ class Controller {
     static control(cluster){
 
         _.forEach(cluster.structures.tower, tower=>{
+            let action = false;
             if(tower.energy >= 10){
                 let hostile = _.first(cluster.find(tower.room, FIND_HOSTILE_CREEPS));
                 if(hostile){
-                    tower.attack(hostile);
+                    action = tower.attack(hostile) == OK;
+                }
+                if(!action && Game.interval(10)){
+                    let hurtCreep = _.first(_.filter(cluster.find(tower.room, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax));
+                    if(hurtCreep){
+                        tower.heal(hurtCreep);
+                    }
                 }
             }
         });
@@ -19,7 +26,7 @@ class Controller {
             Controller.linkTransfer(cluster);
         }
 
-        if(Game.interval(50, 1)){
+        if(Game.interval(50)){
             var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(cluster, flag));
         }
@@ -85,9 +92,9 @@ class Controller {
             Game.note('buildFlagUnknown', 'Unknown buildflag: ' + type + '-' + flag.pos);
             flag.remove();
         }
-        var gcl = _.get(flag, 'room.controller.level', 0);
-        if(_.get(CONTROLLER_STRUCTURES, [type, gcl], 0) > _.size(cluster.getStructuresByType(flag.room, type))){
-            console.log('Building', type, 'at', flag.pos, gcl);
+        var rcl = _.get(flag, 'room.controller.level', 0);
+        if(_.get(CONTROLLER_STRUCTURES, [type, rcl], 0) > _.size(cluster.getStructuresByType(flag.room, type))){
+            console.log('Building', type, 'at', flag.pos, rcl);
             var result = flag.pos.createConstructionSite(type);
             if(result == OK){
                 flag.remove();

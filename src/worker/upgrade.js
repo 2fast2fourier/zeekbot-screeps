@@ -3,14 +3,17 @@
 const BaseWorker = require('./base');
 
 class UpgradeWorker extends BaseWorker {
-    constructor(){ super('upgrade', { requiresEnergy: true, quota: true }); }
+    constructor(){ super('upgrade', { requiresEnergy: true, quota: true, range: 3 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
+        if(cluster.maxRCL > 4 && target.level < 4){
+            return 15;
+        }
         if(cluster.maxRCL == 8){
             return 15;
         }
-        if(cluster.maxRCL > 2){
+        if(target.level > 2){
             return 10;
         }
         return 5;

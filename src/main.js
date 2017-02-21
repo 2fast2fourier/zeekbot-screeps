@@ -23,10 +23,7 @@ module.exports.loop = function () {
     }
     Game.profile('memory', Game.cpu.getUsed());
     Cluster.init();
-
-    if(Game.interval(10)){
-        Startup.processFlags();
-    }
+    Startup.processActions();
 
     //// Process ////
 

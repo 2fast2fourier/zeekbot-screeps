@@ -129,7 +129,11 @@ class Worker {
         quota.spawnhauler = _.sum(assignments.spawn) + 1;
 
         if(_.size(cluster.structures.storage) > 0){
-            quota.harvesthauler = _.sum(assignments.harvest);
+            quota.harvesthauler = _.sum(assignments.harvest) * 24;
+        }
+
+        if(cluster.maxRCL < 4){
+            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 500);
         }
 
         cluster.update('quota', quota);

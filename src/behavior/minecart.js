@@ -18,7 +18,7 @@ class MinecartAction extends BaseAction {
         if(_.sum(creep.carry) >= creep.carryCapacity * 0.7){
             var containers = creep.room.lookForRadius(creep.pos, LOOK_STRUCTURES, 2);
             var targets = _.filter(containers, struct => (struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_LINK || struct.structureType == STRUCTURE_TOWER) && struct.getAvailableCapacity() > 0);
-            var nearby = _.sortBy(targets, target => offsets[target.structureType]);
+            var nearby = _.sortBy(targets, target => offsets[target.structureType] + creep.pos.getRangeTo(target));
             if(nearby.length > 0){
                 if(creep.pos.getRangeTo(nearby[0]) > 1){
                     creep.moveTo(nearby[0]);

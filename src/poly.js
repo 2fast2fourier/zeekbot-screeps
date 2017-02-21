@@ -4,9 +4,6 @@ var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 var profileData = {};
 
-let flagsPrefix = {};
-
-
 module.exports = function(){
     ///
     /// Game Helpers
@@ -28,12 +25,10 @@ module.exports = function(){
 
     Game.finishProfile = function(){
         _.forEach(profileData, (value, type) => Game.profile(type, value));
+        profileData = {};
     }
 
-    Game.interval = function interval(num, offset){
-        if(offset){
-            return Game.time % num == offset;
-        }
+    Game.interval = function interval(num){
         return Game.time % num == 0;
     };
 
@@ -287,10 +282,7 @@ module.exports = function(){
         }
     }
     Flag.getByPrefix = function getByPrefix(prefix){
-        if(!flagsPrefix[prefix]){
-            flagsPrefix[prefix] = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
-        }
-        return flagsPrefix[prefix];
+        return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
     }
 
     Structure.prototype.getMaxHits = function(){

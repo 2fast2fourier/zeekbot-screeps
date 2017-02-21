@@ -57,35 +57,30 @@ class Cluster {
                 cluster.structures[structure.structureType].push(structure);
             }
         });
-        if(Game.interval(25)){
-            Cluster.processClusterFlags();
-        }
+        Cluster.processClusterFlags();
     }
 
-    //tag-container-stockpile
+    //stockpile-id
     static processClusterFlags(){
-        let flags = Flag.getByPrefix('tag');
-        _.forEach(flags, flag=>{
-            if(flag.room && flag.room.hasCluster()){
-                let parts = flag.name.split('-');
-                let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType == parts[1]));
-                if(target){
-                    console.log('Tagging', target, parts[2], 'for cluster', flag.room.getCluster().id);
-                    flag.room.getCluster().addTag(parts[2], target.id);
-                }else{
-                    console.log('Could not find structure', parts[1], 'to tag', parts[2]);
-                }
+        if(Memory.tag){
+            console.log('Processing tag:', Memory.tag);
+            let parts = Memory.tag.split('-');
+            let tag = parts[0];
+            let target = Game.getObjectById(parts[1]);
+            if(target && target.room && target.room.hasCluster()){
+                console.log('Added tag:', tag, 'to', target);
+                target.room.getCluster().addTag(tag, target.id);
             }else{
-                console.log('Cannot tag this room!', flag.pos.roomName, flag.name);
+                console.log('could not find tag target', target, parts[1]);
             }
-            flag.remove();
-        });
+            delete Memory.tag;
+        }
     }
 
     static createCluster(id){
         let data = {
             assignments: {},
-            quota: { energyminer: 1, spawnhauler: 1, build: 1, upgrade: 1 },
+            quota: {},
             work: {},
             tags: {}
         };
