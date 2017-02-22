@@ -4,6 +4,13 @@ const Util = require('./util');
 
 class Controller {
 
+    static hedgemony(){
+        if(Game.interval(25)){
+            var buildFlags = Flag.getByPrefix('Build');
+            _.forEach(buildFlags, flag => Controller.buildFlag(flag));
+        }
+    }
+
     static control(cluster){
 
         _.forEach(cluster.structures.tower, tower=>{
@@ -24,11 +31,6 @@ class Controller {
 
         if(Game.interval(10)){
             Controller.linkTransfer(cluster);
-        }
-
-        if(Game.interval(50)){
-            var buildFlags = Flag.getByPrefix('Build');
-            _.forEach(buildFlags, flag => Controller.buildFlag(cluster, flag));
         }
         
         // var towers = catalog.buildings.tower;
@@ -79,12 +81,13 @@ class Controller {
         // });
     }
 
-    static buildFlag(cluster, flag){
-        if(!flag.room){
+    static buildFlag(flag){
+        if(!flag.room || !flag.room.hasCluster()){
             Game.note('buildFlagUnknownRoom', 'buildflag in unknown room: ' + flag.pos);
             flag.remove();
             return;
         }
+        let cluster = flag.room.getCluster();
         var args = flag.name.split('-');
         var type = args[1];
         if(!_.has(CONSTRUCTION_COST, type)){

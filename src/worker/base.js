@@ -1,5 +1,12 @@
 "use strict";
 
+function whitelistedRooms(roomName){
+    if(Memory.pathable[roomName]){
+        return 2.5;
+    }
+    return undefined;
+}
+
 class BaseWorker {
     constructor(type, opts){
         this.range = 1;
@@ -99,8 +106,7 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
-            // return creep.moveTo(target, { reusePath: 50 });
-            return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, range: this.range });
+            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range: this.range, routeCallback: whitelistedRooms });
         }
     }
 

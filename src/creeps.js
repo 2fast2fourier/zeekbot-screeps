@@ -123,5 +123,15 @@ module.exports = {
         quota: 'observe',
         parts: { pico: { tough: 1, move: 1 } },
         work: { observe: {} }
+    },
+    healer: {
+        quota: 'heal',
+        maxQuota: 1,
+        parts: {
+            micro: { move: 4, heal: 4 },
+            nano: { move: 2, heal: 2 },
+            pico: { move: 1, heal: 1 }
+        },
+        work: { heal: {} }
     }
 }

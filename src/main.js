@@ -37,6 +37,7 @@ module.exports.loop = function () {
         Controller.control(cluster);
     });
 
+    Controller.hedgemony();
 
     // if(Game.interval(20)){
         //TODO fix production to not rely on catalog

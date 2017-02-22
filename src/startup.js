@@ -35,6 +35,7 @@ class Startup {
             }
             Memory.stats = { profile: {}, profileCount: {}};
             Memory.jobs = {};
+            Memory.pathable = {};
             //TODO init memory
             // case 2:
             //TODO add migration
@@ -89,8 +90,8 @@ class Startup {
                     console.log('Created cluster:', parts[2]);
                 }
                 break;
-            case 'cluster':
-            //room-cluster-Home-harvest
+            case 'assign':
+            //room-assign-Home-harvest
                 let cluster = Game.clusters[parts[2]];
                 if(!cluster){
                     console.log('Invalid cluster name!', parts[2]);

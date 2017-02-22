@@ -13,7 +13,7 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.maxRCL == 8){
             return 15;
         }
-        if(target.level > 2){
+        if(target.level >= 2 && target.progress > 10000){
             return 10;
         }
         return 5;

@@ -118,6 +118,10 @@ class Cluster {
         return result;
     }
 
+    findIn(rooms, type){
+        return _.flatten(_.map(rooms, room => this.find(room, type)));
+    }
+
     findAll(type){
         let found = this._foundAll[type];
         if(!found){

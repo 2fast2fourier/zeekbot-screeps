@@ -84,6 +84,7 @@ module.exports =
 	        Controller.control(cluster);
 	    });
 
+	    Controller.hedgemony();
 
 	    // if(Game.interval(20)){
 	        //TODO fix production to not rely on catalog
@@ -445,6 +446,7 @@ module.exports =
 	            }
 	            Memory.stats = { profile: {}, profileCount: {}};
 	            Memory.jobs = {};
+	            Memory.pathable = {};
 	            //TODO init memory
 	            // case 2:
 	            //TODO add migration
@@ -499,8 +501,8 @@ module.exports =
 	                    console.log('Created cluster:', parts[2]);
 	                }
 	                break;
-	            case 'cluster':
-	            //room-cluster-Home-harvest
+	            case 'assign':
+	            //room-assign-Home-harvest
 	                let cluster = Game.clusters[parts[2]];
 	                if(!cluster){
 	                    console.log('Invalid cluster name!', parts[2]);
@@ -654,6 +656,10 @@ module.exports =
 	            _.set(this._found, [room.name, type], result);
 	        }
 	        return result;
+	    }
+
+	    findIn(rooms, type){
+	        return _.flatten(_.map(rooms, room => this.find(room, type)));
 	    }
 
 	    findAll(type){
@@ -1033,6 +1039,13 @@ module.exports =
 
 	class Controller {
 
+	    static hedgemony(){
+	        if(Game.interval(25)){
+	            var buildFlags = Flag.getByPrefix('Build');
+	            _.forEach(buildFlags, flag => Controller.buildFlag(flag));
+	        }
+	    }
+
 	    static control(cluster){
 
 	        _.forEach(cluster.structures.tower, tower=>{
@@ -1053,11 +1066,6 @@ module.exports =
 
 	        if(Game.interval(10)){
 	            Controller.linkTransfer(cluster);
-	        }
-
-	        if(Game.interval(50)){
-	            var buildFlags = Flag.getByPrefix('Build');
-	            _.forEach(buildFlags, flag => Controller.buildFlag(cluster, flag));
 	        }
 	        
 	        // var towers = catalog.buildings.tower;
@@ -1108,12 +1116,13 @@ module.exports =
 	        // });
 	    }
 
-	    static buildFlag(cluster, flag){
-	        if(!flag.room){
+	    static buildFlag(flag){
+	        if(!flag.room || !flag.room.hasCluster()){
 	            Game.note('buildFlagUnknownRoom', 'buildflag in unknown room: ' + flag.pos);
 	            flag.remove();
 	            return;
 	        }
+	        let cluster = flag.room.getCluster();
 	        var args = flag.name.split('-');
 	        var type = args[1];
 	        if(!_.has(CONSTRUCTION_COST, type)){
@@ -1815,6 +1824,16 @@ module.exports =
 	        quota: 'observe',
 	        parts: { pico: { tough: 1, move: 1 } },
 	        work: { observe: {} }
+	    },
+	    healer: {
+	        quota: 'heal',
+	        maxQuota: 1,
+	        parts: {
+	            micro: { move: 4, heal: 4 },
+	            nano: { move: 2, heal: 2 },
+	            pico: { move: 1, heal: 1 }
+	        },
+	        work: { heal: {} }
 	    }
 	}
 
@@ -1830,6 +1849,7 @@ module.exports =
 	    build: __webpack_require__(10),
 	    defend: __webpack_require__(12),
 	    deliver: __webpack_require__(13),
+	    heal: __webpack_require__(29),
 	    mine: __webpack_require__(14),
 	    observe: __webpack_require__(15),
 	    pickup: __webpack_require__(16),
@@ -1956,7 +1976,7 @@ module.exports =
 	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
 	        }
 
-	        if(cluster.maxRCL < 4){
+	        if(cluster.maxRCL < 3){
 	            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 500);
 	        }
 
@@ -2010,6 +2030,13 @@ module.exports =
 /***/ function(module, exports) {
 
 	"use strict";
+
+	function whitelistedRooms(roomName){
+	    if(Memory.pathable[roomName]){
+	        return 2.5;
+	    }
+	    return undefined;
+	}
 
 	class BaseWorker {
 	    constructor(type, opts){
@@ -2110,8 +2137,7 @@ module.exports =
 	            }
 	            return creep.moveTo(target, { reusePath: 50 });
 	        }else{
-	            // return creep.moveTo(target, { reusePath: 50 });
-	            return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, range: this.range });
+	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range: this.range, routeCallback: whitelistedRooms });
 	        }
 	    }
 
@@ -2656,7 +2682,7 @@ module.exports =
 	        if(cluster.maxRCL == 8){
 	            return 15;
 	        }
-	        if(target.level > 2){
+	        if(target.level >= 2 && target.progress > 10000){
 	            return 10;
 	        }
 	        return 5;
@@ -2985,7 +3011,7 @@ module.exports =
 	        if(_.sum(creep.carry) >= creep.carryCapacity * 0.7){
 	            var containers = creep.room.lookForRadius(creep.pos, LOOK_STRUCTURES, 2);
 	            var targets = _.filter(containers, struct => (struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_LINK || struct.structureType == STRUCTURE_TOWER) && struct.getAvailableCapacity() > 0);
-	            var nearby = _.sortBy(targets, target => offsets[target.structureType] + creep.pos.getRangeTo(target));
+	            var nearby = _.sortBy(targets, target => offsets[target.structureType] + Math.max(1, creep.pos.getRangeTo(target)));
 	            if(nearby.length > 0){
 	                if(creep.pos.getRangeTo(nearby[0]) > 1){
 	                    creep.moveTo(nearby[0]);
@@ -3064,6 +3090,43 @@ module.exports =
 
 
 	module.exports = SelfHealAction;
+
+/***/ },
+/* 29 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	const BaseWorker = __webpack_require__(11);
+
+	class HealWorker extends BaseWorker {
+	    constructor(){ super('heal', { quota: true }); }
+
+	    /// Job ///
+
+	    heal(cluster, subtype){
+	        let healrooms = _.filter(cluster.rooms, room => room.memory.role != 'core' || _.get(room, 'controller.level', 0) < 3);
+	        let targets = _.filter(cluster.findIn(healrooms, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax);
+	        return this.jobsForTargets(cluster, subtype, targets);
+	    }
+
+	    jobValid(cluster, job){
+	        return super.jobValid(cluster, job) && job.target.hits < job.target.hitsMax;
+	    }
+
+	    /// Creep ///
+
+	    calculateBid(cluster, creep, opts, job, distance){
+	        return distance / 50;
+	    }
+
+	    process(cluster, creep, opts, job, target){
+	        this.orMove(creep, target, creep.heal(target));
+	    }
+
+	}
+
+	module.exports = HealWorker;
 
 /***/ }
 /******/ ]);
