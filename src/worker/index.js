@@ -7,6 +7,7 @@ const workerCtors = {
     defend: require('./defend'),
     deliver: require('./deliver'),
     heal: require('./heal'),
+    idle: require('./idle'),
     mine: require('./mine'),
     observe: require('./observe'),
     pickup: require('./pickup'),
@@ -133,8 +134,8 @@ class Worker {
             quota.harvesthauler = _.sum(assignments.harvest) * 24;
         }
 
-        if(cluster.maxRCL < 3){
-            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 500);
+        if(cluster.maxRCL < 5){
+            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
         }
 
         cluster.update('quota', quota);

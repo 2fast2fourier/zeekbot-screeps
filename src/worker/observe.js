@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class ObserveWorker extends BaseWorker {
-    constructor(){ super('observe', { quota: true }); }
+    constructor(){ super('observe', { quota: true, critical: 'observe' }); }
 
     /// Job ///
 
@@ -27,7 +27,11 @@ class ObserveWorker extends BaseWorker {
 
     observe(cluster, subtype){
         const targets = _.reduce(Memory.rooms, (result, data, name)=>{
-            if(data.cluster == cluster.id && data.role != 'core'){
+            // if(data.cluster == 'Golf'){
+                // console.log(name, !_.get(Game.rooms, [name, 'controller', 'my'], false));
+            // }
+            if(data.cluster == cluster.id && (data.role != 'core' || !_.get(Game.rooms, [name, 'controller', 'my'], false))){
+                // console.log('observe', name);
                 let targetRoom = Game.rooms[name];
                 let target;
                 if(!targetRoom || !targetRoom.controller){
@@ -44,7 +48,14 @@ class ObserveWorker extends BaseWorker {
 
     /// Creep ///
 
+    continueJob(cluster, creep, opts, job){
+        return super.continueJob(cluster, creep, opts, job) && (!opts.onlyReveal || !job.target.id);
+    }
+
     calculateBid(cluster, creep, opts, job, distance){
+        if(opts.onlyReveal && job.target.id){
+            return false;
+        }
         return distance / 50;
     }
 

@@ -27,11 +27,23 @@ module.exports.loop = function () {
 
     //// Process ////
 
+    let bootstrap = false;
+    if(Memory.bootstrap){
+        // console.log('starting bootstrap', Memory.bootstrap);
+        let target = Game.clusters[Memory.bootstrap];
+        bootstrap = target;
+    }
+
     _.forEach(Game.clusters, (cluster, name) =>{
         Worker.process(cluster);
         
         if(Game.interval(5)){
-            Spawner.process(cluster);
+            let spawnlist = Spawner.generateSpawnList(cluster, cluster);
+            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && cluster.totalEnergy > 5000){
+                // console.log('bootstrapping', JSON.stringify(bootstrap));
+                spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
+                Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
+            }
         }
 
         Controller.control(cluster);

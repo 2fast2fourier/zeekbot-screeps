@@ -16,18 +16,21 @@ module.exports = {
         parts: {
             micro: { tough: 3, move: 11, ranged_attack: 8 },
             nano: { tough: 5, move: 10, ranged_attack: 5 },
-            pico: { tough: 5, move: 7, ranged_attack: 2 }
+            pico: { tough: 5, move: 7, ranged_attack: 2 },
+            femto: { tough: 2, move: 4, ranged_attack: 2 }
         },
-        work: { defend: {} }
+        work: { defend: {}, observe: { onlyReveal: true } }
     },
     spawnhauler: {
         quota: 'spawnhauler',
         critical: true,
         assignRoom: 'spawn',
         parts: haulerParts,
+        emergency: 'pico',
         work: { 
             pickup: { local: true },
-            deliver: { subtype: 'spawn', local: true }
+            deliver: { subtype: 'spawn', local: true },
+            idle: { subtype: 'spawn', local: true }
         },
         // behavior: { avoid: {} }
     },
@@ -39,9 +42,11 @@ module.exports = {
         parts: {
             milli: { move: 4, carry: 2, work: 8 },//standard 1100
             micro: { move: 3, carry: 1, work: 6 },//800
+            // nano: { move: 2, carry: 1, work: 4 },//550
             nano: { move: 2, carry: 2, work: 3 },//550
             pico: { move: 1, carry: 1, work: 2 }//300
         },
+        emergency: 'pico',
         work: { mine: { subtype: 'energy' } },
         behavior: { minecart: {} }// avoid: {},
     },
@@ -89,7 +94,7 @@ module.exports = {
             nano: { move: 4, carry: 2, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, build: {}, repair: { priority: 99 } },
+        work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
         // behavior: { avoid: {} }
     },
     upgradeworker: {
@@ -102,13 +107,13 @@ module.exports = {
             nano: { move: 3, carry: 4, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, upgrade: {} },
+        work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
         behavior: { energy: {} }
     },
     repairworker: {
         quota: 'repair',
         allocation: 'work',
-        allocationMulti: 10000,
+        allocationMulti: 8000,
         maxQuota: 200000,
         parts: {
             milli: { move: 6, carry: 7, work: 5 },//1150
@@ -116,7 +121,7 @@ module.exports = {
             nano: { move: 5, carry: 4, work: 1 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, repair: {} },
+        work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
         behavior: { repair: {} }// avoid: {}, 
     },
     observer: {

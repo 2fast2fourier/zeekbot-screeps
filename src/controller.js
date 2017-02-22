@@ -96,7 +96,9 @@ class Controller {
             flag.remove();
         }
         var rcl = _.get(flag, 'room.controller.level', 0);
-        if(_.get(CONTROLLER_STRUCTURES, [type, rcl], 0) > _.size(cluster.getStructuresByType(flag.room, type))){
+        let count = _.size(cluster.getStructuresByType(flag.room, type));
+        count += _.size(_.filter(cluster.find(flag.room, FIND_MY_CONSTRUCTION_SITES), site => site.structureType == type));
+        if(_.get(CONTROLLER_STRUCTURES, [type, rcl], 0) > count){
             console.log('Building', type, 'at', flag.pos, rcl);
             var result = flag.pos.createConstructionSite(type);
             if(result == OK){

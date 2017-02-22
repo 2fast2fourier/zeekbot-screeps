@@ -9,7 +9,9 @@ function whitelistedRooms(roomName){
 
 class BaseWorker {
     constructor(type, opts){
+        this.minEnergy = 1000;
         this.range = 1;
+        this.priority = 0;
         if(opts){
             Object.assign(this, opts);
         }
@@ -121,6 +123,9 @@ class BaseWorker {
         if(this.quota === true){
             let jobs = this.generateJobs(cluster, this.type);
             quota[this.type] = _.sum(jobs, job => job.capacity);
+            if(cluster.id == 'Golf' && this.quota == 'observe'){
+                console.log(JSON.stringify(jobs));
+            }
         }else if(this.quota){
             _.forEach(this.quota, subtype => {
                 let jobs = this.generateJobs(cluster, subtype);
@@ -154,6 +159,9 @@ class BaseWorker {
     }
 
     generateJobs(cluster, subtype){
+        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype){
+            return [];
+        }
         var jobs = this.jobs[subtype];
         if(!jobs){
             // console.log('generating jobs for', subtype);
@@ -188,7 +196,7 @@ class BaseWorker {
             }
             let bid = this.calculateBid(cluster, creep, opts, job, distance);
             if(bid !== false){
-                bid += _.get(opts, 'priority', 0);
+                bid += _.get(opts, 'priority', this.priority);
                 if(bid < lowestBid){
                     let allocation = this.allocate(cluster, creep, opts, job);
                     lowestBid = bid;

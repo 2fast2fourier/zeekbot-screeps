@@ -76,7 +76,7 @@ class Startup {
         let parts = Memory.action.split('-');
         let roomName = parts[0];
         let room = Game.rooms[roomName];
-        if(!room){
+        if(!room && parts[1] == 'reassign'){
             delete Memory.action;
             console.log('Invalid room:', roomName);
             return;

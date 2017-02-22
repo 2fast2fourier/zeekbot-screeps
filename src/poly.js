@@ -290,6 +290,16 @@ module.exports = function(){
         return Math.min(this.hitsMax, 250000);
     }
 
+    StructureRampart.prototype.getMaxHits = function(){
+        //TODO settings
+        return Math.min(this.hitsMax, 50000);
+    }
+
+    StructureWall.prototype.getMaxHits = function(){
+        //TODO settings
+        return Math.min(this.hitsMax, 50000);
+    }
+
     Structure.prototype.getDamage = function(){
         return Math.max(0, this.getMaxHits() - this.hits);
     }

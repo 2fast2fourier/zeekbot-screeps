@@ -8,7 +8,10 @@ class ReserveWorker extends BaseWorker {
     /// Job ///
 
     shouldReserve(room){
-        return room.controller && _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my && room.memory.role != 'core';
+        if(!room || !room.controller){
+            return false;
+        }
+        return _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my;
     }
 
     reserve(cluster, subtype){
@@ -26,7 +29,7 @@ class ReserveWorker extends BaseWorker {
     /// Creep ///
 
     continueJob(cluster, creep, opts, job){
-        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800;
+        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800 && !job.target.my;
     }
 
     keepDeadJob(cluster, creep, opts, job){
@@ -42,17 +45,13 @@ class ReserveWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(Game.interval(25)){
-            let flag = Game.flags['Claim'];
-            if(flag && creep.pos.getRangeTo(target) <= 1 && flag.pos.roomName == target.pos.roomName){
-                let result = creep.claimController(target);
-                if(result == OK){
-                    console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
-                    cluster.changeRole(target.pos.roomName, 'core');
-                }else{
-                    console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);
-                }
-                flag.remove();
+        if(Game.interval(5) && target.room.memory.role == 'core' && creep.pos.getRangeTo(target) <= 1){
+            let result = creep.claimController(target);
+            if(result == OK){
+                console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
+                cluster.changeRole(target.pos.roomName, 'core');
+            }else{
+                console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);
             }
         }
         this.orMove(creep, target, creep.reserveController(target));

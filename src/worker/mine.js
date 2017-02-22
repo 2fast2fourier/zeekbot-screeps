@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class MineWorker extends BaseWorker {
-    constructor(){ super('mine', { quota: ['energy', 'mineral'] }); }
+    constructor(){ super('mine', { quota: ['energy', 'mineral'], critical: 'energy' }); }
 
     /// Job ///
 

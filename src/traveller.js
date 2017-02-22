@@ -202,7 +202,7 @@ class Traveler {
             //         `origin: ${creep.pos}, dest: ${destination.pos}`);
             // }
             if (ret.incomplete) {
-                console.log(`TRAVELER: incomplete path for ${creep.name}`);
+                // console.log(`TRAVELER: incomplete path for ${creep.name}`);
                 if (ret.ops < 2000 && options.useFindRoute === undefined && travelData.stuck < DEFAULT_STUCK_VALUE) {
                     options.useFindRoute = false;
                     ret = this.findTravelPath(creep, destination, options);

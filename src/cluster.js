@@ -42,9 +42,15 @@ class Cluster {
             }
             this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
         });
+        if(Game.interval(20)){
+            let energy = this.findAll(FIND_DROPPED_ENERGY);
+            let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
+            this.update('totalEnergy', _.sum(_.map(energy, 'amount')) + _.sum(_.map(containers, struct => struct.getResource(RESOURCE_ENERGY))));
+        }
     }
 
     static init(){
+        Memory.bootstrap = false;
         let creeps = _.groupBy(Game.creeps, 'memory.cluster');
         let rooms = _.groupBy(Game.rooms, 'memory.cluster');
         Game.clusters = _.reduce(Memory.clusters, (result, data, name)=>{
@@ -58,6 +64,11 @@ class Cluster {
             }
         });
         Cluster.processClusterFlags();
+        _.forEach(Game.clusters, cluster => {
+            if(cluster.maxRCL < 2 || _.size(cluster.structures.spawn) == 0){
+                Memory.bootstrap = cluster.id;
+            }
+        });
     }
 
     //stockpile-id

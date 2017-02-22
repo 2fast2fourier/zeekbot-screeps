@@ -4,60 +4,32 @@ var creepsConfig = require('./creeps');
 
 class Spawner {
 
-    static process(cluster){
-        var spawnlist = Spawner.generateSpawnList(cluster);
-        // if(_.size(spawnlist.count) > 0){
-        //     console.log(JSON.stringify(spawnlist));
-        // }
-
+    static processSpawnlist(cluster, spawnlist, targetCluster){
         if(spawnlist.totalCost == 0){
             return;
         }
 
+        let result = false;
         if(_.size(spawnlist.critical) > 0){
-            _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count));
+            result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
         }else{
             //TODO insert boosted here
-            _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count));
+            result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
         }
-
-        // _.forEach(spawnlist.boosted, (boosts, type)=>{
-        //     if(spawned){
-        //         return;
-        //     }
-        //     var boostType = _.first(boosts);
-        //     var rooms = _.get(Memory, ['boost', 'rooms', boostType], false);
-        //     if(rooms){
-        //         _.forEach(rooms, room => {
-        //             if(spawned){
-        //                 return;
-        //             }
-        //             var spawn = _.first(_.filter(Game.spawns, spawn => !spawn.spawning && spawn.pos.roomName == room && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])));
-        //             if(spawn){
-        //                 spawned = Spawner.spawnCreep(spawn, spawnlist, type, catalog);
-        //             }
-        //         });
-        //     }
-        // });
-
-        // _.forEach(Game.spawns, spawn => {
-        //     if(!spawned && !spawn.spawning){
-        //         spawned = Spawner.spawner(spawn, catalog, spawnlist);
-        //     }
-        // });
+        return !!result;
     }
 
-    static attemptSpawn(cluster, spawnlist, type, count){
+    static attemptSpawn(cluster, spawnlist, type, count, targetCluster){
         var spawned = false;
         _.find(cluster.structures.spawn, spawn =>{
             if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-                spawned = Spawner.spawnCreep(cluster, spawn, spawnlist, type);
+                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type);
             }
         });
         return spawned;
     }
 
-    static generateSpawnList(cluster){
+    static generateSpawnList(cluster, targetCluster){
         var spawnlist = {
             boosted: {},
             costs: {},
@@ -67,23 +39,33 @@ class Spawner {
             version: {},
             totalCost: 0
         };
-        var allocation = Spawner.calculateQuotaAllocation(cluster);
+        var allocation = Spawner.calculateQuotaAllocation(targetCluster);
 
         _.forEach(creepsConfig, (config, type)=>{
+            let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
             let maxCost = 0;
             let version = false;
             let partSet = false;
-            _.forEach(config.parts, (parts, ver) => {
-                let cost = Spawner.calculateCost(parts);
-                if(cost > maxCost && cost <= cluster.maxSpawn){
-                    maxCost = cost;
-                    version = ver;
-                    partSet = parts;
-                }
-            });
+            if(emergency){
+                let cost = Spawner.calculateCost(config.parts[config.emergency]);
+                maxCost = cost;
+                version = config.emergency;
+                partSet = config.parts[config.emergency];
+                Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
+            }else{
+                _.forEach(config.parts, (parts, ver) => {
+                    let cost = Spawner.calculateCost(parts);
+                    if(cost > maxCost && cost <= cluster.maxSpawn){
+                        maxCost = cost;
+                        version = ver;
+                        partSet = parts;
+                    }
+                });
+            }
             if(version){
-                const limit = Spawner.calculateSpawnLimit(type, config);
-                const quota = Spawner.calculateRemainingQuota(cluster, type, config, allocation, version);
+                //TODO spawn limits? currently noop
+                const limit = Spawner.calculateSpawnLimit(cluster, type, config);
+                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
                     spawnlist.costs[type] = maxCost;
@@ -104,9 +86,9 @@ class Spawner {
         return spawnlist;
     }
 
-    static calculateQuotaAllocation(cluster){
+    static calculateQuotaAllocation(targetCluster){
         var allocation = {};
-        _.forEach(cluster.creeps, creep =>{
+        _.forEach(targetCluster.creeps, creep =>{
             if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3)){
                 var quota = creep.memory.quota;
                 _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
@@ -125,9 +107,9 @@ class Spawner {
         return Math.min(alloc, _.get(config, 'allocationMax', Infinity));
     }
 
-    static calculateRemainingQuota(cluster, type, config, allocation, version){
+    static calculateRemainingQuota(targetCluster, type, config, allocation, version){
         var perCreep = Spawner.getAllocation(config, version);
-        var quota = Math.min(_.get(cluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
+        var quota = Math.min(_.get(targetCluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
         var allocated = _.get(allocation, config.quota, 0);
         let unmetQuota = quota - allocated;
         var creepsNeeded = Math.ceil(unmetQuota/perCreep);
@@ -154,7 +136,7 @@ class Spawner {
         var config = creepsConfig[spawnType];
         var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName));
         Memory.uid++;
-        console.log(spawn.name, 'spawning', spawned, spawnlist.costs[spawnType], 'for cluster', cluster.id);
+        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
         return spawned;
     }
 
