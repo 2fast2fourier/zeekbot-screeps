@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class BuildWorker extends BaseWorker {
-    constructor(){ super('build', { requiresEnergy: true, quota: true, range: 3, minEnergy: 500 }); }
+    constructor(){ super('build', { requiresEnergy: true, quota: true, range: 1, minEnergy: 500 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){

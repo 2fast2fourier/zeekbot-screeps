@@ -171,6 +171,16 @@ module.exports = function(){
         return Game.clusters[this.memory.cluster];
     }
 
+    Room.prototype.getStructuresByType = function(type){
+        return _.filter(this.find(FIND_STRUCTURES), struct => struct.structureType == type);
+    }
+
+    Room.prototype.getAvailableStructureCount = function(type){
+        let existing = _.size(this.getStructuresByType(type));
+        existing += _.size(_.filter(this.find(FIND_MY_CONSTRUCTION_SITES), site => site.structureType == type));
+        return Math.max(0, _.get(CONTROLLER_STRUCTURES, [type, _.get(this, 'controller.level', 0)], 0) - existing);
+    }
+
     ///
     /// Position Helpers
     ///

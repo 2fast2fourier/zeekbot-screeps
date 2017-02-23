@@ -4,6 +4,7 @@ var Poly = require('./poly');
 var Startup = require('./startup');
 var Traveller = require('./traveller');
 
+var AutoBuilder = require('./autobuilder');
 var Cluster = require('./cluster');
 var Controller = require('./controller');
 var Spawner = require('./spawner');
@@ -55,6 +56,28 @@ module.exports.loop = function () {
         //TODO fix production to not rely on catalog
     //     Production.process();
     // }
+
+    
+    if(Memory.autobuild && Game.interval(50)){
+        let buildRoom = Game.rooms[Memory.autobuild];
+        if(buildRoom){
+            let builder = new AutoBuilder(buildRoom);
+            builder.buildTerrain();
+            let buildList = builder.generateBuildingList();
+            if(buildList){
+                builder.autobuild(buildList);
+            }
+        }
+    }else if(Memory.autobuildDebug){
+        let buildRoom = Game.rooms[Memory.autobuildDebug];
+        if(buildRoom){
+            let start = Game.cpu.getUsed();
+            let builder = new AutoBuilder(buildRoom);
+            builder.buildTerrain();
+            let structs = builder.generateBuildingList();
+            Game.profile('builder', Game.cpu.getUsed() - start);
+        }
+    }
     
     //// Wrapup ////
     Game.finishProfile();
