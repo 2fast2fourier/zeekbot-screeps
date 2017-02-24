@@ -8,22 +8,15 @@ class ReserveWorker extends BaseWorker {
     /// Job ///
 
     shouldReserve(room){
-        if(!room || !room.controller){
-            return false;
-        }
         return _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my;
     }
 
     reserve(cluster, subtype){
-        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.rooms, room => this.shouldReserve(room)), 'controller'));
+        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.roomBehavior.reserve, room => this.shouldReserve(room)), 'controller'));
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
         return 2;
-    }
-
-    jobValid(cluster, job){
-        return job.id && job.target;
     }
 
     /// Creep ///
@@ -33,7 +26,7 @@ class ReserveWorker extends BaseWorker {
     }
 
     keepDeadJob(cluster, creep, opts, job){
-        return job.subtype == 'reserve' && !job.target.my;
+        return job.subtype == 'reserve' && job.target && !job.target.my;
     }
 
     allocate(cluster, creep, opts){
@@ -45,7 +38,7 @@ class ReserveWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(Game.interval(5) && target.room.memory.role == 'core' && creep.pos.getRangeTo(target) <= 1){
+        if(Game.interval(5) && target.room.memory.claim && creep.pos.getRangeTo(target) <= 1){
             let result = creep.claimController(target);
             if(result == OK){
                 console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);

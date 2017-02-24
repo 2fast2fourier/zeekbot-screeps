@@ -25,6 +25,19 @@ class DeliverWorker extends BaseWorker {
         return this.jobsForTargets(cluster, subtype, structures, { resource: RESOURCE_ENERGY });
     }
 
+    terminal(cluster, subtype){
+        var terminals = cluster.getAllMyStructures([STRUCTURE_TERMINAL]);
+        var jobs = [];
+        for(let terminal of terminals){
+            for(let resource of RESOURCES_ALL){
+                if(resource != RESOURCE_ENERGY){
+                    jobs.push(this.createJob(cluster, subtype, terminal, { resource }));
+                }
+            }
+        }
+        return jobs;
+    }
+
     /// Creep ///
 
     allocate(cluster, creep, opts, job){

@@ -18,20 +18,12 @@ class ObserveWorker extends BaseWorker {
     }
 
     createId(cluster, subtype, target, args){
-        if(target.id){
-            return target.id;
-        }else{
-            return target.pos.roomName + '-' + target.pos.x + '-' +target.pos.y;
-        }
+        return target.pos.roomName + '-' + target.pos.x + '-' +target.pos.y;
     }
 
     observe(cluster, subtype){
         const targets = _.reduce(Memory.rooms, (result, data, name)=>{
-            // if(data.cluster == 'Golf'){
-                // console.log(name, !_.get(Game.rooms, [name, 'controller', 'my'], false));
-            // }
-            if(data.cluster == cluster.id && (data.role != 'core' || !_.get(Game.rooms, [name, 'controller', 'my'], false))){
-                // console.log('observe', name);
+            if(data.cluster == cluster.id && data.observe){
                 let targetRoom = Game.rooms[name];
                 let target;
                 if(!targetRoom || !targetRoom.controller){

@@ -7,19 +7,22 @@ class UpgradeWorker extends BaseWorker {
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
+        if(cluster.maxRCL == 1){
+            return 5;
+        }
+        if(target.level == 8){
+            return 15;
+        }
         // if(cluster.maxRCL > 4 && target.level < 4){
-        //     return 15;
-        // }
-        // if(cluster.maxRCL == 8){
-        //     return 15;
-        // }
-        // if(target.level >= 2 && target.progress > 10000){
         //     return 15;
         // }
         if(cluster.totalEnergy < 2000){
             return 5;
         }
-        return 15;
+        if(target.level >= 6){
+            return 20;
+        }
+        return 10;
     }
 
     upgrade(cluster, subtype){

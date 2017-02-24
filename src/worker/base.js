@@ -123,9 +123,6 @@ class BaseWorker {
         if(this.quota === true){
             let jobs = this.generateJobs(cluster, this.type);
             quota[this.type] = _.sum(jobs, job => job.capacity);
-            if(cluster.id == 'Golf' && this.quota == 'observe'){
-                console.log(JSON.stringify(jobs));
-            }
         }else if(this.quota){
             _.forEach(this.quota, subtype => {
                 let jobs = this.generateJobs(cluster, subtype);

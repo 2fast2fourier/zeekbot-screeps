@@ -628,9 +628,15 @@ module.exports =
 	        this._foundAll = {};
 	        this._roleRooms = {
 	            core: [],
-	            harvest: [],
-	            reserve: []
+	            harvest: []
 	        };
+
+	        this.roomBehavior = {
+	            defend: [],
+	            reserve: [],
+	            observe: [],
+	            claim: []
+	        }
 
 	        _.forEach(this.rooms, room => {
 	            this._roleRooms[room.memory.role].push(room);
@@ -638,6 +644,18 @@ module.exports =
 	                this.maxSpawn = room.energyCapacityAvailable;
 	            }
 	            this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
+	            for(let type in this.roomBehavior){
+	                if(room.memory[type]){
+	                    this.roomBehavior[type].push(room);
+	                }
+	            }
+	            if(Game.interval(100)){
+	                if(room.memory.role == 'core' && _.get(room, 'controller.my', false)){
+	                    delete room.memory.claim;
+	                    delete room.memory.reserve;
+	                    delete room.memory.observe;
+	                }
+	            }
 	        });
 	        if(Game.interval(20)){
 	            let energy = this.findAll(FIND_DROPPED_ENERGY);
@@ -700,6 +718,14 @@ module.exports =
 	    static addRoom(clusterId, roomName, role){
 	        _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
 	        _.set(Memory, ['rooms', roomName, 'role'], role);
+	        _.set(Memory, ['rooms', roomName, 'defend'], true);
+	        _.set(Memory, ['rooms', roomName, 'observe'], true);
+	        _.set(Memory, ['rooms', roomName, 'reserve'], true);
+	        if(role == 'core'){
+	            _.set(Memory, ['rooms', roomName, 'claim'], true);
+	        }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
+	            delete Memory.rooms[roomName].claim;
+	        }
 	    }
 
 	    changeRole(roomName, newRole){
@@ -769,10 +795,6 @@ module.exports =
 	    }
 
 	}
-
-	Cluster.prototype.ROLE_CORE = 'core';
-	Cluster.prototype.ROLE_HARVEST = 'harvest';
-	Cluster.prototype.ROLE_RESERVE = 'reserve';
 
 	module.exports = Cluster;
 
@@ -1167,6 +1189,7 @@ module.exports =
 	            extension: 8,
 	            misc: 9
 	        }
+	        this.buildings = {};
 	        this.sources = [];
 	        this.keys = _.keys(this.values);
 	        this.vis = new RoomVisual(room.name);
@@ -1191,6 +1214,12 @@ module.exports =
 	        }
 	        this.structures = this.room.find(FIND_STRUCTURES);
 	        for(let struct of this.structures){
+	            if(struct.structureType != 'road'){
+	                if(!this.buildings[struct.structureType]){
+	                    this.buildings[struct.structureType] = [];
+	                }
+	                this.buildings[struct.structureType].push(struct);
+	            }
 	            let pos = pos2ix(struct.pos);
 	            this.grid[pos] = Math.max(this.grid[pos], _.get(this.values, struct.structureType, this.values.misc));
 	            // this.vis.rect(struct.pos.x - 0.4, struct.pos.y - 0.4, 0.8, 0.8, { fill: '#000088' });
@@ -1280,19 +1309,26 @@ module.exports =
 	    placeSpawnRoads(){
 	        var roads = new Set();
 	        for(let struct of this.structures){
-	            if(struct.structureType == STRUCTURE_SPAWN || struct.structureType == STRUCTURE_STORAGE){
-	                this.addRoadsAround(struct, roads, 1);
-	            }
-	            if(struct.structureType == STRUCTURE_CONTROLLER){
-	                this.addRoadsAround(struct, roads, 2);
-	            }
-	            if(struct.structureType == STRUCTURE_EXTENSION){
-	                for(let pos of rpos){
-	                    var target = xy2ix(struct.pos.x + pos[0], struct.pos.y + pos[1]);
-	                    if(this.grid[target] < 3){
-	                        roads.add(target);
+	            switch(struct.structureType){
+	                case STRUCTURE_EXTRACTOR:
+	                    this.extractor = struct;
+	                    this.addRoadsAround(struct, roads, 2);
+	                    break;
+	                case STRUCTURE_SPAWN:
+	                case STRUCTURE_STORAGE:
+	                    this.addRoadsAround(struct, roads, 1);
+	                    break;
+	                case STRUCTURE_CONTROLLER:
+	                    this.addRoadsAround(struct, roads, 2);
+	                    break;
+	                case STRUCTURE_EXTENSION:
+	                    for(let pos of rpos){
+	                        var target = xy2ix(struct.pos.x + pos[0], struct.pos.y + pos[1]);
+	                        if(this.grid[target] < 3){
+	                            roads.add(target);
+	                        }
 	                    }
-	                }
+	                    break;
 	            }
 	        }
 	        for(let source of this.sources){
@@ -1362,6 +1398,13 @@ module.exports =
 	            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
 	            console.log('Building container at', targetPos);
 	            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+	        }
+	        if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
+	            let mineral = _.first(this.room.find(FIND_MINERALS));
+	            if(mineral){
+	                console.log('Building extractor at', mineral.pos);
+	                mineral.pos.createConstructionSite(STRUCTURE_EXTRACTOR);
+	            }
 	        }
 	    }
 
@@ -2166,6 +2209,27 @@ module.exports =
 	            pico: { move: 1, heal: 1 }
 	        },
 	        work: { heal: {} }
+	    },
+	    mineralminer: {
+	        quota: 'mineral-mine',
+	        allocation: 'work',
+	        allocationMax: 6,
+	        parts: {
+	            pico: { move: 6, carry: 4, work: 8 }
+	        },
+	        work: { mine: { subtype: 'mineral' } },
+	        behavior: { minecart: {} }// avoid: {},
+	    },
+	    mineralhauler: {
+	        quota: 'mineral-pickup',
+	        allocation: 'carry',
+	        allocationMulti: 50,
+	        parts: haulerParts,
+	        work: {
+	            pickup: { subtype: 'mineral' },
+	            deliver: { subtype: 'terminal' }
+	        },
+	        // behavior: { avoid: {} }
 	    }
 	}
 
@@ -2487,9 +2551,6 @@ module.exports =
 	        if(this.quota === true){
 	            let jobs = this.generateJobs(cluster, this.type);
 	            quota[this.type] = _.sum(jobs, job => job.capacity);
-	            if(cluster.id == 'Golf' && this.quota == 'observe'){
-	                console.log(JSON.stringify(jobs));
-	            }
 	        }else if(this.quota){
 	            _.forEach(this.quota, subtype => {
 	                let jobs = this.generateJobs(cluster, subtype);
@@ -2665,6 +2726,19 @@ module.exports =
 	        return this.jobsForTargets(cluster, subtype, structures, { resource: RESOURCE_ENERGY });
 	    }
 
+	    terminal(cluster, subtype){
+	        var terminals = cluster.getAllMyStructures([STRUCTURE_TERMINAL]);
+	        var jobs = [];
+	        for(let terminal of terminals){
+	            for(let resource of RESOURCES_ALL){
+	                if(resource != RESOURCE_ENERGY){
+	                    jobs.push(this.createJob(cluster, subtype, terminal, { resource }));
+	                }
+	            }
+	        }
+	        return jobs;
+	    }
+
 	    /// Creep ///
 
 	    allocate(cluster, creep, opts, job){
@@ -2771,7 +2845,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(creep.pos.getRangeTo(target) > 3){
+	        if(creep.pos.getRangeTo(target) > 2){
 	            this.move(creep, target);
 	        }
 	    }
@@ -2853,20 +2927,12 @@ module.exports =
 	    }
 
 	    createId(cluster, subtype, target, args){
-	        if(target.id){
-	            return target.id;
-	        }else{
-	            return target.pos.roomName + '-' + target.pos.x + '-' +target.pos.y;
-	        }
+	        return target.pos.roomName + '-' + target.pos.x + '-' +target.pos.y;
 	    }
 
 	    observe(cluster, subtype){
 	        const targets = _.reduce(Memory.rooms, (result, data, name)=>{
-	            // if(data.cluster == 'Golf'){
-	                // console.log(name, !_.get(Game.rooms, [name, 'controller', 'my'], false));
-	            // }
-	            if(data.cluster == cluster.id && (data.role != 'core' || !_.get(Game.rooms, [name, 'controller', 'my'], false))){
-	                // console.log('observe', name);
+	            if(data.cluster == cluster.id && data.observe){
 	                let targetRoom = Game.rooms[name];
 	                let target;
 	                if(!targetRoom || !targetRoom.controller){
@@ -2913,7 +2979,7 @@ module.exports =
 	const BaseWorker = __webpack_require__(12);
 
 	class PickupWorker extends BaseWorker {
-	    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup' }); }
+	    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'] }); }
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -2936,8 +3002,16 @@ module.exports =
 	    }
 
 	    mineral(cluster, subtype){
-	        //TODO
-	        return [];
+	        var containers = _.filter(cluster.getAllStructures([STRUCTURE_CONTAINER]), struct => struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+	        var jobs = [];
+	        for(let store of containers){
+	            _.forEach(store.getResourceList(), (amount, type)=>{
+	                if(type != RESOURCE_ENERGY && amount > 0){
+	                    jobs.push(this.createJob(cluster, subtype, store, { resource: type }));
+	                }
+	            });
+	        }
+	        return jobs;
 	    }
 
 	    /// Creep ///
@@ -3038,22 +3112,15 @@ module.exports =
 	    /// Job ///
 
 	    shouldReserve(room){
-	        if(!room || !room.controller){
-	            return false;
-	        }
 	        return _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my;
 	    }
 
 	    reserve(cluster, subtype){
-	        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.rooms, room => this.shouldReserve(room)), 'controller'));
+	        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.roomBehavior.reserve, room => this.shouldReserve(room)), 'controller'));
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
 	        return 2;
-	    }
-
-	    jobValid(cluster, job){
-	        return job.id && job.target;
 	    }
 
 	    /// Creep ///
@@ -3063,7 +3130,7 @@ module.exports =
 	    }
 
 	    keepDeadJob(cluster, creep, opts, job){
-	        return job.subtype == 'reserve' && !job.target.my;
+	        return job.subtype == 'reserve' && job.target && !job.target.my;
 	    }
 
 	    allocate(cluster, creep, opts){
@@ -3075,7 +3142,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(Game.interval(5) && target.room.memory.role == 'core' && creep.pos.getRangeTo(target) <= 1){
+	        if(Game.interval(5) && target.room.memory.claim && creep.pos.getRangeTo(target) <= 1){
 	            let result = creep.claimController(target);
 	            if(result == OK){
 	                console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
@@ -3104,19 +3171,22 @@ module.exports =
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
+	        if(cluster.maxRCL == 1){
+	            return 5;
+	        }
+	        if(target.level == 8){
+	            return 15;
+	        }
 	        // if(cluster.maxRCL > 4 && target.level < 4){
-	        //     return 15;
-	        // }
-	        // if(cluster.maxRCL == 8){
-	        //     return 15;
-	        // }
-	        // if(target.level >= 2 && target.progress > 10000){
 	        //     return 15;
 	        // }
 	        if(cluster.totalEnergy < 2000){
 	            return 5;
 	        }
-	        return 15;
+	        if(target.level >= 6){
+	            return 20;
+	        }
+	        return 10;
 	    }
 
 	    upgrade(cluster, subtype){

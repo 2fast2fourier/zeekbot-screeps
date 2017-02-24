@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class PickupWorker extends BaseWorker {
-    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup' }); }
+    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'] }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -26,8 +26,16 @@ class PickupWorker extends BaseWorker {
     }
 
     mineral(cluster, subtype){
-        //TODO
-        return [];
+        var containers = _.filter(cluster.getAllStructures([STRUCTURE_CONTAINER]), struct => struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+        var jobs = [];
+        for(let store of containers){
+            _.forEach(store.getResourceList(), (amount, type)=>{
+                if(type != RESOURCE_ENERGY && amount > 0){
+                    jobs.push(this.createJob(cluster, subtype, store, { resource: type }));
+                }
+            });
+        }
+        return jobs;
     }
 
     /// Creep ///

@@ -31,9 +31,15 @@ class Cluster {
         this._foundAll = {};
         this._roleRooms = {
             core: [],
-            harvest: [],
-            reserve: []
+            harvest: []
         };
+
+        this.roomBehavior = {
+            defend: [],
+            reserve: [],
+            observe: [],
+            claim: []
+        }
 
         _.forEach(this.rooms, room => {
             this._roleRooms[room.memory.role].push(room);
@@ -41,6 +47,18 @@ class Cluster {
                 this.maxSpawn = room.energyCapacityAvailable;
             }
             this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
+            for(let type in this.roomBehavior){
+                if(room.memory[type]){
+                    this.roomBehavior[type].push(room);
+                }
+            }
+            if(Game.interval(100)){
+                if(room.memory.role == 'core' && _.get(room, 'controller.my', false)){
+                    delete room.memory.claim;
+                    delete room.memory.reserve;
+                    delete room.memory.observe;
+                }
+            }
         });
         if(Game.interval(20)){
             let energy = this.findAll(FIND_DROPPED_ENERGY);
@@ -103,6 +121,14 @@ class Cluster {
     static addRoom(clusterId, roomName, role){
         _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
         _.set(Memory, ['rooms', roomName, 'role'], role);
+        _.set(Memory, ['rooms', roomName, 'defend'], true);
+        _.set(Memory, ['rooms', roomName, 'observe'], true);
+        _.set(Memory, ['rooms', roomName, 'reserve'], true);
+        if(role == 'core'){
+            _.set(Memory, ['rooms', roomName, 'claim'], true);
+        }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
+            delete Memory.rooms[roomName].claim;
+        }
     }
 
     changeRole(roomName, newRole){
@@ -172,9 +198,5 @@ class Cluster {
     }
 
 }
-
-Cluster.prototype.ROLE_CORE = 'core';
-Cluster.prototype.ROLE_HARVEST = 'harvest';
-Cluster.prototype.ROLE_RESERVE = 'reserve';
 
 module.exports = Cluster;

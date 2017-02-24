@@ -139,5 +139,26 @@ module.exports = {
             pico: { move: 1, heal: 1 }
         },
         work: { heal: {} }
+    },
+    mineralminer: {
+        quota: 'mineral-mine',
+        allocation: 'work',
+        allocationMax: 6,
+        parts: {
+            pico: { move: 6, carry: 4, work: 8 }
+        },
+        work: { mine: { subtype: 'mineral' } },
+        behavior: { minecart: {} }// avoid: {},
+    },
+    mineralhauler: {
+        quota: 'mineral-pickup',
+        allocation: 'carry',
+        allocationMulti: 50,
+        parts: haulerParts,
+        work: {
+            pickup: { subtype: 'mineral' },
+            deliver: { subtype: 'terminal' }
+        },
+        // behavior: { avoid: {} }
     }
 }

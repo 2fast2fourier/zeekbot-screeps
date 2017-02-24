@@ -63,6 +63,7 @@ class AutoBuilder {
             extension: 8,
             misc: 9
         }
+        this.buildings = {};
         this.sources = [];
         this.keys = _.keys(this.values);
         this.vis = new RoomVisual(room.name);
@@ -87,6 +88,12 @@ class AutoBuilder {
         }
         this.structures = this.room.find(FIND_STRUCTURES);
         for(let struct of this.structures){
+            if(struct.structureType != 'road'){
+                if(!this.buildings[struct.structureType]){
+                    this.buildings[struct.structureType] = [];
+                }
+                this.buildings[struct.structureType].push(struct);
+            }
             let pos = pos2ix(struct.pos);
             this.grid[pos] = Math.max(this.grid[pos], _.get(this.values, struct.structureType, this.values.misc));
             // this.vis.rect(struct.pos.x - 0.4, struct.pos.y - 0.4, 0.8, 0.8, { fill: '#000088' });
@@ -176,19 +183,26 @@ class AutoBuilder {
     placeSpawnRoads(){
         var roads = new Set();
         for(let struct of this.structures){
-            if(struct.structureType == STRUCTURE_SPAWN || struct.structureType == STRUCTURE_STORAGE){
-                this.addRoadsAround(struct, roads, 1);
-            }
-            if(struct.structureType == STRUCTURE_CONTROLLER){
-                this.addRoadsAround(struct, roads, 2);
-            }
-            if(struct.structureType == STRUCTURE_EXTENSION){
-                for(let pos of rpos){
-                    var target = xy2ix(struct.pos.x + pos[0], struct.pos.y + pos[1]);
-                    if(this.grid[target] < 3){
-                        roads.add(target);
+            switch(struct.structureType){
+                case STRUCTURE_EXTRACTOR:
+                    this.extractor = struct;
+                    this.addRoadsAround(struct, roads, 2);
+                    break;
+                case STRUCTURE_SPAWN:
+                case STRUCTURE_STORAGE:
+                    this.addRoadsAround(struct, roads, 1);
+                    break;
+                case STRUCTURE_CONTROLLER:
+                    this.addRoadsAround(struct, roads, 2);
+                    break;
+                case STRUCTURE_EXTENSION:
+                    for(let pos of rpos){
+                        var target = xy2ix(struct.pos.x + pos[0], struct.pos.y + pos[1]);
+                        if(this.grid[target] < 3){
+                            roads.add(target);
+                        }
                     }
-                }
+                    break;
             }
         }
         for(let source of this.sources){
@@ -258,6 +272,13 @@ class AutoBuilder {
             let targetPos = ix2pos(_.first(structs.containers), this.room.name);
             console.log('Building container at', targetPos);
             targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+        }
+        if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
+            let mineral = _.first(this.room.find(FIND_MINERALS));
+            if(mineral){
+                console.log('Building extractor at', mineral.pos);
+                mineral.pos.createConstructionSite(STRUCTURE_EXTRACTOR);
+            }
         }
     }
 
