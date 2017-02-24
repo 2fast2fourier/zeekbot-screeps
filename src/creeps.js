@@ -14,7 +14,7 @@ module.exports = {
         quota: 'defend',
         critical: true,
         parts: {
-            micro: { tough: 3, move: 11, ranged_attack: 8 },
+            // micro: { tough: 3, move: 11, ranged_attack: 8 },
             nano: { tough: 5, move: 10, ranged_attack: 5 },
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -126,6 +126,7 @@ module.exports = {
     },
     observer: {
         quota: 'observe',
+        critical: true,
         parts: { pico: { tough: 1, move: 1 } },
         work: { observe: {} }
     },

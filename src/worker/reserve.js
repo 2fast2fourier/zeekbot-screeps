@@ -33,7 +33,7 @@ class ReserveWorker extends BaseWorker {
     }
 
     keepDeadJob(cluster, creep, opts, job){
-        return job.subtype == 'reserve';
+        return job.subtype == 'reserve' && !job.target.my;
     }
 
     allocate(cluster, creep, opts){

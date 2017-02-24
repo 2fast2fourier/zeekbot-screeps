@@ -67,6 +67,7 @@ class Cluster {
         _.forEach(Game.clusters, cluster => {
             if(cluster.maxRCL < 2 || _.size(cluster.structures.spawn) == 0){
                 Memory.bootstrap = cluster.id;
+                cluster.bootstrap = true;
             }
         });
     }

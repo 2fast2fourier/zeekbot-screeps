@@ -105,18 +105,20 @@ module.exports =
 	    // }
 
 	    
-	    if(Memory.autobuild && Game.interval(50)){
-	        let buildRoom = Game.rooms[Memory.autobuild];
-	        if(buildRoom){
-	            let builder = new AutoBuilder(buildRoom);
-	            builder.buildTerrain();
-	            let buildList = builder.generateBuildingList();
-	            if(buildList){
-	                builder.autobuild(buildList);
+	    if(Memory.autobuild && Game.interval(101)){
+	        for(let roomName of Memory.autobuild){
+	            let buildRoom = Game.rooms[roomName];
+	            if(buildRoom){
+	                let builder = new AutoBuilder(buildRoom);
+	                builder.buildTerrain();
+	                let buildList = builder.generateBuildingList();
+	                if(buildList){
+	                    builder.autobuild(buildList);
+	                }
 	            }
 	        }
-	    }else if(Memory.autobuildDebug){
-	        let buildRoom = Game.rooms[Memory.autobuildDebug];
+	    }else if(Game.flags.autobuildDebug){
+	        let buildRoom = Game.flags.autobuildDebug.room;
 	        if(buildRoom){
 	            let start = Game.cpu.getUsed();
 	            let builder = new AutoBuilder(buildRoom);
@@ -662,6 +664,7 @@ module.exports =
 	        _.forEach(Game.clusters, cluster => {
 	            if(cluster.maxRCL < 2 || _.size(cluster.structures.spawn) == 0){
 	                Memory.bootstrap = cluster.id;
+	                cluster.bootstrap = true;
 	            }
 	        });
 	    }
@@ -1188,7 +1191,8 @@ module.exports =
 	        }
 	        this.structures = this.room.find(FIND_STRUCTURES);
 	        for(let struct of this.structures){
-	            this.grid[pos2ix(struct.pos)] = _.get(this.values, struct.structureType, this.values.misc);
+	            let pos = pos2ix(struct.pos);
+	            this.grid[pos] = Math.max(this.grid[pos], _.get(this.values, struct.structureType, this.values.misc));
 	            // this.vis.rect(struct.pos.x - 0.4, struct.pos.y - 0.4, 0.8, 0.8, { fill: '#000088' });
 	            if(struct.structureType == STRUCTURE_SPAWN && !this.spawn){
 	                this.spawn = struct;
@@ -1201,14 +1205,16 @@ module.exports =
 	    }
 
 	    generateBuildingList(){
-	        var extensions = new Set();
+	        var extensions = [];
 	        if(this.spawn){
-	            this.placeExtensions(this.spawn.pos.x, this.spawn.pos.y, 0, new Set(), doublerpos, extensions);
+	            var out = new Set();
+	            this.placeExtensions(this.spawn.pos.x, this.spawn.pos.y, 0, new Set(), doublerpos, out);
+	            extensions = _.sortBy([...out], extension => this.spawn.pos.getRangeTo(ix2pos(extension, this.room.name)));
 	        }
 	        return {
-	            // containers: [...this.placeContainers()],
+	            containers: [...this.placeContainers()],
 	            roads: [...this.placeSpawnRoads()],
-	            extensions: [...extensions]
+	            extensions
 	        }
 	    }
 
@@ -1330,7 +1336,7 @@ module.exports =
 	            var dy = y + pos[1];
 	            var target = xy2ix(dx, dy);
 	            if(this.hasSidesClear(dx, dy)){
-	                if(this.grid[target] != this.values.extension && !exhausted.has(target) && !output.has(target)){
+	                if(this.grid[target] != this.values.extension && !exhausted.has(target) && !output.has(target) && this.spawn.pos.getRangeTo(new RoomPosition(dx, dy, this.room.name)) > 1){
 	                    output.add(target);
 	                    count++;
 	                    this.vis.rect(dx - 0.25, dy - 0.25, 0.5, 0.5, { fill: '#00ff00', opacity: 0.25 });
@@ -1351,6 +1357,11 @@ module.exports =
 	            let targetPos = ix2pos(_.first(structs.extensions), this.room.name);
 	            console.log('Building extension at', targetPos);
 	            targetPos.createConstructionSite(STRUCTURE_EXTENSION);
+	        }
+	        if(this.room.memory.role == 'harvest' && structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 3){
+	            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+	            console.log('Building container at', targetPos);
+	            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
 	        }
 	    }
 
@@ -2030,7 +2041,7 @@ module.exports =
 	        quota: 'defend',
 	        critical: true,
 	        parts: {
-	            micro: { tough: 3, move: 11, ranged_attack: 8 },
+	            // micro: { tough: 3, move: 11, ranged_attack: 8 },
 	            nano: { tough: 5, move: 10, ranged_attack: 5 },
 	            pico: { tough: 5, move: 7, ranged_attack: 2 },
 	            femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -2142,6 +2153,7 @@ module.exports =
 	    },
 	    observer: {
 	        quota: 'observe',
+	        critical: true,
 	        parts: { pico: { tough: 1, move: 1 } },
 	        work: { observe: {} }
 	    },
@@ -2511,7 +2523,7 @@ module.exports =
 	    }
 
 	    generateJobs(cluster, subtype){
-	        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype){
+	        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
 	            return [];
 	        }
 	        var jobs = this.jobs[subtype];
@@ -2759,7 +2771,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(creep.pos.getRangeTo(target) > 2){
+	        if(creep.pos.getRangeTo(target) > 3){
 	            this.move(creep, target);
 	        }
 	    }
@@ -3051,7 +3063,7 @@ module.exports =
 	    }
 
 	    keepDeadJob(cluster, creep, opts, job){
-	        return job.subtype == 'reserve';
+	        return job.subtype == 'reserve' && !job.target.my;
 	    }
 
 	    allocate(cluster, creep, opts){

@@ -159,7 +159,7 @@ class BaseWorker {
     }
 
     generateJobs(cluster, subtype){
-        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype){
+        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
             return [];
         }
         var jobs = this.jobs[subtype];

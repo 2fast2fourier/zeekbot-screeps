@@ -87,7 +87,8 @@ class AutoBuilder {
         }
         this.structures = this.room.find(FIND_STRUCTURES);
         for(let struct of this.structures){
-            this.grid[pos2ix(struct.pos)] = _.get(this.values, struct.structureType, this.values.misc);
+            let pos = pos2ix(struct.pos);
+            this.grid[pos] = Math.max(this.grid[pos], _.get(this.values, struct.structureType, this.values.misc));
             // this.vis.rect(struct.pos.x - 0.4, struct.pos.y - 0.4, 0.8, 0.8, { fill: '#000088' });
             if(struct.structureType == STRUCTURE_SPAWN && !this.spawn){
                 this.spawn = struct;
@@ -100,14 +101,16 @@ class AutoBuilder {
     }
 
     generateBuildingList(){
-        var extensions = new Set();
+        var extensions = [];
         if(this.spawn){
-            this.placeExtensions(this.spawn.pos.x, this.spawn.pos.y, 0, new Set(), doublerpos, extensions);
+            var out = new Set();
+            this.placeExtensions(this.spawn.pos.x, this.spawn.pos.y, 0, new Set(), doublerpos, out);
+            extensions = _.sortBy([...out], extension => this.spawn.pos.getRangeTo(ix2pos(extension, this.room.name)));
         }
         return {
-            // containers: [...this.placeContainers()],
+            containers: [...this.placeContainers()],
             roads: [...this.placeSpawnRoads()],
-            extensions: [...extensions]
+            extensions
         }
     }
 
@@ -229,7 +232,7 @@ class AutoBuilder {
             var dy = y + pos[1];
             var target = xy2ix(dx, dy);
             if(this.hasSidesClear(dx, dy)){
-                if(this.grid[target] != this.values.extension && !exhausted.has(target) && !output.has(target)){
+                if(this.grid[target] != this.values.extension && !exhausted.has(target) && !output.has(target) && this.spawn.pos.getRangeTo(new RoomPosition(dx, dy, this.room.name)) > 1){
                     output.add(target);
                     count++;
                     this.vis.rect(dx - 0.25, dy - 0.25, 0.5, 0.5, { fill: '#00ff00', opacity: 0.25 });
@@ -250,6 +253,11 @@ class AutoBuilder {
             let targetPos = ix2pos(_.first(structs.extensions), this.room.name);
             console.log('Building extension at', targetPos);
             targetPos.createConstructionSite(STRUCTURE_EXTENSION);
+        }
+        if(this.room.memory.role == 'harvest' && structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 3){
+            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+            console.log('Building container at', targetPos);
+            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
         }
     }
 

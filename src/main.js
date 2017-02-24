@@ -58,18 +58,20 @@ module.exports.loop = function () {
     // }
 
     
-    if(Memory.autobuild && Game.interval(50)){
-        let buildRoom = Game.rooms[Memory.autobuild];
-        if(buildRoom){
-            let builder = new AutoBuilder(buildRoom);
-            builder.buildTerrain();
-            let buildList = builder.generateBuildingList();
-            if(buildList){
-                builder.autobuild(buildList);
+    if(Memory.autobuild && Game.interval(101)){
+        for(let roomName of Memory.autobuild){
+            let buildRoom = Game.rooms[roomName];
+            if(buildRoom){
+                let builder = new AutoBuilder(buildRoom);
+                builder.buildTerrain();
+                let buildList = builder.generateBuildingList();
+                if(buildList){
+                    builder.autobuild(buildList);
+                }
             }
         }
-    }else if(Memory.autobuildDebug){
-        let buildRoom = Game.rooms[Memory.autobuildDebug];
+    }else if(Game.flags.autobuildDebug){
+        let buildRoom = Game.flags.autobuildDebug.room;
         if(buildRoom){
             let start = Game.cpu.getUsed();
             let builder = new AutoBuilder(buildRoom);
