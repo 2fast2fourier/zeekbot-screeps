@@ -34,7 +34,7 @@ class Cluster {
             harvest: []
         };
 
-        this.roomBehavior = {
+        this.roomflags = {
             defend: [],
             reserve: [],
             observe: [],
@@ -48,9 +48,9 @@ class Cluster {
                 this.maxSpawn = room.energyCapacityAvailable;
             }
             this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
-            for(let type in this.roomBehavior){
+            for(let type in this.roomflags){
                 if(room.memory[type]){
-                    this.roomBehavior[type].push(room);
+                    this.roomflags[type].push(room);
                 }
             }
             if(Game.interval(100)){

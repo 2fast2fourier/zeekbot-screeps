@@ -102,7 +102,7 @@ module.exports =
 	        Controller.control(cluster);
 	        
 	        if(Game.interval(150)){
-	            for(let buildRoom of cluster.roomBehavior.autobuild){
+	            for(let buildRoom of cluster.roomflags.autobuild){
 	                let builder = new AutoBuilder(buildRoom);
 	                builder.buildTerrain();
 	                let buildList = builder.generateBuildingList();
@@ -198,6 +198,23 @@ module.exports =
 
 	    RoomObject.prototype.mine = function(){
 	        return this.my || !this.owner;
+	    }
+
+	    /// Tag Helpers
+
+	    Structure.prototype.hasTag = function(tag){
+	        let cluster = this.room.getCluster();
+	        if(cluster && cluster.tags[tag]){
+	            return cluster.tags[tag].includes(this.id);
+	        }
+	        return false;
+	    }
+
+	    Structure.prototype.addTag = function(tag){
+	        let cluster = this.room.getCluster();
+	        if(cluster){
+	            cluster.addTag(tag, this.id);
+	        }
 	    }
 
 	    ///
@@ -633,7 +650,7 @@ module.exports =
 	            harvest: []
 	        };
 
-	        this.roomBehavior = {
+	        this.roomflags = {
 	            defend: [],
 	            reserve: [],
 	            observe: [],
@@ -647,9 +664,9 @@ module.exports =
 	                this.maxSpawn = room.energyCapacityAvailable;
 	            }
 	            this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
-	            for(let type in this.roomBehavior){
+	            for(let type in this.roomflags){
 	                if(room.memory[type]){
-	                    this.roomBehavior[type].push(room);
+	                    this.roomflags[type].push(room);
 	                }
 	            }
 	            if(Game.interval(100)){
@@ -1190,7 +1207,9 @@ module.exports =
 	            container: 6,
 	            spawn: 7,
 	            extension: 8,
-	            misc: 9
+	            storage: 9,
+	            link: 10,
+	            misc: 11
 	        }
 	        this.buildings = {};
 	        this.sources = [];
@@ -1205,15 +1224,11 @@ module.exports =
 	            for(var iy = 1; iy < 49; iy++){
 	                var terrain = Game.map.getTerrainAt(ix, iy, roomName);
 	                this.grid[xy2ix(ix, iy)] = this.values[terrain];
-	                // if(terrain == 'swamp'){
-	                //     this.vis.circle(ix, iy, swampStyle);
-	                // }
 	            }
 	        }
 	        this.sources = this.room.find(FIND_SOURCES);
 	        for(let source of this.sources){
 	            this.grid[pos2ix(source.pos)] = this.values.source;
-	            // this.vis.rect(source.pos.x - 1.5, source.pos.y - 1.5, 3, 3, { fill: '#888800' });
 	        }
 	        this.structures = this.room.find(FIND_STRUCTURES);
 	        for(let struct of this.structures){
@@ -1225,7 +1240,6 @@ module.exports =
 	            }
 	            let pos = pos2ix(struct.pos);
 	            this.grid[pos] = Math.max(this.grid[pos], _.get(this.values, struct.structureType, this.values.misc));
-	            // this.vis.rect(struct.pos.x - 0.4, struct.pos.y - 0.4, 0.8, 0.8, { fill: '#000088' });
 	            if(struct.structureType == STRUCTURE_SPAWN && !this.spawn){
 	                this.spawn = struct;
 	            }
@@ -1234,6 +1248,22 @@ module.exports =
 	        for(let struct of this.sites){
 	            this.grid[pos2ix(struct.pos)] = _.get(this.values, struct.structureType, this.values.misc);
 	        }
+	    }
+
+	    countNearby(gridTypes, idx, radius){
+	        var count = 0;
+	        var x = ix2x(idx);
+	        var y = ix2y(idx);
+	        for(let iy = Math.max(1, y - radius); iy <= Math.min(48, y + radius); iy++){
+	            var xoff = iy * 50;
+	            for(let ix = Math.max(1, x - radius); ix <= Math.min(48, x + radius); ix++){
+	                if(gridTypes.includes(this.grid[xoff + ix])){
+	                    count++;
+	                }
+	                // this.vis.rect(ix - 0.25, iy - 0.25, 0.5, 0.5, { fill: '#ff0000', opacity: 0.25 });
+	            }
+	        }
+	        return count;
 	    }
 
 	    generateBuildingList(){
@@ -1245,7 +1275,7 @@ module.exports =
 	        }
 	        return {
 	            containers: [...this.placeContainers()],
-	            roads: [...this.placeSpawnRoads()],
+	            roads: [...this.placeRoads()],
 	            extensions
 	        }
 	    }
@@ -1262,36 +1292,54 @@ module.exports =
 	        }
 	    }
 
+	    findAccessibleSpot(origin, radius){
+	        var weights = {};
+	        var minX = Math.max(1, origin.x - radius);
+	        var maxX = Math.min(48, origin.x + radius);
+	        var minY = Math.max(1, origin.y - radius);
+	        var maxY = Math.min(48, origin.y + radius);
+	        for(var y = minY; y <= maxY; y++){
+	            for(var x = minX; x <= maxX; x++){
+	                if(y != origin.y || x != origin.x){
+	                    let pos = xy2ix(x, y);
+	                    if(this.grid[pos] < CLEAR_RANGE){
+	                        this.addWeights(x, y, minX, maxX, minY, maxY, weights);
+	                    }
+	                }
+	            }
+	        }
+	        let target = false;
+	        let max = 0;
+	        _.forEach(weights, (weight, pos) => {
+	            if(weight > max){
+	                target = pos;
+	                max = weight;
+	            }
+	        });
+	        return target;
+	    }
+
 	    placeContainers(){
 	        var containerPos = new Set();
 	        var pos = 0;
 	        for(let source of this.sources){
-	            var weights = {};
-	            var minX = source.pos.x - 1;
-	            var maxX = source.pos.x + 1;
-	            var minY = source.pos.y - 1;
-	            var maxY = source.pos.y + 1;
-	            for(var y = minY; y <= maxY; y++){
-	                for(var x = minX; x <= maxX; x++){
-	                    if(y != source.pos.y || x != source.pos.x){
-	                        pos = xy2ix(x, y);
-	                        if(this.grid[pos] < CLEAR_RANGE){
-	                            this.addWeights(x, y, minX, maxX, minY, maxY, weights);
-	                        }
-	                    }
-	                }
+	            if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(source.pos), 2) > 0){
+	                continue;
 	            }
-	            let target = false;
-	            let max = 0;
-	            _.forEach(weights, (weight, pos) => {
-	                if(weight > max){
-	                    target = pos;
-	                    max = weight;
-	                }
-	            });
+	            let target = this.findAccessibleSpot(source.pos, 1);
 	            if(target){
 	                this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
 	                containerPos.add(target);
+	            }
+	        }
+	        if(this.room.controller){
+	            let pos = this.room.controller.pos;
+	            if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(pos), 2) == 0){
+	                let target = this.findAccessibleSpot(pos, 2);
+	                if(target){
+	                    this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
+	                    containerPos.add(target);
+	                }
 	            }
 	        }
 	        return containerPos;
@@ -1309,7 +1357,7 @@ module.exports =
 	        }
 	    }
 
-	    placeSpawnRoads(){
+	    placeRoads(){
 	        var roads = new Set();
 	        for(let struct of this.structures){
 	            switch(struct.structureType){
@@ -1397,16 +1445,64 @@ module.exports =
 	            console.log('Building extension at', targetPos);
 	            targetPos.createConstructionSite(STRUCTURE_EXTENSION);
 	        }
-	        if(this.room.memory.role == 'harvest' && structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 3){
-	            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
-	            console.log('Building container at', targetPos);
-	            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+	        if(structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 0){
+	            // let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+	            // console.log('Building container at', targetPos);
+	            // targetPos.createConstructionSite(STRUCTURE_CONTAINER);
 	        }
 	        if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
 	            let mineral = _.first(this.room.find(FIND_MINERALS));
 	            if(mineral){
 	                console.log('Building extractor at', mineral.pos);
 	                mineral.pos.createConstructionSite(STRUCTURE_EXTRACTOR);
+	            }
+	        }
+	        this.placeTags();
+	    }
+
+	    findNearby(pos, type, range){
+	        var buildings = this.buildings[type] || [];
+	        return _.filter(buildings, struct => pos.getRangeTo(struct) <= range);
+	    }
+
+	    findNearbyTypes(pos, types, range){
+	        return _.filter(this.structures, struct => types.includes(struct.structureType) && pos.getRangeTo(struct) <= range);
+	    }
+
+	    placeTags(){
+	        if(this.room.controller){
+	            let pos = this.room.controller.pos;
+	            let containers = this.findNearby(pos, STRUCTURE_CONTAINER, 3);
+	            if(containers.length > 0 && !containers.some(container => container.hasTag('stockpile'))){
+	                for(let container of containers){
+	                    if(!container.hasTag('stockpile')){
+	                        container.addTag('stockpile');
+	                        console.log('Added stockpile tag to', container, 'in', container.pos.roomName);
+	                        break;
+	                    }
+	                }
+	            }
+	            let links = this.findNearby(pos, STRUCTURE_LINK, 3);
+	            if(links.length > 0 && !links.some(link => link.hasTag('output'))){
+	                for(let link of links){
+	                    if(!link.hasTag('output')){
+	                        link.addTag('output');
+	                        console.log('Added link output tag to', link, 'in', link.pos.roomName);
+	                        break;
+	                    }
+	                }
+	            }
+	        }
+	        for(let source of this.sources){
+	            let links = this.findNearby(source.pos, STRUCTURE_LINK, 2);
+	            if(links.length > 0 && !links.some(link => link.hasTag('input'))){
+	                for(let link of links){
+	                    if(!link.hasTag('input')){
+	                        link.addTag('input');
+	                        console.log('Added link input tag to', link, 'in', link.pos.roomName);
+	                        break;
+	                    }
+	                }
 	            }
 	        }
 	    }
@@ -3118,12 +3214,9 @@ module.exports =
 
 	    /// Job ///
 
-	    shouldReserve(room){
-	        return _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my;
-	    }
-
 	    reserve(cluster, subtype){
-	        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.roomBehavior.reserve, room => this.shouldReserve(room)), 'controller'));
+	        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000), 'controller');
+	        return this.jobsForTargets(cluster, subtype, controllers);
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -3133,7 +3226,11 @@ module.exports =
 	    /// Creep ///
 
 	    continueJob(cluster, creep, opts, job){
-	        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800 && !job.target.my;
+	        if(job.target && job.target.my){
+	            delete job.target.room.memory.reserve;
+	            return false;
+	        }
+	        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800;
 	    }
 
 	    keepDeadJob(cluster, creep, opts, job){
@@ -3145,6 +3242,10 @@ module.exports =
 	    }
 
 	    calculateBid(cluster, creep, opts, job, distance){
+	        if(job.target && job.target.my){
+	            delete job.target.room.memory.reserve;
+	            return false;
+	        }
 	        return _.get(job, 'target.reservation.ticksToEnd', 0) / 5000;
 	    }
 
@@ -3153,6 +3254,8 @@ module.exports =
 	            let result = creep.claimController(target);
 	            if(result == OK){
 	                console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
+	                delete target.room.memory.claim;
+	                delete target.room.memory.reserve;
 	                cluster.changeRole(target.pos.roomName, 'core');
 	            }else{
 	                console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);

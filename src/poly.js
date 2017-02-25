@@ -52,6 +52,23 @@ module.exports = function(){
         return this.my || !this.owner;
     }
 
+    /// Tag Helpers
+
+    Structure.prototype.hasTag = function(tag){
+        let cluster = this.room.getCluster();
+        if(cluster && cluster.tags[tag]){
+            return cluster.tags[tag].includes(this.id);
+        }
+        return false;
+    }
+
+    Structure.prototype.addTag = function(tag){
+        let cluster = this.room.getCluster();
+        if(cluster){
+            cluster.addTag(tag, this.id);
+        }
+    }
+
     ///
     /// Resource Helpers
     ///

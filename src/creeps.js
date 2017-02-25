@@ -42,7 +42,6 @@ module.exports = {
         parts: {
             milli: { move: 4, carry: 2, work: 8 },//standard 1100
             micro: { move: 3, carry: 1, work: 6 },//800
-            // nano: { move: 2, carry: 1, work: 4 },//550
             nano: { move: 2, carry: 2, work: 3 },//550
             pico: { move: 1, carry: 1, work: 2 }//300
         },

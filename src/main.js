@@ -55,7 +55,7 @@ module.exports.loop = function () {
         Controller.control(cluster);
         
         if(Game.interval(150)){
-            for(let buildRoom of cluster.roomBehavior.autobuild){
+            for(let buildRoom of cluster.roomflags.autobuild){
                 let builder = new AutoBuilder(buildRoom);
                 builder.buildTerrain();
                 let buildList = builder.generateBuildingList();

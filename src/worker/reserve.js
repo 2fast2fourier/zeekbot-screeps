@@ -7,12 +7,9 @@ class ReserveWorker extends BaseWorker {
 
     /// Job ///
 
-    shouldReserve(room){
-        return _.get(room, 'controller.reservation.ticksToEnd', 0) < 4000 && !room.controller.my;
-    }
-
     reserve(cluster, subtype){
-        return this.jobsForTargets(cluster, subtype, _.map(_.filter(cluster.roomBehavior.reserve, room => this.shouldReserve(room)), 'controller'));
+        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000), 'controller');
+        return this.jobsForTargets(cluster, subtype, controllers);
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
@@ -22,7 +19,11 @@ class ReserveWorker extends BaseWorker {
     /// Creep ///
 
     continueJob(cluster, creep, opts, job){
-        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800 && !job.target.my;
+        if(job.target && job.target.my){
+            delete job.target.room.memory.reserve;
+            return false;
+        }
+        return super.continueJob(cluster, creep, opts, job) && _.get(job, 'target.reservation.ticksToEnd', 0) < 4800;
     }
 
     keepDeadJob(cluster, creep, opts, job){
@@ -34,6 +35,10 @@ class ReserveWorker extends BaseWorker {
     }
 
     calculateBid(cluster, creep, opts, job, distance){
+        if(job.target && job.target.my){
+            delete job.target.room.memory.reserve;
+            return false;
+        }
         return _.get(job, 'target.reservation.ticksToEnd', 0) / 5000;
     }
 
@@ -42,6 +47,8 @@ class ReserveWorker extends BaseWorker {
             let result = creep.claimController(target);
             if(result == OK){
                 console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
+                delete target.room.memory.claim;
+                delete target.room.memory.reserve;
                 cluster.changeRole(target.pos.roomName, 'core');
             }else{
                 console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);
