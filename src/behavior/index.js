@@ -11,7 +11,7 @@ var SelfHeal = require('./selfheal');
 module.exports = function(){
     return {
         // assignRoom: new AssignRoomAction(),
-        // avoid: new Avoid(),
+        avoid: new Avoid(),
         // boost: new Boost(),
         energy: new Energy(),
         minecart: new MinecartAction(),

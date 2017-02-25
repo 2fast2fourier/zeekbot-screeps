@@ -82,33 +82,27 @@ module.exports =
 	        bootstrap = target;
 	    }
 
+	    // _.forEach(Memory.rooms, (room, name) =>{
+	    //     if(!room.cluster){
+	    //         delete Memory.rooms[name];
+	    //     }
+	    // });
+
 	    _.forEach(Game.clusters, (cluster, name) =>{
 	        Worker.process(cluster);
 	        
 	        if(Game.interval(5)){
 	            let spawnlist = Spawner.generateSpawnList(cluster, cluster);
 	            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && cluster.totalEnergy > 5000){
-	                // console.log('bootstrapping', JSON.stringify(bootstrap));
 	                spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
 	                Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
 	            }
 	        }
 
 	        Controller.control(cluster);
-	    });
-
-	    Controller.hedgemony();
-
-	    // if(Game.interval(20)){
-	        //TODO fix production to not rely on catalog
-	    //     Production.process();
-	    // }
-
-	    
-	    if(Memory.autobuild && Game.interval(101)){
-	        for(let roomName of Memory.autobuild){
-	            let buildRoom = Game.rooms[roomName];
-	            if(buildRoom){
+	        
+	        if(Game.interval(150)){
+	            for(let buildRoom of cluster.roomBehavior.autobuild){
 	                let builder = new AutoBuilder(buildRoom);
 	                builder.buildTerrain();
 	                let buildList = builder.generateBuildingList();
@@ -117,7 +111,15 @@ module.exports =
 	                }
 	            }
 	        }
-	    }else if(Game.flags.autobuildDebug){
+	    });
+
+	    Controller.hedgemony();
+
+	    // if(Game.interval(20)){
+	        //TODO fix production to not rely on catalog
+	    //     Production.process();
+	    // }
+	    if(Game.flags.autobuildDebug){
 	        let buildRoom = Game.flags.autobuildDebug.room;
 	        if(buildRoom){
 	            let start = Game.cpu.getUsed();
@@ -635,7 +637,8 @@ module.exports =
 	            defend: [],
 	            reserve: [],
 	            observe: [],
-	            claim: []
+	            claim: [],
+	            autobuild: []
 	        }
 
 	        _.forEach(this.rooms, room => {
@@ -2102,7 +2105,7 @@ module.exports =
 	            deliver: { subtype: 'spawn', local: true },
 	            idle: { subtype: 'spawn', local: true }
 	        },
-	        // behavior: { avoid: {} }
+	        behavior: { avoid: {} }
 	    },
 	    energyminer: {
 	        quota: 'energy-mine',
@@ -2118,7 +2121,7 @@ module.exports =
 	        },
 	        emergency: 'pico',
 	        work: { mine: { subtype: 'energy' } },
-	        behavior: { minecart: {} }// avoid: {},
+	        behavior: { avoid: {}, minecart: {} }
 	    },
 	    stockpilehauler: {
 	        quota: 'stockpile-deliver',
@@ -2129,18 +2132,19 @@ module.exports =
 	            pickup: {},
 	            deliver: { subtype: 'stockpile' }
 	        },
-	        // behavior: { avoid: {} }
+	        behavior: { avoid: {} }
 	    },
 	    harvesthauler: {
 	        quota: 'harvesthauler',
 	        allocation: 'carry',
+	        allocationMax: 24,
 	        parts: haulerParts,
 	        assignRoom: 'harvest',
 	        work: {
 	            pickup: { subtype: 'harvest' },
 	            deliver: { subtype: 'storage' }
 	        },
-	        // behavior: { avoid: {} }
+	        behavior: { avoid: {} }
 	    },
 	    reserver: {
 	        quota: 'reserve',
@@ -2151,7 +2155,8 @@ module.exports =
 	            nano: { claim: 2, move: 2 },
 	            pico: { claim: 1, move: 1 }
 	        },
-	        work: { reserve: {} }
+	        work: { reserve: {} },
+	        behavior: { avoid: {} }
 	    },
 	    builderworker: {
 	        quota: 'build',
@@ -2159,13 +2164,14 @@ module.exports =
 	        allocation: 'work',
 	        allocationMulti: 1000,
 	        parts: {
+	            kilo: { move: 17, carry: 12, work: 5 },//1700
 	            milli: { move: 10, carry: 6, work: 4 },//1200
 	            micro: { move: 7, carry: 5, work: 2 },//800
 	            nano: { move: 4, carry: 2, work: 2 },//550
 	            pico: { move: 2, carry: 1, work: 1 }//300
 	        },
 	        work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
-	        // behavior: { avoid: {} }
+	        behavior: { avoid: {} }
 	    },
 	    upgradeworker: {
 	        quota: 'upgrade',
@@ -2178,7 +2184,7 @@ module.exports =
 	            pico: { move: 2, carry: 1, work: 1 }//300
 	        },
 	        work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
-	        behavior: { energy: {} }
+	        behavior: { energy: {}, avoid: {} }
 	    },
 	    repairworker: {
 	        quota: 'repair',
@@ -2192,13 +2198,14 @@ module.exports =
 	            pico: { move: 2, carry: 1, work: 1 }//300
 	        },
 	        work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
-	        behavior: { repair: {} }// avoid: {}, 
+	        behavior: { avoid: {}, repair: {} }
 	    },
 	    observer: {
 	        quota: 'observe',
 	        critical: true,
 	        parts: { pico: { tough: 1, move: 1 } },
-	        work: { observe: {} }
+	        work: { observe: {} },
+	        behavior: { avoid: {} }
 	    },
 	    healer: {
 	        quota: 'heal',
@@ -2218,7 +2225,7 @@ module.exports =
 	            pico: { move: 6, carry: 4, work: 8 }
 	        },
 	        work: { mine: { subtype: 'mineral' } },
-	        behavior: { minecart: {} }// avoid: {},
+	        behavior: { avoid: {}, minecart: {} }
 	    },
 	    mineralhauler: {
 	        quota: 'mineral-pickup',
@@ -2229,7 +2236,7 @@ module.exports =
 	            pickup: { subtype: 'mineral' },
 	            deliver: { subtype: 'terminal' }
 	        },
-	        // behavior: { avoid: {} }
+	        behavior: { avoid: {} }
 	    }
 	}
 
@@ -3036,7 +3043,7 @@ module.exports =
 	        if(job.target.id == creep.memory.lastDeliver){
 	            return false;
 	        }
-	        return distance / 50 + creep.getStored() / creep.getCapacity() + Math.max(0, 1 - job.capacity / creep.getAvailableCapacity());
+	        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity) + (creep.pos.roomName != job.target.pos.roomName ? 0.5 : 0);
 	    }
 
 	    process(cluster, creep, opts, job, target){
@@ -3183,8 +3190,8 @@ module.exports =
 	        if(cluster.totalEnergy < 2000){
 	            return 5;
 	        }
-	        if(target.level >= 6){
-	            return 20;
+	        if(target.level >= 5 && _.get(target, 'room.storage.store.energy', 0) > 100000){
+	            return 30;
 	        }
 	        return 10;
 	    }
@@ -3228,7 +3235,7 @@ module.exports =
 	module.exports = function(){
 	    return {
 	        // assignRoom: new AssignRoomAction(),
-	        // avoid: new Avoid(),
+	        avoid: new Avoid(),
 	        // boost: new Boost(),
 	        energy: new Energy(),
 	        minecart: new MinecartAction(),
@@ -3302,7 +3309,9 @@ module.exports =
 
 	    postWork(cluster, creep, opts, action){}
 
-	    blocked(cluster, creep, opts, block){}
+	    blocked(cluster, creep, opts, block){
+	        console.log('block not implemented!', this);
+	    }
 
 	    hasJob(creep){
 	        return creep.memory.job && creep.memory.jobType;
@@ -3332,45 +3341,32 @@ module.exports =
 	var BaseAction = __webpack_require__(25);
 
 	class AvoidAction extends BaseAction {
-	    constructor(catalog){
-	        super(catalog, 'avoid');
+	    constructor(){
+	        super('avoid');
 	        this.range = 6;
 	    }
 
-	    shouldBlock(creep, opts){
-	        // var avoid = this.catalog.getAvoid(creep.pos);
-	        // if(avoid && avoid.length > 0){
-	        //     var target = this.getJobTarget(creep);
-	        //     var positions = _.filter(avoid, pos => creep.pos.getRangeTo(pos) <= this.range);
-	        //     if(positions.length > 0){
-	        //         return _.map(positions, position => {
-	        //             if(target && target.pos.getRangeTo(position) < this.range && creep.pos.getRangeTo(position) == this.range - 1){
-	        //                 creep.memory.blockedUntil = Game.time + 5;
-	        //             }
-	        //             return { pos: position, range: this.range + 4 };
-	        //         });
-	        //     }else if(creep.memory.blockedUntil > Game.time){
-	        //         return true;
-	        //     }
-	        // }else if(creep.memory.blockedUntil){
-	        //     delete creep.memory.blockedUntil;
-	        // }
+	    shouldBlock(cluster, creep, opts){
+	        var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
+	        if(hostiles.length > 0){
+	            let avoidTargets = [];
+	            for(var enemy of hostiles){
+	                if(creep.pos.getRangeTo(enemy) <= this.range){
+	                    avoidTargets.push({ pos: enemy.pos, range: this.range + 2, enemy });
+	                }
+	            }
+	            if(avoidTargets.length > 0){
+	                return { type: this.type, data: avoidTargets };
+	            }
+	        }
 	        return false;
 	    }
 
-	    blocked(creep, opts, block){
-	        // if(block === true && creep.memory.blockedUntil > Game.time){
-	        //     return;
-	        // }
-	        // if(block){
-	        //     var start = Game.cpu.getUsed();
-	        //     creep.memory.avoidUntil = Game.time + 10;
-	        //     delete creep.memory._move;
-	        //     var result = PathFinder.search(creep.pos, block, { flee: true });
-	        //     creep.move(creep.pos.getDirectionTo(result.path[0]));
-	        //     this.catalog.profileAdd('avoid', Game.cpu.getUsed() - start);
-	        // }
+	    blocked(cluster, creep, opts, block){
+	        var result = PathFinder.search(creep.pos, block, { flee: true });
+	        creep.moveByPath(result.path);
 	    }
+
 	}
 
 
@@ -3572,7 +3568,10 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
-	        return opts.block && creep.hits < creep.hitsMax - 200;
+	        if(opts.block && creep.hits < creep.hitsMax - 200){
+	            return { type: this.type, data: true };
+	        }
+	        return false;
 	    }
 
 	    postWork(cluster, creep, opts, action){

@@ -32,7 +32,7 @@ module.exports = {
             deliver: { subtype: 'spawn', local: true },
             idle: { subtype: 'spawn', local: true }
         },
-        // behavior: { avoid: {} }
+        behavior: { avoid: {} }
     },
     energyminer: {
         quota: 'energy-mine',
@@ -48,7 +48,7 @@ module.exports = {
         },
         emergency: 'pico',
         work: { mine: { subtype: 'energy' } },
-        behavior: { minecart: {} }// avoid: {},
+        behavior: { avoid: {}, minecart: {} }
     },
     stockpilehauler: {
         quota: 'stockpile-deliver',
@@ -59,18 +59,19 @@ module.exports = {
             pickup: {},
             deliver: { subtype: 'stockpile' }
         },
-        // behavior: { avoid: {} }
+        behavior: { avoid: {} }
     },
     harvesthauler: {
         quota: 'harvesthauler',
         allocation: 'carry',
+        allocationMax: 24,
         parts: haulerParts,
         assignRoom: 'harvest',
         work: {
             pickup: { subtype: 'harvest' },
             deliver: { subtype: 'storage' }
         },
-        // behavior: { avoid: {} }
+        behavior: { avoid: {} }
     },
     reserver: {
         quota: 'reserve',
@@ -81,7 +82,8 @@ module.exports = {
             nano: { claim: 2, move: 2 },
             pico: { claim: 1, move: 1 }
         },
-        work: { reserve: {} }
+        work: { reserve: {} },
+        behavior: { avoid: {} }
     },
     builderworker: {
         quota: 'build',
@@ -89,13 +91,14 @@ module.exports = {
         allocation: 'work',
         allocationMulti: 1000,
         parts: {
+            kilo: { move: 17, carry: 12, work: 5 },//1700
             milli: { move: 10, carry: 6, work: 4 },//1200
             micro: { move: 7, carry: 5, work: 2 },//800
             nano: { move: 4, carry: 2, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
-        // behavior: { avoid: {} }
+        behavior: { avoid: {} }
     },
     upgradeworker: {
         quota: 'upgrade',
@@ -108,7 +111,7 @@ module.exports = {
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
-        behavior: { energy: {} }
+        behavior: { energy: {}, avoid: {} }
     },
     repairworker: {
         quota: 'repair',
@@ -122,13 +125,14 @@ module.exports = {
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
-        behavior: { repair: {} }// avoid: {}, 
+        behavior: { avoid: {}, repair: {} }
     },
     observer: {
         quota: 'observe',
         critical: true,
         parts: { pico: { tough: 1, move: 1 } },
-        work: { observe: {} }
+        work: { observe: {} },
+        behavior: { avoid: {} }
     },
     healer: {
         quota: 'heal',
@@ -148,7 +152,7 @@ module.exports = {
             pico: { move: 6, carry: 4, work: 8 }
         },
         work: { mine: { subtype: 'mineral' } },
-        behavior: { minecart: {} }// avoid: {},
+        behavior: { avoid: {}, minecart: {} }
     },
     mineralhauler: {
         quota: 'mineral-pickup',
@@ -159,6 +163,6 @@ module.exports = {
             pickup: { subtype: 'mineral' },
             deliver: { subtype: 'terminal' }
         },
-        // behavior: { avoid: {} }
+        behavior: { avoid: {} }
     }
 }

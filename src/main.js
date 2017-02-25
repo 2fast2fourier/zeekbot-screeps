@@ -35,33 +35,27 @@ module.exports.loop = function () {
         bootstrap = target;
     }
 
+    // _.forEach(Memory.rooms, (room, name) =>{
+    //     if(!room.cluster){
+    //         delete Memory.rooms[name];
+    //     }
+    // });
+
     _.forEach(Game.clusters, (cluster, name) =>{
         Worker.process(cluster);
         
         if(Game.interval(5)){
             let spawnlist = Spawner.generateSpawnList(cluster, cluster);
             if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && cluster.totalEnergy > 5000){
-                // console.log('bootstrapping', JSON.stringify(bootstrap));
                 spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
                 Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
             }
         }
 
         Controller.control(cluster);
-    });
-
-    Controller.hedgemony();
-
-    // if(Game.interval(20)){
-        //TODO fix production to not rely on catalog
-    //     Production.process();
-    // }
-
-    
-    if(Memory.autobuild && Game.interval(101)){
-        for(let roomName of Memory.autobuild){
-            let buildRoom = Game.rooms[roomName];
-            if(buildRoom){
+        
+        if(Game.interval(150)){
+            for(let buildRoom of cluster.roomBehavior.autobuild){
                 let builder = new AutoBuilder(buildRoom);
                 builder.buildTerrain();
                 let buildList = builder.generateBuildingList();
@@ -70,7 +64,15 @@ module.exports.loop = function () {
                 }
             }
         }
-    }else if(Game.flags.autobuildDebug){
+    });
+
+    Controller.hedgemony();
+
+    // if(Game.interval(20)){
+        //TODO fix production to not rely on catalog
+    //     Production.process();
+    // }
+    if(Game.flags.autobuildDebug){
         let buildRoom = Game.flags.autobuildDebug.room;
         if(buildRoom){
             let start = Game.cpu.getUsed();

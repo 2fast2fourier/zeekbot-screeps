@@ -60,7 +60,7 @@ class PickupWorker extends BaseWorker {
         if(job.target.id == creep.memory.lastDeliver){
             return false;
         }
-        return distance / 50 + creep.getStored() / creep.getCapacity() + Math.max(0, 1 - job.capacity / creep.getAvailableCapacity());
+        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity) + (creep.pos.roomName != job.target.pos.roomName ? 0.5 : 0);
     }
 
     process(cluster, creep, opts, job, target){

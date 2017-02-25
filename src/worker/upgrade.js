@@ -19,8 +19,8 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.totalEnergy < 2000){
             return 5;
         }
-        if(target.level >= 6){
-            return 20;
+        if(target.level >= 5 && _.get(target, 'room.storage.store.energy', 0) > 100000){
+            return 30;
         }
         return 10;
     }

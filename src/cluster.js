@@ -38,7 +38,8 @@ class Cluster {
             defend: [],
             reserve: [],
             observe: [],
-            claim: []
+            claim: [],
+            autobuild: []
         }
 
         _.forEach(this.rooms, room => {

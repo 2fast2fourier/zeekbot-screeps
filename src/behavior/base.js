@@ -13,7 +13,9 @@ class BaseAction {
 
     postWork(cluster, creep, opts, action){}
 
-    blocked(cluster, creep, opts, block){}
+    blocked(cluster, creep, opts, block){
+        console.log('block not implemented!', this);
+    }
 
     hasJob(creep){
         return creep.memory.job && creep.memory.jobType;
