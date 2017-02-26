@@ -57,6 +57,10 @@ class Cluster {
             autobuild: []
         }
 
+        if(!Memory.cache.path[this.id]){
+            Memory.cache.path[this.id] = {};
+        }
+
         _.forEach(this.rooms, room => {
             this._roleRooms[room.memory.role].push(room);
             if(room.energyCapacityAvailable > this.maxSpawn){

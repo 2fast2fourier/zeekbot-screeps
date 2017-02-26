@@ -3,8 +3,8 @@
 class Pathing {
 
     static posToSec(pos){
-        let x = Math.floor(pos.x / 12.5);
-        let y = Math.floor(pos.y / 12.5);
+        let x = Math.floor(pos.x / 16.1);
+        let y = Math.floor(pos.y / 16.1);
         return {
             x,
             y,
@@ -14,7 +14,7 @@ class Pathing {
     }
 
     static secToPos(sec){
-        return new RoomPosition(Math.ceil(sec.x * 12.5) + 6, Math.ceil(sec.y * 12.5) + 6, sec.room)
+        return new RoomPosition(Math.ceil(sec.x * 16.1) + 8, Math.ceil(sec.y * 16.1) + 8, sec.room)
     }
 
     static getPathDistance(start, end){
@@ -28,7 +28,7 @@ class Pathing {
         }
         let distance = Memory.cache.path[pathName];
         if(_.isUndefined(distance)){
-            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 6 });
+            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 8 });
             distance = _.size(result.path);
             Memory.cache.path[pathName] = distance;
         }

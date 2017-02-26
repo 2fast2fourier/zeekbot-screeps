@@ -48,15 +48,15 @@ module.exports =
 	"use strict";
 
 	var Poly = __webpack_require__(1);
-	var Startup = __webpack_require__(2);
-	var Traveller = __webpack_require__(4);
+	var Startup = __webpack_require__(3);
+	var Traveller = __webpack_require__(5);
 
-	var AutoBuilder = __webpack_require__(5);
-	var Cluster = __webpack_require__(3);
-	var Controller = __webpack_require__(6);
-	var Spawner = __webpack_require__(8);
-	var Worker = __webpack_require__(10);
-	var Production = __webpack_require__(32);
+	var AutoBuilder = __webpack_require__(6);
+	var Cluster = __webpack_require__(4);
+	var Controller = __webpack_require__(7);
+	var Spawner = __webpack_require__(9);
+	var Worker = __webpack_require__(11);
+	var Production = __webpack_require__(33);
 
 	module.exports.loop = function () {
 	    //// Startup ////
@@ -158,7 +158,7 @@ module.exports =
 
 	var profileData = {};
 
-	const Pathing = __webpack_require__(33);
+	const Pathing = __webpack_require__(2);
 
 	module.exports = function(){
 	    ///
@@ -489,6 +489,90 @@ module.exports =
 
 /***/ },
 /* 2 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	class Pathing {
+
+	    static posToSec(pos){
+	        let x = Math.floor(pos.x / 12.5);
+	        let y = Math.floor(pos.y / 12.5);
+	        return {
+	            x,
+	            y,
+	            room: pos.roomName,
+	            id: pos.roomName + '-'+x+'-'+y
+	        }
+	    }
+
+	    static secToPos(sec){
+	        return new RoomPosition(Math.ceil(sec.x * 12.5) + 6, Math.ceil(sec.y * 12.5) + 6, sec.room)
+	    }
+
+	    static getPathDistance(start, end){
+	        let startSec = Pathing.posToSec(start);
+	        let endSec = Pathing.posToSec(end);
+	        let pathName;
+	        if(startSec.id < endSec.id){
+	            pathName = startSec.id+'-'+endSec.id;
+	        }else{
+	            pathName = endSec.id+'-'+startSec.id;
+	        }
+	        let distance = Memory.cache.path[pathName];
+	        if(_.isUndefined(distance)){
+	            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 6 });
+	            distance = _.size(result.path);
+	            Memory.cache.path[pathName] = distance;
+	        }
+	        return distance;
+	    }
+	    
+	    static generatePath(start, end, opts){
+	        let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
+	        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1) }, {
+	            plainCost: weights.plainCost,
+	            swampCost: weights.swampCost,
+	            roomCallback: function(roomName) {
+	                let room = Game.rooms[roomName];
+	                if (!room) return;
+	                let costs = new PathFinder.CostMatrix();
+	                for(let structure of room.find(FIND_STRUCTURES)){
+	                    if (structure.structureType === STRUCTURE_ROAD) {
+	                        costs.set(structure.pos.x, structure.pos.y, weights.roadCost);
+	                    } else if (structure.structureType !== STRUCTURE_CONTAINER && 
+	                              (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
+	                        costs.set(structure.pos.x, structure.pos.y, 0xff);
+	                    }
+	                }
+	                for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
+	                    if (site.structureType === STRUCTURE_ROAD) {
+	                        costs.set(site.pos.x, site.pos.y, weights.roadCost);
+	                    } else if (site.structureType !== STRUCTURE_CONTAINER && 
+	                              (site.structureType !== STRUCTURE_RAMPART)) {
+	                        costs.set(site.pos.x, site.pos.y, 0xff);
+	                    }
+	                }
+	                return costs;
+	            }
+	        });
+	        if(opts && opts.debug){
+	            let visuals = {};
+	            for(let pos of result.path){
+	                if(!visuals[pos.roomName]){
+	                    visuals[pos.roomName] = new RoomVisual(pos.roomName);
+	                }
+	                visuals[pos.roomName].rect(pos.x - 0.25, pos.y - 0.25, 0.5, 0.5, { fill: '#2892D7' });
+	            }
+	        }
+	        return result;
+	    }
+	}
+
+	module.exports = Pathing;
+
+/***/ },
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -496,7 +580,7 @@ module.exports =
 	let VERSION = 1;
 	let STAT_INTERVAL = 100;
 
-	const Cluster = __webpack_require__(3);
+	const Cluster = __webpack_require__(4);
 
 	class Startup {
 	    static start(){
@@ -623,7 +707,7 @@ module.exports =
 	module.exports = Startup;
 
 /***/ },
-/* 3 */
+/* 4 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -683,6 +767,10 @@ module.exports =
 	            observe: [],
 	            claim: [],
 	            autobuild: []
+	        }
+
+	        if(!Memory.cache.path[this.id]){
+	            Memory.cache.path[this.id] = {};
 	        }
 
 	        _.forEach(this.rooms, room => {
@@ -875,7 +963,7 @@ module.exports =
 	module.exports = Cluster;
 
 /***/ },
-/* 4 */
+/* 5 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1197,7 +1285,7 @@ module.exports =
 	module.exports = traveler;
 
 /***/ },
-/* 5 */
+/* 6 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1665,12 +1753,12 @@ module.exports =
 	module.exports = AutoBuilder;
 
 /***/ },
-/* 6 */
+/* 7 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const Util = __webpack_require__(7);
+	const Util = __webpack_require__(8);
 
 	class Controller {
 
@@ -1986,7 +2074,7 @@ module.exports =
 	module.exports = Controller;
 
 /***/ },
-/* 7 */
+/* 8 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2030,12 +2118,12 @@ module.exports =
 	};
 
 /***/ },
-/* 8 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var creepsConfig = __webpack_require__(9);
+	var creepsConfig = __webpack_require__(10);
 
 	class Spawner {
 
@@ -2315,7 +2403,7 @@ module.exports =
 	module.exports = Spawner;
 
 /***/ },
-/* 9 */
+/* 10 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2487,28 +2575,28 @@ module.exports =
 	}
 
 /***/ },
-/* 10 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const config = __webpack_require__(9);
+	const config = __webpack_require__(10);
 
 	const workerCtors = {
-	    build: __webpack_require__(11),
-	    defend: __webpack_require__(13),
-	    deliver: __webpack_require__(14),
-	    heal: __webpack_require__(15),
-	    idle: __webpack_require__(16),
-	    mine: __webpack_require__(17),
-	    observe: __webpack_require__(18),
-	    pickup: __webpack_require__(19),
-	    repair: __webpack_require__(20),
-	    reserve: __webpack_require__(21),
-	    upgrade: __webpack_require__(22)
+	    build: __webpack_require__(12),
+	    defend: __webpack_require__(14),
+	    deliver: __webpack_require__(15),
+	    heal: __webpack_require__(16),
+	    idle: __webpack_require__(17),
+	    mine: __webpack_require__(18),
+	    observe: __webpack_require__(19),
+	    pickup: __webpack_require__(20),
+	    repair: __webpack_require__(21),
+	    reserve: __webpack_require__(22),
+	    upgrade: __webpack_require__(23)
 	};
 
-	const Behavior = __webpack_require__(23);
+	const Behavior = __webpack_require__(24);
 
 	class Worker {
 	    static process(cluster){
@@ -2638,12 +2726,12 @@ module.exports =
 	module.exports = Worker;
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class BuildWorker extends BaseWorker {
 	    constructor(){ super('build', { requiresEnergy: true, quota: true, range: 1, minEnergy: 500 }); }
@@ -2676,7 +2764,7 @@ module.exports =
 	module.exports = BuildWorker;
 
 /***/ },
-/* 12 */
+/* 13 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2898,12 +2986,12 @@ module.exports =
 	module.exports = BaseWorker;
 
 /***/ },
-/* 13 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class DefendWorker extends BaseWorker {
 	    constructor(){ super('defend', { quota: true }); }
@@ -2949,12 +3037,12 @@ module.exports =
 	module.exports = DefendWorker;
 
 /***/ },
-/* 14 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class DeliverWorker extends BaseWorker {
 	    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile'], critical: 'spawn' }); }
@@ -3031,12 +3119,12 @@ module.exports =
 	module.exports = DeliverWorker;
 
 /***/ },
-/* 15 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class HealWorker extends BaseWorker {
 	    constructor(){ super('heal', { quota: true }); }
@@ -3068,12 +3156,12 @@ module.exports =
 	module.exports = HealWorker;
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class IdleWorker extends BaseWorker {
 	    constructor(){ super('idle', { priority: 99 }); }
@@ -3108,12 +3196,12 @@ module.exports =
 	module.exports = IdleWorker;
 
 /***/ },
-/* 17 */
+/* 18 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class MineWorker extends BaseWorker {
 	    constructor(){ super('mine', { quota: ['energy', 'mineral'], critical: 'energy' }); }
@@ -3157,12 +3245,12 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 18 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class ObserveWorker extends BaseWorker {
 	    constructor(){ super('observe', { quota: true, critical: 'observe' }); }
@@ -3224,12 +3312,12 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 19 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class PickupWorker extends BaseWorker {
 	    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'] }); }
@@ -3309,12 +3397,12 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 20 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class RepairWorker extends BaseWorker {
 	    constructor(){ super('repair', { requiresEnergy: true, quota: true }); }
@@ -3352,12 +3440,12 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 21 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class ReserveWorker extends BaseWorker {
 	    constructor(){ super('reserve', { quota: true }); }
@@ -3419,12 +3507,12 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 22 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseWorker = __webpack_require__(12);
+	const BaseWorker = __webpack_require__(13);
 
 	class UpgradeWorker extends BaseWorker {
 	    constructor(){ super('upgrade', { requiresEnergy: true, quota: true, range: 3 }); }
@@ -3472,18 +3560,18 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var AssignRoomAction = __webpack_require__(24);
-	var Avoid = __webpack_require__(26);
-	var Boost = __webpack_require__(27);
-	var Energy = __webpack_require__(28);
-	var MinecartAction = __webpack_require__(29);
-	var Repair = __webpack_require__(30);
-	var SelfHeal = __webpack_require__(31);
+	var AssignRoomAction = __webpack_require__(25);
+	var Avoid = __webpack_require__(27);
+	var Boost = __webpack_require__(28);
+	var Energy = __webpack_require__(29);
+	var MinecartAction = __webpack_require__(30);
+	var Repair = __webpack_require__(31);
+	var SelfHeal = __webpack_require__(32);
 
 	module.exports = function(){
 	    return {
@@ -3498,12 +3586,12 @@ module.exports =
 	};
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	class AssignRoomAction extends BaseAction {
 	    constructor(catalog){
@@ -3544,7 +3632,7 @@ module.exports =
 	module.exports = AssignRoomAction;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -3586,12 +3674,12 @@ module.exports =
 	module.exports = BaseAction;
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	class AvoidAction extends BaseAction {
 	    constructor(){
@@ -3626,13 +3714,13 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
-	var Util = __webpack_require__(7);
+	var BaseAction = __webpack_require__(26);
+	var Util = __webpack_require__(8);
 
 	class BoostAction extends BaseAction {
 	    constructor(catalog){
@@ -3702,12 +3790,12 @@ module.exports =
 	module.exports = BoostAction;
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	var offsets = {
 	    container: -1,
@@ -3738,12 +3826,12 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 29 */
+/* 30 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	var offsets = {
 	    container: 0.5,
@@ -3781,12 +3869,12 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 30 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -3808,12 +3896,12 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(25);
+	var BaseAction = __webpack_require__(26);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(){
@@ -3845,12 +3933,12 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Util = __webpack_require__(7);
+	var Util = __webpack_require__(8);
 
 	var DEFICIT_START_MIN = 750;
 	var DEFICIT_END_MIN = 0;
@@ -3976,90 +4064,6 @@ module.exports =
 	}
 
 	module.exports = Production;
-
-/***/ },
-/* 33 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	class Pathing {
-
-	    static posToSec(pos){
-	        let x = Math.floor(pos.x / 12.5);
-	        let y = Math.floor(pos.y / 12.5);
-	        return {
-	            x,
-	            y,
-	            room: pos.roomName,
-	            id: pos.roomName + '-'+x+'-'+y
-	        }
-	    }
-
-	    static secToPos(sec){
-	        return new RoomPosition(Math.ceil(sec.x * 12.5) + 6, Math.ceil(sec.y * 12.5) + 6, sec.room)
-	    }
-
-	    static getPathDistance(start, end){
-	        let startSec = Pathing.posToSec(start);
-	        let endSec = Pathing.posToSec(end);
-	        let pathName;
-	        if(startSec.id < endSec.id){
-	            pathName = startSec.id+'-'+endSec.id;
-	        }else{
-	            pathName = endSec.id+'-'+startSec.id;
-	        }
-	        let distance = Memory.cache.path[pathName];
-	        if(_.isUndefined(distance)){
-	            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 6 });
-	            distance = _.size(result.path);
-	            Memory.cache.path[pathName] = distance;
-	        }
-	        return distance;
-	    }
-	    
-	    static generatePath(start, end, opts){
-	        let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
-	        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1) }, {
-	            plainCost: weights.plainCost,
-	            swampCost: weights.swampCost,
-	            roomCallback: function(roomName) {
-	                let room = Game.rooms[roomName];
-	                if (!room) return;
-	                let costs = new PathFinder.CostMatrix();
-	                for(let structure of room.find(FIND_STRUCTURES)){
-	                    if (structure.structureType === STRUCTURE_ROAD) {
-	                        costs.set(structure.pos.x, structure.pos.y, weights.roadCost);
-	                    } else if (structure.structureType !== STRUCTURE_CONTAINER && 
-	                              (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
-	                        costs.set(structure.pos.x, structure.pos.y, 0xff);
-	                    }
-	                }
-	                for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
-	                    if (site.structureType === STRUCTURE_ROAD) {
-	                        costs.set(site.pos.x, site.pos.y, weights.roadCost);
-	                    } else if (site.structureType !== STRUCTURE_CONTAINER && 
-	                              (site.structureType !== STRUCTURE_RAMPART)) {
-	                        costs.set(site.pos.x, site.pos.y, 0xff);
-	                    }
-	                }
-	                return costs;
-	            }
-	        });
-	        if(opts && opts.debug){
-	            let visuals = {};
-	            for(let pos of result.path){
-	                if(!visuals[pos.roomName]){
-	                    visuals[pos.roomName] = new RoomVisual(pos.roomName);
-	                }
-	                visuals[pos.roomName].rect(pos.x - 0.25, pos.y - 0.25, 0.5, 0.5, { fill: '#2892D7' });
-	            }
-	        }
-	        return result;
-	    }
-	}
-
-	module.exports = Pathing;
 
 /***/ }
 /******/ ]);

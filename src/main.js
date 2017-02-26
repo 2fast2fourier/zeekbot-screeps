@@ -12,6 +12,11 @@ var Worker = require('./worker');
 var Production = require('./production');
 
 module.exports.loop = function () {
+    if(Memory.transition){
+        delete Memory.cache.path;
+        Memory.cache.path = {};
+        delete Memory.transition;
+    }
     //// Startup ////
     PathFinder.use(true);
     Poly();
