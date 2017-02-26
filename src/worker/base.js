@@ -177,7 +177,7 @@ class BaseWorker {
     }
 
     bid(cluster, creep, opts){
-        if(!this.canBid(cluster, creep)){
+        if(!this.canBid(cluster, creep, opts)){
             return false;
         }
         let subtype = _.get(opts, 'subtype', this.type);
@@ -187,7 +187,7 @@ class BaseWorker {
             if(job.capacity <= _.get(this.hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
                 return result;
             }
-            let distance = creep.pos.getLinearDistance(job.target);
+            let distance = creep.pos.getPathDistance(job.target);
             if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
                 return result;
             }

@@ -4,6 +4,8 @@ var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 var profileData = {};
 
+const Pathing = require('./pathing');
+
 module.exports = function(){
     ///
     /// Game Helpers
@@ -299,15 +301,13 @@ module.exports = function(){
     };
 
     RoomPosition.prototype.getPathDistance = function getPathDistance(entity){
-        var target = entity.getPos();
-        var roomA = Game.rooms[this.roomName];
-        var roomB = Game.rooms[target.roomName];
-        if(roomA && roomB){
-            return Math.max(getMinDistance(roomA, roomB), this.getLinearDistance(entity));
-        }else{
+        var target = entity instanceof RoomPosition ? entity : entity.pos;
+        if(this.roomName == target.roomName){
             return this.getLinearDistance(target);
         }
+        return Pathing.getPathDistance(this, target);
     }
+
     Flag.getByPrefix = function getByPrefix(prefix){
         return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
     }

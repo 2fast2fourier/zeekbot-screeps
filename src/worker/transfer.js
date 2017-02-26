@@ -2,15 +2,15 @@
 
 const BaseWorker = require('./base');
 
-class TempWorker extends BaseWorker {
-    constructor(){ super('template', { requiresEnergy: true, quota: true, range: 1 }); }
+class TransferWorker extends BaseWorker {
+    constructor(){ super('transfer', { quota: true }); }
 
     /// Job ///
     // calculateCapacity(cluster, subtype, id, target, args){
     //     return 1;
     // }
 
-    subtype(cluster, subtype){
+    transfer(cluster, subtype){
         return this.jobsForTargets(cluster, subtype, targets);
     }
 
@@ -50,4 +50,4 @@ class TempWorker extends BaseWorker {
 
 }
 
-module.exports = TempWorker;
+module.exports = TransferWorker;

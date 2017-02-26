@@ -69,55 +69,61 @@ class Startup {
     }
 
     static processActions(){
-        if(!Memory.action){
-            return;
+        let flags = Flag.getByPrefix('cluster');
+        for(let flag of flags){
+            let roomName = flag.pos.roomName;
+            let parts = flag.name.split('-');
+            let action = parts[1];
+            let target = parts[2];
+            console.log('Processing:', roomName, action);
+            let room = Game.rooms[roomName];
+
+            switch(action){
+                case 'new':
+                    if(!parts[2]){
+                        console.log('Missing cluster name!');
+                    }else{
+                        Cluster.createCluster(target);
+                        console.log('Created cluster:', target);
+                    }
+                    break;
+                case 'assign':
+                //cluster-assign-Home-harvest
+                    let cluster = Game.clusters[target];
+                    if(!cluster){
+                        console.log('Invalid cluster name!', target);
+                    }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != target){
+                        if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+                            break;
+                        }
+                        let role = parts.length > 3 ? parts[3] : 'harvest';
+                        Cluster.addRoom(cluster.id, roomName, role);
+                        console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
+                    }
+                    break;
+                case 'reassign':
+                        if(!target){
+                            console.log('Missing cluster name!');
+                        }else{
+                            if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+                                break;
+                            }
+                            Cluster.addRoom(target, roomName, parts[3]);
+                            if(room){
+                                _.forEach(room.find(FIND_MY_CREEPS), creep => {
+                                    creep.memory.cluster = target;
+                                });
+                            }
+                            console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+                        }
+                    break;
+                default:
+                    console.log('Unknown action:', parts[1]);
+                    break;
+            }
+            console.log('Finished:', action, roomName);
+            flag.remove();
         }
-        console.log('Processing:', Memory.action);
-        let parts = Memory.action.split('-');
-        let roomName = parts[0];
-        let room = Game.rooms[roomName];
-        if(!room && parts[1] == 'reassign'){
-            delete Memory.action;
-            console.log('Invalid room:', roomName);
-            return;
-        }
-        switch(parts[1]){
-            case 'newcluster':
-                if(!parts[2]){
-                    console.log('Missing cluster name!');
-                }else{
-                    Cluster.createCluster(parts[2]);
-                    console.log('Created cluster:', parts[2]);
-                }
-                break;
-            case 'assign':
-            //room-assign-Home-harvest
-                let cluster = Game.clusters[parts[2]];
-                if(!cluster){
-                    console.log('Invalid cluster name!', parts[2]);
-                }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != parts[2]){
-                    let role = parts.length > 3 ? parts[3] : 'harvest';
-                    Cluster.addRoom(cluster.id, roomName, role);
-                    console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
-                }
-                break;
-            case 'reassign':
-                if(!parts[2]){
-                    console.log('Missing cluster name!');
-                }else{
-                    Cluster.addRoom(parts[2], roomName, parts[3]);
-                    _.forEach(room.find(FIND_MY_CREEPS), creep => {
-                        creep.memory.cluster = parts[2];
-                    });
-                    console.log('Reassigned room to cluster:', parts[2], roomName, parts[3]);
-                }
-                break;
-            default:
-                console.log('Unknown action:', parts[1]);
-                break;
-        }
-        console.log('Finished:', Memory.action);
-        delete Memory.action;
     }
 }
 

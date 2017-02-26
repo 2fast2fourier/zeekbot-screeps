@@ -80,16 +80,9 @@ module.exports =
 
 	    let bootstrap = false;
 	    if(Memory.bootstrap){
-	        // console.log('starting bootstrap', Memory.bootstrap);
 	        let target = Game.clusters[Memory.bootstrap];
 	        bootstrap = target;
 	    }
-
-	    // _.forEach(Memory.rooms, (room, name) =>{
-	    //     if(!room.cluster){
-	    //         delete Memory.rooms[name];
-	    //     }
-	    // });
 
 	    for(let name in Game.clusters){
 	        let cluster = Game.clusters[name];
@@ -115,6 +108,13 @@ module.exports =
 	                    builder.autobuild(buildList);
 	                }
 	            }
+	            AutoBuilder.buildInfrastructureRoads(cluster);
+
+	            _.forEach(Memory.rooms, (room, name) =>{
+	                if(!room.cluster){
+	                    delete Memory.rooms[name];
+	                }
+	            });
 	        }
 	    }
 
@@ -134,6 +134,7 @@ module.exports =
 	            Game.profile('builder', Game.cpu.getUsed() - start);
 	        }
 	    }
+	    AutoBuilder.processRoadFlags();
 	    
 	    //// Wrapup ////
 	    Game.finishProfile();
@@ -149,13 +150,15 @@ module.exports =
 
 /***/ },
 /* 1 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 	//contains polyfill-style helper injections to the base game classes.
 	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 	var profileData = {};
+
+	const Pathing = __webpack_require__(33);
 
 	module.exports = function(){
 	    ///
@@ -452,15 +455,13 @@ module.exports =
 	    };
 
 	    RoomPosition.prototype.getPathDistance = function getPathDistance(entity){
-	        var target = entity.getPos();
-	        var roomA = Game.rooms[this.roomName];
-	        var roomB = Game.rooms[target.roomName];
-	        if(roomA && roomB){
-	            return Math.max(getMinDistance(roomA, roomB), this.getLinearDistance(entity));
-	        }else{
+	        var target = entity instanceof RoomPosition ? entity : entity.pos;
+	        if(this.roomName == target.roomName){
 	            return this.getLinearDistance(target);
 	        }
+	        return Pathing.getPathDistance(this, target);
 	    }
+
 	    Flag.getByPrefix = function getByPrefix(prefix){
 	        return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
 	    }
@@ -561,55 +562,61 @@ module.exports =
 	    }
 
 	    static processActions(){
-	        if(!Memory.action){
-	            return;
+	        let flags = Flag.getByPrefix('cluster');
+	        for(let flag of flags){
+	            let roomName = flag.pos.roomName;
+	            let parts = flag.name.split('-');
+	            let action = parts[1];
+	            let target = parts[2];
+	            console.log('Processing:', roomName, action);
+	            let room = Game.rooms[roomName];
+
+	            switch(action){
+	                case 'new':
+	                    if(!parts[2]){
+	                        console.log('Missing cluster name!');
+	                    }else{
+	                        Cluster.createCluster(target);
+	                        console.log('Created cluster:', target);
+	                    }
+	                    break;
+	                case 'assign':
+	                //cluster-assign-Home-harvest
+	                    let cluster = Game.clusters[target];
+	                    if(!cluster){
+	                        console.log('Invalid cluster name!', target);
+	                    }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != target){
+	                        if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+	                            break;
+	                        }
+	                        let role = parts.length > 3 ? parts[3] : 'harvest';
+	                        Cluster.addRoom(cluster.id, roomName, role);
+	                        console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
+	                    }
+	                    break;
+	                case 'reassign':
+	                        if(!target){
+	                            console.log('Missing cluster name!');
+	                        }else{
+	                            if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+	                                break;
+	                            }
+	                            Cluster.addRoom(target, roomName, parts[3]);
+	                            if(room){
+	                                _.forEach(room.find(FIND_MY_CREEPS), creep => {
+	                                    creep.memory.cluster = target;
+	                                });
+	                            }
+	                            console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+	                        }
+	                    break;
+	                default:
+	                    console.log('Unknown action:', parts[1]);
+	                    break;
+	            }
+	            console.log('Finished:', action, roomName);
+	            flag.remove();
 	        }
-	        console.log('Processing:', Memory.action);
-	        let parts = Memory.action.split('-');
-	        let roomName = parts[0];
-	        let room = Game.rooms[roomName];
-	        if(!room && parts[1] == 'reassign'){
-	            delete Memory.action;
-	            console.log('Invalid room:', roomName);
-	            return;
-	        }
-	        switch(parts[1]){
-	            case 'newcluster':
-	                if(!parts[2]){
-	                    console.log('Missing cluster name!');
-	                }else{
-	                    Cluster.createCluster(parts[2]);
-	                    console.log('Created cluster:', parts[2]);
-	                }
-	                break;
-	            case 'assign':
-	            //room-assign-Home-harvest
-	                let cluster = Game.clusters[parts[2]];
-	                if(!cluster){
-	                    console.log('Invalid cluster name!', parts[2]);
-	                }else if(_.get(Memory, ['rooms', roomName, 'cluster'], false) != parts[2]){
-	                    let role = parts.length > 3 ? parts[3] : 'harvest';
-	                    Cluster.addRoom(cluster.id, roomName, role);
-	                    console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
-	                }
-	                break;
-	            case 'reassign':
-	                if(!parts[2]){
-	                    console.log('Missing cluster name!');
-	                }else{
-	                    Cluster.addRoom(parts[2], roomName, parts[3]);
-	                    _.forEach(room.find(FIND_MY_CREEPS), creep => {
-	                        creep.memory.cluster = parts[2];
-	                    });
-	                    console.log('Reassigned room to cluster:', parts[2], roomName, parts[3]);
-	                }
-	                break;
-	            default:
-	                console.log('Unknown action:', parts[1]);
-	                break;
-	        }
-	        console.log('Finished:', Memory.action);
-	        delete Memory.action;
 	    }
 	}
 
@@ -1266,6 +1273,99 @@ module.exports =
 	        this.vis = new RoomVisual(room.name);
 	    }
 
+	    static processRoadFlags(){
+	        if(Game.flags.roadStart && Game.flags.roadEnd){
+	            let built = AutoBuilder.buildRoads(Game.flags.roadStart.pos, Game.flags.roadEnd.pos);
+	            if(built == 0){
+	                Game.flags.roadStart.remove();
+	                Game.flags.roadEnd.remove();
+	            }
+	        }
+	        if(Game.flags.harvestRoad || Game.flags.harvestRoadDebug){
+	            let flag = Game.flags.harvestRoad || Game.flags.harvestRoadDebug;
+	            let room = flag.room;
+	            if(room && room.hasCluster()){
+	                let storage = AutoBuilder.findNearest(room.getCluster(), flag.pos, STRUCTURE_STORAGE);
+	                if(storage){
+	                    let remaining = AutoBuilder.buildRoads(flag.pos, storage.pos, flag.name.indexOf('Debug') >= 0);
+	                    if(remaining == 0){
+	                        flag.remove();
+	                    }
+	                }
+	            }
+	        }
+	    }
+
+	    static findNearest(cluster, pos, type){
+	        return  _.first(_.sortBy(cluster.structures[type], struct => pos.getLinearDistance(struct)));
+	    }
+
+	    static buildInfrastructureRoads(cluster){
+	        if(cluster.structures.storage.length > 0 && _.size(Game.constructionSites) < 20){
+	            for(let source of cluster.findAll(FIND_SOURCES)){
+	                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
+	                if(storage){
+	                    AutoBuilder.buildRoads(source.pos, storage.pos);
+	                }
+	            }
+	            for(let source of cluster.structures.controller){
+	                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
+	                if(storage){
+	                    AutoBuilder.buildRoads(source.pos, storage.pos);
+	                }
+	            }
+	        }
+	    }
+
+	    static buildRoads(start, end, debug){
+	        let visuals = {};
+	        visuals[start.roomName] = new RoomVisual(start.roomName);
+	        let result = PathFinder.search(start, { pos: end, range: 1 }, {
+	            plainCost: 2,
+	            swampCost: 2,
+	            roomCallback: function(roomName) {
+	                let room = Game.rooms[roomName];
+	                if (!room) return;
+	                let costs = new PathFinder.CostMatrix();
+	                for(let structure of room.find(FIND_STRUCTURES)){
+	                    if (structure.structureType === STRUCTURE_ROAD) {
+	                        costs.set(structure.pos.x, structure.pos.y, 1);
+	                    } else if (structure.structureType !== STRUCTURE_CONTAINER && 
+	                              (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
+	                        costs.set(structure.pos.x, structure.pos.y, 0xff);
+	                    }
+	                }
+	                for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
+	                    if (site.structureType === STRUCTURE_ROAD) {
+	                        costs.set(site.pos.x, site.pos.y, 1);
+	                    } else if (site.structureType !== STRUCTURE_CONTAINER && 
+	                              (site.structureType !== STRUCTURE_RAMPART)) {
+	                        costs.set(site.pos.x, site.pos.y, 0xff);
+	                    }
+	                }
+	                return costs;
+	            }
+	        });
+	        let remaining = _.size(result.path);
+	        for(let pos of result.path){
+	            if(pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49){
+	                remaining--;
+	                continue;
+	            }
+	            if(!visuals[pos.roomName]){
+	                visuals[pos.roomName] = new RoomVisual(pos.roomName);
+	            }
+	            visuals[pos.roomName].rect(pos.x - 0.25, pos.y - 0.25, 0.5, 0.5, { fill: '#2892D7' });
+	            if(!debug && Game.rooms[pos.roomName]){
+	                let construct = pos.createConstructionSite(STRUCTURE_ROAD);
+	                if(construct == OK || construct == ERR_INVALID_TARGET){
+	                    remaining--;
+	                }
+	            }
+	        }
+	        return remaining;
+	    }
+
 	    buildTerrain(){
 	        var swampStyle = { fill: '#c0ffee' };
 	        var roomName = this.room.name;
@@ -1496,9 +1596,9 @@ module.exports =
 	            targetPos.createConstructionSite(STRUCTURE_EXTENSION);
 	        }
 	        if(structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 0){
-	            // let targetPos = ix2pos(_.first(structs.containers), this.room.name);
-	            // console.log('Building container at', targetPos);
-	            // targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+	            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+	            console.log('Building container at', targetPos);
+	            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
 	        }
 	        if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
 	            let mineral = _.first(this.room.find(FIND_MINERALS));
@@ -2758,7 +2858,7 @@ module.exports =
 	    }
 
 	    bid(cluster, creep, opts){
-	        if(!this.canBid(cluster, creep)){
+	        if(!this.canBid(cluster, creep, opts)){
 	            return false;
 	        }
 	        let subtype = _.get(opts, 'subtype', this.type);
@@ -2768,7 +2868,7 @@ module.exports =
 	            if(job.capacity <= _.get(this.hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
 	                return result;
 	            }
-	            let distance = creep.pos.getLinearDistance(job.target);
+	            let distance = creep.pos.getPathDistance(job.target);
 	            if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
 	                return result;
 	            }
@@ -2880,7 +2980,7 @@ module.exports =
 	    }
 
 	    terminal(cluster, subtype){
-	        var terminals = cluster.getAllMyStructures([STRUCTURE_TERMINAL]);
+	        var terminals = cluster.getAllMyStructures([STRUCTURE_TERMINAL, STRUCTURE_STORAGE]);
 	        var jobs = [];
 	        for(let terminal of terminals){
 	            for(let resource of RESOURCES_ALL){
@@ -3876,6 +3976,90 @@ module.exports =
 	}
 
 	module.exports = Production;
+
+/***/ },
+/* 33 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	class Pathing {
+
+	    static posToSec(pos){
+	        let x = Math.floor(pos.x / 12.5);
+	        let y = Math.floor(pos.y / 12.5);
+	        return {
+	            x,
+	            y,
+	            room: pos.roomName,
+	            id: pos.roomName + '-'+x+'-'+y
+	        }
+	    }
+
+	    static secToPos(sec){
+	        return new RoomPosition(Math.ceil(sec.x * 12.5) + 6, Math.ceil(sec.y * 12.5) + 6, sec.room)
+	    }
+
+	    static getPathDistance(start, end){
+	        let startSec = Pathing.posToSec(start);
+	        let endSec = Pathing.posToSec(end);
+	        let pathName;
+	        if(startSec.id < endSec.id){
+	            pathName = startSec.id+'-'+endSec.id;
+	        }else{
+	            pathName = endSec.id+'-'+startSec.id;
+	        }
+	        let distance = Memory.cache.path[pathName];
+	        if(_.isUndefined(distance)){
+	            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 6 });
+	            distance = _.size(result.path);
+	            Memory.cache.path[pathName] = distance;
+	        }
+	        return distance;
+	    }
+	    
+	    static generatePath(start, end, opts){
+	        let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
+	        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1) }, {
+	            plainCost: weights.plainCost,
+	            swampCost: weights.swampCost,
+	            roomCallback: function(roomName) {
+	                let room = Game.rooms[roomName];
+	                if (!room) return;
+	                let costs = new PathFinder.CostMatrix();
+	                for(let structure of room.find(FIND_STRUCTURES)){
+	                    if (structure.structureType === STRUCTURE_ROAD) {
+	                        costs.set(structure.pos.x, structure.pos.y, weights.roadCost);
+	                    } else if (structure.structureType !== STRUCTURE_CONTAINER && 
+	                              (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
+	                        costs.set(structure.pos.x, structure.pos.y, 0xff);
+	                    }
+	                }
+	                for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
+	                    if (site.structureType === STRUCTURE_ROAD) {
+	                        costs.set(site.pos.x, site.pos.y, weights.roadCost);
+	                    } else if (site.structureType !== STRUCTURE_CONTAINER && 
+	                              (site.structureType !== STRUCTURE_RAMPART)) {
+	                        costs.set(site.pos.x, site.pos.y, 0xff);
+	                    }
+	                }
+	                return costs;
+	            }
+	        });
+	        if(opts && opts.debug){
+	            let visuals = {};
+	            for(let pos of result.path){
+	                if(!visuals[pos.roomName]){
+	                    visuals[pos.roomName] = new RoomVisual(pos.roomName);
+	                }
+	                visuals[pos.roomName].rect(pos.x - 0.25, pos.y - 0.25, 0.5, 0.5, { fill: '#2892D7' });
+	            }
+	        }
+	        return result;
+	    }
+	}
+
+	module.exports = Pathing;
 
 /***/ }
 /******/ ]);

@@ -71,6 +71,99 @@ class AutoBuilder {
         this.vis = new RoomVisual(room.name);
     }
 
+    static processRoadFlags(){
+        if(Game.flags.roadStart && Game.flags.roadEnd){
+            let built = AutoBuilder.buildRoads(Game.flags.roadStart.pos, Game.flags.roadEnd.pos);
+            if(built == 0){
+                Game.flags.roadStart.remove();
+                Game.flags.roadEnd.remove();
+            }
+        }
+        if(Game.flags.harvestRoad || Game.flags.harvestRoadDebug){
+            let flag = Game.flags.harvestRoad || Game.flags.harvestRoadDebug;
+            let room = flag.room;
+            if(room && room.hasCluster()){
+                let storage = AutoBuilder.findNearest(room.getCluster(), flag.pos, STRUCTURE_STORAGE);
+                if(storage){
+                    let remaining = AutoBuilder.buildRoads(flag.pos, storage.pos, flag.name.indexOf('Debug') >= 0);
+                    if(remaining == 0){
+                        flag.remove();
+                    }
+                }
+            }
+        }
+    }
+
+    static findNearest(cluster, pos, type){
+        return  _.first(_.sortBy(cluster.structures[type], struct => pos.getLinearDistance(struct)));
+    }
+
+    static buildInfrastructureRoads(cluster){
+        if(cluster.structures.storage.length > 0 && _.size(Game.constructionSites) < 20){
+            for(let source of cluster.findAll(FIND_SOURCES)){
+                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
+                if(storage){
+                    AutoBuilder.buildRoads(source.pos, storage.pos);
+                }
+            }
+            for(let source of cluster.structures.controller){
+                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
+                if(storage){
+                    AutoBuilder.buildRoads(source.pos, storage.pos);
+                }
+            }
+        }
+    }
+
+    static buildRoads(start, end, debug){
+        let visuals = {};
+        visuals[start.roomName] = new RoomVisual(start.roomName);
+        let result = PathFinder.search(start, { pos: end, range: 1 }, {
+            plainCost: 2,
+            swampCost: 2,
+            roomCallback: function(roomName) {
+                let room = Game.rooms[roomName];
+                if (!room) return;
+                let costs = new PathFinder.CostMatrix();
+                for(let structure of room.find(FIND_STRUCTURES)){
+                    if (structure.structureType === STRUCTURE_ROAD) {
+                        costs.set(structure.pos.x, structure.pos.y, 1);
+                    } else if (structure.structureType !== STRUCTURE_CONTAINER && 
+                              (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
+                        costs.set(structure.pos.x, structure.pos.y, 0xff);
+                    }
+                }
+                for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
+                    if (site.structureType === STRUCTURE_ROAD) {
+                        costs.set(site.pos.x, site.pos.y, 1);
+                    } else if (site.structureType !== STRUCTURE_CONTAINER && 
+                              (site.structureType !== STRUCTURE_RAMPART)) {
+                        costs.set(site.pos.x, site.pos.y, 0xff);
+                    }
+                }
+                return costs;
+            }
+        });
+        let remaining = _.size(result.path);
+        for(let pos of result.path){
+            if(pos.x == 0 || pos.x == 49 || pos.y == 0 || pos.y == 49){
+                remaining--;
+                continue;
+            }
+            if(!visuals[pos.roomName]){
+                visuals[pos.roomName] = new RoomVisual(pos.roomName);
+            }
+            visuals[pos.roomName].rect(pos.x - 0.25, pos.y - 0.25, 0.5, 0.5, { fill: '#2892D7' });
+            if(!debug && Game.rooms[pos.roomName]){
+                let construct = pos.createConstructionSite(STRUCTURE_ROAD);
+                if(construct == OK || construct == ERR_INVALID_TARGET){
+                    remaining--;
+                }
+            }
+        }
+        return remaining;
+    }
+
     buildTerrain(){
         var swampStyle = { fill: '#c0ffee' };
         var roomName = this.room.name;
@@ -301,9 +394,9 @@ class AutoBuilder {
             targetPos.createConstructionSite(STRUCTURE_EXTENSION);
         }
         if(structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 0){
-            // let targetPos = ix2pos(_.first(structs.containers), this.room.name);
-            // console.log('Building container at', targetPos);
-            // targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+            console.log('Building container at', targetPos);
+            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
         }
         if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
             let mineral = _.first(this.room.find(FIND_MINERALS));

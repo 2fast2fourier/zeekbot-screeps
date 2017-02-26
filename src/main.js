@@ -33,16 +33,9 @@ module.exports.loop = function () {
 
     let bootstrap = false;
     if(Memory.bootstrap){
-        // console.log('starting bootstrap', Memory.bootstrap);
         let target = Game.clusters[Memory.bootstrap];
         bootstrap = target;
     }
-
-    // _.forEach(Memory.rooms, (room, name) =>{
-    //     if(!room.cluster){
-    //         delete Memory.rooms[name];
-    //     }
-    // });
 
     for(let name in Game.clusters){
         let cluster = Game.clusters[name];
@@ -68,6 +61,13 @@ module.exports.loop = function () {
                     builder.autobuild(buildList);
                 }
             }
+            AutoBuilder.buildInfrastructureRoads(cluster);
+
+            _.forEach(Memory.rooms, (room, name) =>{
+                if(!room.cluster){
+                    delete Memory.rooms[name];
+                }
+            });
         }
     }
 
@@ -87,6 +87,7 @@ module.exports.loop = function () {
             Game.profile('builder', Game.cpu.getUsed() - start);
         }
     }
+    AutoBuilder.processRoadFlags();
     
     //// Wrapup ////
     Game.finishProfile();
