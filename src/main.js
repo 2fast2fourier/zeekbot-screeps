@@ -9,7 +9,7 @@ var Cluster = require('./cluster');
 var Controller = require('./controller');
 var Spawner = require('./spawner');
 var Worker = require('./worker');
-// var Production = require('./production');
+var Production = require('./production');
 
 module.exports.loop = function () {
     //// Startup ////
@@ -26,6 +26,9 @@ module.exports.loop = function () {
     Cluster.init();
     Startup.processActions();
 
+    let production = new Production();
+    
+
     //// Process ////
 
     let bootstrap = false;
@@ -41,7 +44,8 @@ module.exports.loop = function () {
     //     }
     // });
 
-    _.forEach(Game.clusters, (cluster, name) =>{
+    for(let name in Game.clusters){
+        let cluster = Game.clusters[name];
         Worker.process(cluster);
         
         if(Game.interval(5)){
@@ -53,6 +57,7 @@ module.exports.loop = function () {
         }
 
         Controller.control(cluster);
+        production.process(cluster);
         
         if(Game.interval(150)){
             for(let buildRoom of cluster.roomflags.autobuild){
@@ -64,7 +69,7 @@ module.exports.loop = function () {
                 }
             }
         }
-    });
+    }
 
     Controller.hedgemony();
 

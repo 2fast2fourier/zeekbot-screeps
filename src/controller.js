@@ -215,7 +215,7 @@ class Controller {
     //     }
     // }
 
-    // static levelTerminals(catalog){
+    // static levelTerminals(cluster){
     //     var transferred = false;
     //     var ideal = Memory.settings.terminalIdealResources;
     //     var terminalCount = _.size(catalog.buildings.terminal);

@@ -176,7 +176,8 @@ class AutoBuilder {
     placeContainers(){
         var containerPos = new Set();
         var pos = 0;
-        for(let source of this.sources){
+        var sources = this.sources.concat(this.room.find(FIND_MINERALS) || []);
+        for(let source of sources){
             if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(source.pos), 2) > 0){
                 continue;
             }
@@ -359,6 +360,7 @@ class AutoBuilder {
                 }
             }
         }
+        // cluster.update('labs', _.filter(_.map(cluster.rooms, room => _.map(cluster.getStructuresByType(room, STRUCTURE_LAB), 'id')), list => list.length > 0));
     }
 
 

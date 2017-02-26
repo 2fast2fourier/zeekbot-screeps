@@ -103,9 +103,9 @@ module.exports = {
         quota: 'upgrade',
         allocation: 'work',
         parts: {
-            kilo: { move: 6, carry: 2, work: 10 },//1400
-            milli: { move: 6, carry: 6, work: 5 },//1200
-            micro: { move: 4, carry: 2, work: 5 },//800
+            kilo: { work: 10, move: 6, carry: 2 },//1400
+            milli: { work: 5, move: 6, carry: 6 },//1200
+            micro: { work: 5, move: 4, carry: 2 },//800
             nano: { move: 3, carry: 4, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
@@ -157,7 +157,7 @@ module.exports = {
         quota: 'mineral-pickup',
         allocation: 'carry',
         allocationMulti: 50,
-        parts: haulerParts,
+        parts: { milli: { carry: 16, move: 8 } },
         work: {
             pickup: { subtype: 'mineral' },
             deliver: { subtype: 'terminal' }

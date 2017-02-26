@@ -1,5 +1,20 @@
 "use strict";
 
+function catalogStorage(storage, resources){
+    var stored = storage.getResourceList();
+    for(let type in stored){
+        let amount = stored[type];
+        resources[type].total += amount;
+        resources[type].totals[storage.structureType] += amount;
+        resources[type][storage.structureType].push(storage);
+        if(storage.structureType != STRUCTURE_LAB
+           && (type != RESOURCE_ENERGY || storage.structureType == STRUCTURE_STORAGE)){
+            resources[type].stored += amount;
+            resources[type].sources.push(storage);
+        }
+    }
+}
+
 class Cluster {
     constructor(id, data, creeps, rooms){
         Object.assign(this, data);
@@ -53,13 +68,6 @@ class Cluster {
                     this.roomflags[type].push(room);
                 }
             }
-            if(Game.interval(100)){
-                if(room.memory.role == 'core' && _.get(room, 'controller.my', false)){
-                    delete room.memory.claim;
-                    delete room.memory.reserve;
-                    delete room.memory.observe;
-                }
-            }
         });
         if(Game.interval(20)){
             let energy = this.findAll(FIND_DROPPED_ENERGY);
@@ -88,7 +96,21 @@ class Cluster {
                 Memory.bootstrap = cluster.id;
                 cluster.bootstrap = true;
             }
+            if(Game.interval(30)){
+                Cluster.cleanupTags(cluster);
+            }
         });
+    }
+
+    static cleanupTags(cluster){
+        for(let tag in cluster.tags){
+            let tagged = cluster.tags[tag].filter(id => !!Game.getObjectById(id));
+            if(tagged.length > 0){
+                cluster.tags[tag] = tagged;
+            }else{
+                delete cluster.tags[tag];
+            }
+        }
     }
 
     //stockpile-id
@@ -111,9 +133,12 @@ class Cluster {
     static createCluster(id){
         let data = {
             assignments: {},
+            labs: [],
             quota: {},
-            work: {},
-            tags: {}
+            reaction: {},
+            tags: {},
+            transfer: {},
+            work: {}
         };
         _.set(Memory, ['clusters', id], data);
         Game.clusters[id] = new Cluster(id, data, [], []);
@@ -184,7 +209,7 @@ class Cluster {
 
     getTaggedStructures(){
         if(!this._tagged){
-            this._tagged = _.mapValues(this.tags, (list, tag)=>Game.getObjects(list));
+            this._tagged = _.mapValues(this.tags, (list, tag)=>_.compact(Game.getObjects(list)));
         }
         return this._tagged;
     }
@@ -196,6 +221,25 @@ class Cluster {
     update(type, value){
         this[type] = value;
         Memory.clusters[this.id][type] = value;
+    }
+
+    getResources(){
+        if(!this.resources){
+            this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
+                return { total: 0, stored: 0, sources: [], storage: [], terminal: [], lab: [], totals: { storage: 0,  terminal: 0, lab: 0 } }
+            }));
+
+            for(let storage of this.structures.storage){
+                catalogStorage(storage, this.resources);
+            }
+            for(let storage of this.structures.terminal){
+                catalogStorage(storage, this.resources);
+            }
+            for(let storage of this.structures.lab){
+                catalogStorage(storage, this.resources);
+            }
+        }
+        return this.resources;
     }
 
 }

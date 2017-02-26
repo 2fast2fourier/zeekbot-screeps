@@ -33,7 +33,7 @@ module.exports = function(){
     };
 
     Game.getObjects = function getObjects(idList){
-        return _.map(idList, entity => Game.getObjectById(entity));
+        return idList.map(entity => Game.getObjectById(entity));
     };
 
     Game.note = function note(type, message){
