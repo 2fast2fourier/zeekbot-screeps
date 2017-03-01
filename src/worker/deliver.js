@@ -26,7 +26,7 @@ class DeliverWorker extends BaseWorker {
     }
 
     terminal(cluster, subtype){
-        var terminals = cluster.getAllMyStructures([STRUCTURE_TERMINAL, STRUCTURE_STORAGE]);
+        var terminals = cluster.getAllMyStructures([STRUCTURE_STORAGE]);
         var jobs = [];
         for(let terminal of terminals){
             for(let resource of RESOURCES_ALL){

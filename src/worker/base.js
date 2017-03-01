@@ -108,7 +108,11 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
-            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range: this.range, routeCallback: whitelistedRooms });
+            let range = this.range;
+            if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
+                range = 1;
+            }
+            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, routeCallback: whitelistedRooms });
         }
     }
 

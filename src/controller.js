@@ -4,10 +4,12 @@ const Util = require('./util');
 
 class Controller {
 
-    static hedgemony(){
-        if(Game.interval(25)){
+    static hegemony(){
+        if(Game.interval(20)){
             var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(flag));
+
+            Controller.levelTerminals();
         }
     }
 
@@ -20,7 +22,7 @@ class Controller {
                 if(hostile){
                     action = tower.attack(hostile) == OK;
                 }
-                if(!action && Game.interval(10)){
+                if(!action && Game.interval(5)){
                     let hurtCreep = _.first(_.filter(cluster.find(tower.room, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax));
                     if(hurtCreep){
                         tower.heal(hurtCreep);
@@ -123,6 +125,35 @@ class Controller {
         });
     }
 
+    static levelTerminals(){
+        let transferred = {};
+        let terminals = Game.hegemony.structures.terminal;
+        let terminalCount = terminals.length;
+        let ideal = 5000;
+        let idealTotal = ideal * terminalCount;
+        _.forEach(Game.hegemony.resources, (data, type)=>{
+            if(type == RESOURCE_ENERGY || data.stored < ideal){
+                return;
+            }
+
+            let needed = _.filter(terminals, terminal => terminal.getResource(type) < ideal - 100);
+            let excess = _.filter(terminals, terminal => !transferred[terminal.id] && terminal.getResource(type) > ideal + 100 && terminal.getResource(RESOURCE_ENERGY) > 20000);
+            if(needed.length > 0 && excess.length > 0){
+                let source = _.last(Util.sort.resource(type, excess));
+                let destination = _.first(Util.sort.resource(type, needed));
+                let sourceAmount = source.getResource(type);
+                var destinationAmount = destination.getResource(type);
+                var sending = Math.min(sourceAmount - ideal, ideal - destinationAmount);
+                if(sending >= 100){
+                    console.log('Transferring', sending, type, 'from', source.pos.roomName, 'to', destination.pos.roomName);
+                    transferred[source.id] = source.send(type, sending, destination.pos.roomName) == OK;
+                    return;
+                }
+            }
+        });
+        return transferred;
+    }
+
     // static towerDefend(tower, catalog, targets) {
     //     var hostiles = _.filter(targets, target => tower.pos.roomName == target.pos.roomName);
     //     if(hostiles.length == 0){
@@ -213,55 +244,6 @@ class Controller {
     //         Memory.boost.labs[type].push(lab.id);
     //         Memory.boost.rooms[type].push(lab.pos.roomName);
     //     }
-    // }
-
-    // static levelTerminals(cluster){
-    //     var transferred = false;
-    //     var ideal = Memory.settings.terminalIdealResources;
-    //     var terminalCount = _.size(catalog.buildings.terminal);
-    //     _.forEach(catalog.resources, (data, type)=>{
-    //         if(type == RESOURCE_ENERGY || transferred){
-    //             return;
-    //         }
-    //         var reactions = Memory.transfer.reactions[type];
-    //         if(data.totals.terminal > 100 && data.totals.terminal < ideal * terminalCount){
-    //             _.forEach(reactions, roomName=>{
-    //                 if(transferred){
-    //                     return;
-    //                 }
-    //                 var room = Game.rooms[roomName];
-    //                 var targetTerminal = room.terminal;
-    //                 var resources = Util.getResource(targetTerminal, type);
-    //                 if(targetTerminal && resources < ideal - 100 && resources < data.totals.terminal - 100){
-    //                     var source = _.last(Util.sort.resource(_.filter(data.terminal, terminal => !_.includes(reactions, terminal.pos.roomName) && Util.getResource(terminal, type) > 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 20000), type));
-    //                     if(source){
-    //                         var src = Util.getResource(source, type);
-    //                         var dest = Util.getResource(targetTerminal, type);
-    //                         var sending = Math.min(src, ideal - dest);
-    //                         if(sending > 100){
-    //                             transferred = source.send(type, sending, targetTerminal.pos.roomName) == OK;
-    //                         }
-    //                     }
-    //                 }
-    //             });
-    //         }
-
-    //         if(!transferred && data.totals.terminal > ideal){
-    //             var terminal = _.last(Util.sort.resource(_.filter(data.terminal, terminal => Util.getResource(terminal, type) > ideal + 100 && Util.getResource(terminal, RESOURCE_ENERGY) > 40000), type));
-    //             var targets = _.filter(catalog.buildings.terminal, entity => Util.getResource(entity, type) < ideal - 100);
-    //             var target = _.first(Util.sort.resource(targets, type));
-    //             if(terminal && target){
-    //                 var source = Util.getResource(terminal, type);
-    //                 var dest = Util.getResource(target, type);
-    //                 var sending = Math.min(source - ideal, ideal - dest);
-    //                 if(sending >= 100){
-    //                     transferred = terminal.send(type, sending, target.pos.roomName) == OK;
-    //                     return;
-    //                 }
-    //             }
-    //         }
-    //     });
-    //     return transferred;
     // }
 
 // {

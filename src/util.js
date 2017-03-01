@@ -7,7 +7,19 @@ class SortPredicates {
     }
 
     static capacity(entity){
-        return entity.getCapacity() - entity.getStorage();
+        return entity.getCapacity() - entity.getStored();
+    }
+
+    static distance(target){
+        return function(entity){
+            return entity.pos.getLinearDistance(target);
+        }
+    }
+
+    static distancePath(target){
+        return function(entity){
+            return entity.pos.getPathDistance(target);
+        }
     }
 
     static resource(type){
@@ -18,7 +30,7 @@ class SortPredicates {
 }
 
 class Sorting {
-    static resource(entities, type){
+    static resource(type, entities){
         return _.sortBy(entities, SortPredicates.resource(type));
     }
     
@@ -26,8 +38,8 @@ class Sorting {
         return _.sortBy(entities, SortPredicates.distance(entity));
     }
     
-    static closestReal(entity, entities){
-        return _.sortBy(entities, SortPredicates.distanceReal(entity));
+    static closestPath(entity, entities){
+        return _.sortBy(entities, SortPredicates.distancePath(entity));
     }
 }
 

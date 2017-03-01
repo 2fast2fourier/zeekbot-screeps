@@ -25,6 +25,9 @@ class ObserveWorker extends BaseWorker {
         const targets = _.reduce(Memory.rooms, (result, data, name)=>{
             if(data.cluster == cluster.id && data.observe){
                 let targetRoom = Game.rooms[name];
+                if(targetRoom && targetRoom.controller && targetRoom.controller.my){
+                    delete Memory.rooms[name].observe;
+                }
                 let target;
                 if(!targetRoom || !targetRoom.controller){
                     target = { pos: new RoomPosition(25, 25, name), range: 15 };

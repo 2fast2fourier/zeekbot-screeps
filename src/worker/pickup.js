@@ -49,7 +49,7 @@ class PickupWorker extends BaseWorker {
     }
 
     continueJob(cluster, creep, opts, job){
-        return super.continueJob(cluster, creep, opts, job) && creep.getAvailableCapacity() > 0;
+        return super.continueJob(cluster, creep, opts, job) && creep.getAvailableCapacity() > 10;
     }
 
     canBid(cluster, creep, opts){
@@ -60,7 +60,7 @@ class PickupWorker extends BaseWorker {
         if(job.target.id == creep.memory.lastDeliver){
             return false;
         }
-        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity) + (creep.pos.roomName != job.target.pos.roomName ? 0.5 : 0);
+        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity);
     }
 
     process(cluster, creep, opts, job, target){

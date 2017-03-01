@@ -48,7 +48,7 @@ class Production {
         var sortedReactions = _.sortBy(runnableReactions, (reaction) => -Math.min(reaction.deficit, reaction.capacity));
 
         if(freeLabs.length > 0){
-            for(reaction of sortedReactions){
+            for(let reaction of sortedReactions){
                 if(freeLabs.length > 0){
                     console.log('Starting reaction:', reaction.type, '-', reaction.deficit, 'of', reaction.capacity);
                     this.startReaction(cluster, reaction.type, reaction, freeLabs);

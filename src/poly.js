@@ -302,10 +302,7 @@ module.exports = function(){
 
     RoomPosition.prototype.getPathDistance = function getPathDistance(entity){
         var target = entity instanceof RoomPosition ? entity : entity.pos;
-        if(this.roomName == target.roomName){
-            return this.getLinearDistance(target);
-        }
-        return Pathing.getPathDistance(this, target);
+        return Math.max(this.getLinearDistance(target), Pathing.getMinPathDistance(this, target));
     }
 
     Flag.getByPrefix = function getByPrefix(prefix){

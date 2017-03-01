@@ -1,5 +1,16 @@
 "use strict";
 
+function catalogGlobal(resources, struct){
+    if(struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_TERMINAL){
+        var stored = struct.getResourceList();
+        for(let type in stored){
+            let amount = stored[type];
+            resources[type].global += amount;
+            resources[type].globals[struct.structureType] += amount;
+        }
+    }
+}
+
 function catalogStorage(storage, resources){
     var stored = storage.getResourceList();
     for(let type in stored){
@@ -57,10 +68,6 @@ class Cluster {
             autobuild: []
         }
 
-        if(!Memory.cache.path[this.id]){
-            Memory.cache.path[this.id] = {};
-        }
-
         _.forEach(this.rooms, room => {
             this._roleRooms[room.memory.role].push(room);
             if(room.energyCapacityAvailable > this.maxSpawn){
@@ -94,6 +101,7 @@ class Cluster {
                 cluster.structures[structure.structureType].push(structure);
             }
         });
+        // console.log(Game.hegemony.structures.storage.length);
         Cluster.processClusterFlags();
         _.forEach(Game.clusters, cluster => {
             if(cluster.maxRCL < 2 || _.size(cluster.structures.spawn) == 0){
@@ -132,6 +140,18 @@ class Cluster {
             }
             delete Memory.tag;
         }
+        if(Memory.removetag){
+            let parts = Memory.removetag.split('-');
+            let tag = parts[0];
+            let target = Game.getObjectById(parts[1]);
+            if(target && target.room && target.room.hasCluster()){
+                console.log('Removed tag:', tag, 'from', target);
+                target.room.getCluster().removeTag(tag, target.id);
+            }else{
+                console.log('could not find tag target', target, parts[1]);
+            }
+            delete Memory.removetag;
+        }
     }
 
     static createCluster(id){
@@ -145,15 +165,18 @@ class Cluster {
             work: {}
         };
         _.set(Memory, ['clusters', id], data);
-        Game.clusters[id] = new Cluster(id, data, [], []);
+        Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
     }
 
     static addRoom(clusterId, roomName, role){
         _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
         _.set(Memory, ['rooms', roomName, 'role'], role);
-        _.set(Memory, ['rooms', roomName, 'defend'], true);
-        _.set(Memory, ['rooms', roomName, 'observe'], true);
-        _.set(Memory, ['rooms', roomName, 'reserve'], true);
+        _.assign(Memory.rooms[roomName], {
+            defend: true,
+            observe: true,
+            reserve: true,
+            autobuild: true
+        });
         if(role == 'core'){
             _.set(Memory, ['rooms', roomName, 'claim'], true);
         }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
@@ -171,6 +194,12 @@ class Cluster {
         }
         if(!_.includes(this.tags[tag], id)){
             this.tags[tag].push(id);
+        }
+    }
+
+    removeTag(tag, id){
+        if(this.tags[tag]){
+            this.tags[tag] = _.pull(this.tags[tag], id);
         }
     }
 
@@ -227,22 +256,48 @@ class Cluster {
         Memory.clusters[this.id][type] = value;
     }
 
-    getResources(){
-        if(!this.resources){
-            this.resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
-                return { total: 0, stored: 0, sources: [], storage: [], terminal: [], lab: [], totals: { storage: 0,  terminal: 0, lab: 0 } }
-            }));
-
-            for(let storage of this.structures.storage){
-                catalogStorage(storage, this.resources);
-            }
-            for(let storage of this.structures.terminal){
-                catalogStorage(storage, this.resources);
-            }
-            for(let storage of this.structures.lab){
-                catalogStorage(storage, this.resources);
-            }
+    get resources(){
+        if(!this._resources){
+            this.initResources();
         }
+        return this._resources;
+    }
+
+    initResources(){
+        this._resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
+            return {
+                total: 0,
+                global: 0,
+                stored: 0,
+                sources: [],
+                storage: [],
+                terminal: [],
+                lab: [],
+                totals: {
+                    storage: 0,
+                    terminal: 0,
+                    lab: 0
+                },
+                globals: {
+                    storage: 0,
+                    terminal: 0
+                }
+            };
+        }));
+
+        for(let storage of this.structures.storage){
+            catalogStorage(storage, this._resources);
+        }
+        for(let storage of this.structures.terminal){
+            catalogStorage(storage, this._resources);
+        }
+        for(let storage of this.structures.lab){
+            catalogStorage(storage, this._resources);
+        }
+        _.forEach(Game.structures, catalogGlobal.bind(this, this._resources));
+    }
+
+    getResources(){
         return this.resources;
     }
 

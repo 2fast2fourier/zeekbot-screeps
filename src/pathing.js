@@ -17,20 +17,22 @@ class Pathing {
         return new RoomPosition(Math.ceil(sec.x * 16.1) + 8, Math.ceil(sec.y * 16.1) + 8, sec.room)
     }
 
-    static getPathDistance(start, end){
-        let startSec = Pathing.posToSec(start);
-        let endSec = Pathing.posToSec(end);
-        let pathName;
-        if(startSec.id < endSec.id){
-            pathName = startSec.id+'-'+endSec.id;
-        }else{
-            pathName = endSec.id+'-'+startSec.id;
+    static getMinPathDistance(start, end){
+        if(start.roomName == end.roomName){
+            return 0;
         }
-        let distance = Memory.cache.path[pathName];
+        let startSec = Pathing.posToSec(start);
+        let pathName = startSec.id;
+        let targetMem = Memory.cache.path[end.roomName];
+        if(!targetMem){
+            targetMem = {};
+            Memory.cache.path[end.roomName] = targetMem;
+        }
+        let distance = targetMem[pathName];
         if(_.isUndefined(distance)){
-            let result = Pathing.generatePath(start, Pathing.secToPos(endSec), { debug: true, range: 8 });
+            let result = Pathing.generatePath(start, new RoomPosition(25, 25, end.roomName), { debug: true, range: 20 });
             distance = _.size(result.path);
-            Memory.cache.path[pathName] = distance;
+            targetMem[pathName] = distance;
         }
         return distance;
     }

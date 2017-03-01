@@ -36,6 +36,10 @@ class Startup {
             Memory.stats = { profile: {}, profileCount: {}};
             Memory.jobs = {};
             Memory.pathable = {};
+            Memory.cache = {
+                roompos: {},
+                path: {}
+            };
             //TODO init memory
             // case 2:
             //TODO add migration

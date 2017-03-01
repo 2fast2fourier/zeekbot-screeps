@@ -163,5 +163,16 @@ module.exports = {
             deliver: { subtype: 'terminal' }
         },
         behavior: { avoid: {} }
+    },
+    transferhauler: {
+        quota: 'transfer',
+        maxQuota: 1,
+        parts: { milli: { carry: 20, move: 10 } },
+        work: {
+            transfer: {},
+            deliver: { subtype: 'terminal', priority: 99 },
+            idle: { subtype: 'terminal' }
+        },
+        behavior: { avoid: {} }
     }
 }

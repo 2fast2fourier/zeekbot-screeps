@@ -112,6 +112,12 @@ class AutoBuilder {
                     AutoBuilder.buildRoads(source.pos, storage.pos);
                 }
             }
+            for(let extractor of cluster.structures.extractor){
+                let storage = AutoBuilder.findNearest(cluster, extractor.pos, STRUCTURE_STORAGE);
+                if(storage){
+                    AutoBuilder.buildRoads(extractor.pos, storage.pos);
+                }
+            }
         }
     }
 
@@ -269,7 +275,10 @@ class AutoBuilder {
     placeContainers(){
         var containerPos = new Set();
         var pos = 0;
-        var sources = this.sources.concat(this.room.find(FIND_MINERALS) || []);
+        var sources = this.sources;
+        if(this.room.memory.role == 'core' || this.room.memory.keep){
+            sources = sources.concat(this.room.find(FIND_MINERALS) || []);
+        }
         for(let source of sources){
             if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(source.pos), 2) > 0){
                 continue;
@@ -280,7 +289,7 @@ class AutoBuilder {
                 containerPos.add(target);
             }
         }
-        if(this.room.controller){
+        if(this.room.controller && this.room.memory.role == 'core'){
             let pos = this.room.controller.pos;
             if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(pos), 2) == 0){
                 let target = this.findAccessibleSpot(pos, 2);
@@ -418,7 +427,7 @@ class AutoBuilder {
     }
 
     placeTags(){
-        if(this.room.controller){
+        if(this.room.controller && this.room.memory.role == 'core'){
             let pos = this.room.controller.pos;
             let containers = this.findNearby(pos, STRUCTURE_CONTAINER, 3);
             if(containers.length > 0 && !containers.some(container => container.hasTag('stockpile'))){

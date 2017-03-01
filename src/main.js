@@ -4,6 +4,7 @@ var Poly = require('./poly');
 var Startup = require('./startup');
 var Traveller = require('./traveller');
 
+var Hegemony = require('./hegemony');
 var AutoBuilder = require('./autobuilder');
 var Cluster = require('./cluster');
 var Controller = require('./controller');
@@ -12,11 +13,6 @@ var Worker = require('./worker');
 var Production = require('./production');
 
 module.exports.loop = function () {
-    if(Memory.transition){
-        delete Memory.cache.path;
-        Memory.cache.path = {};
-        delete Memory.transition;
-    }
     //// Startup ////
     PathFinder.use(true);
     Poly();
@@ -28,6 +24,7 @@ module.exports.loop = function () {
         }
     }
     Game.profile('memory', Game.cpu.getUsed());
+    Game.hegemony = new Hegemony();
     Cluster.init();
     Startup.processActions();
 
@@ -76,12 +73,8 @@ module.exports.loop = function () {
         }
     }
 
-    Controller.hedgemony();
+    Controller.hegemony();
 
-    // if(Game.interval(20)){
-        //TODO fix production to not rely on catalog
-    //     Production.process();
-    // }
     if(Game.flags.autobuildDebug){
         let buildRoom = Game.flags.autobuildDebug.room;
         if(buildRoom){
@@ -93,6 +86,14 @@ module.exports.loop = function () {
         }
     }
     AutoBuilder.processRoadFlags();
+
+    if(Game.interval(499) && Game.cpu.bucket > 9000){
+        var line = _.first(_.keys(Memory.cache.path));
+        if(line){
+            console.log('Clearing pathing cache for room:', line);
+            delete Memory.cache.path[line];
+        }
+    }
     
     //// Wrapup ////
     Game.finishProfile();
