@@ -27,6 +27,41 @@ class TransferWorker extends BaseWorker {
         }, []);
     }
 
+    generateLabTransfers(cluster){
+        var min = 1000;
+        var max = 2000;
+        return _.reduce(cluster.transfer, (result, resource, labId) => {
+            var target = Game.structures[labId];
+            if(!target){
+                console.log('invalid lab', labId);
+                delete cluster.transfer[labId];
+                return result;
+            }
+            if(resource && resource.startsWith('store')){
+                var parts = resource.split('-');
+                var wrongType = target.mineralType && target.mineralType != parts[1];
+                if(wrongType || target.mineralAmount >= 500){
+                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource: target.mineralType, amount: 0 }));
+                }
+                return result;
+            }
+            if(target.mineralType && target.mineralType != resource){
+                result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource: target.mineralType, amount: 0 }));
+                return result;
+            }
+            if(resource){
+                var amount = target.getResource(resource);
+                if(amount < min && cluster.resources[resource].stored > 0){
+                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 1500 }));
+                }
+                if(amount > max){
+                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 1500 }));
+                }
+            }
+            return result;
+        }, []);
+    }
+
     /// Job ///
 
     transfer(cluster, subtype){
@@ -34,6 +69,7 @@ class TransferWorker extends BaseWorker {
         jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_LAB, 2000));
         jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_TERMINAL, 50000));
         jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_NUKER, 300000));
+        jobLists.push(this.generateLabTransfers(cluster));
         if(cluster.structures.terminal.length > 0){
             jobLists.push(this.generateTerminalTransfers(cluster));
         }

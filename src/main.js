@@ -85,9 +85,9 @@ module.exports.loop = function () {
             Game.profile('builder', Game.cpu.getUsed() - start);
         }
     }
-    AutoBuilder.processRoadFlags();
+    // AutoBuilder.processRoadFlags();
 
-    if(Game.interval(499) && Game.cpu.bucket > 9000){
+    if(Game.interval(999) && Game.cpu.bucket > 9000){
         var line = _.first(_.keys(Memory.cache.path));
         if(line){
             console.log('Clearing pathing cache for room:', line);

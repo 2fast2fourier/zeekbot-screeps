@@ -132,9 +132,9 @@ module.exports =
 	            Game.profile('builder', Game.cpu.getUsed() - start);
 	        }
 	    }
-	    AutoBuilder.processRoadFlags();
+	    // AutoBuilder.processRoadFlags();
 
-	    if(Game.interval(499) && Game.cpu.bucket > 9000){
+	    if(Game.interval(999) && Game.cpu.bucket > 9000){
 	        var line = _.first(_.keys(Memory.cache.path));
 	        if(line){
 	            console.log('Clearing pathing cache for room:', line);
@@ -447,6 +447,10 @@ module.exports =
 
 	    RoomObject.prototype.getPos = function(){
 	        return this.pos;
+	    }
+
+	    RoomObject.prototype.inRangeToAll = function(entities, range){
+	        return _.every(entities, entity => this.pos.getRangeTo(entity) <= range);
 	    }
 
 	    RoomPosition.prototype.getPos = function(){
@@ -831,6 +835,11 @@ module.exports =
 	            }
 	            if(Game.interval(30)){
 	                Cluster.cleanupTags(cluster);
+	            }
+	            if(Game.interval(2000)){
+	                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !lab.hasTag('boost')));
+	                let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
+	                cluster.update('labs', _.values(labs));
 	            }
 	        });
 	    }
@@ -1945,54 +1954,9 @@ module.exports =
 
 	        if(Game.interval(10)){
 	            Controller.linkTransfer(cluster);
+
+	            _.forEach(cluster.reaction, (data, type) => Controller.runReaction(cluster, type, data));
 	        }
-	        
-	        // var towers = catalog.buildings.tower;
-	        // var targets = _.map(catalog.jobs.jobs['defend'], 'target');
-	        // var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
-	        // var repairTargets = _.filter(Game.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-	        // towers.forEach((tower, ix) => {
-	        //     if(!Controller.towerDefend(tower, catalog, targets)){
-	        //         if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
-	        //             Controller.towerRepair(tower, catalog, repairTargets);
-	        //         }
-	        //     }
-	        // });
-
-	        // if(Util.interval(10, 1)){
-	        //     Memory.transfer.reactions = {};
-	        //     _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
-	        // }
-
-	        // if(Util.interval(10, 1) || Memory.boost.update){
-	        //     Memory.boost.stored = {};
-	        //     Memory.boost.labs = {};
-	        //     Memory.boost.rooms = {};
-	        //     _.forEach(Memory.production.boosts, Controller.boost);
-	        //     Memory.boost.update = false;
-	        // }
-	        
-
-	        // if(Util.interval(20, 1)){
-	        //     if(!Controller.levelTerminals(catalog)){
-	        //         Controller.sellOverage(catalog);
-	        //     }
-	        // }
-
-	        // if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
-	        //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
-	        // }
-
-	        // var ix = 0;
-	        // _.forEach(Memory.watch, (time, roomName)=>{
-	        //     if(Game.time > time){
-	        //         console.log('Ending watch for:', roomName);
-	        //         delete Memory.watch[roomName];
-	        //     }else if(ix < catalog.buildings.observer.length){
-	        //         catalog.buildings.observer[ix].observeRoom(roomName);
-	        //         ix++;
-	        //     }
-	        // });
 	    }
 
 	    static buildFlag(flag){
@@ -2023,6 +1987,8 @@ module.exports =
 	        }
 	    }
 
+	    //// Links ////
+
 	    static linkTransfer(cluster){
 	        let tags = cluster.getTaggedStructures();
 	        let linkInput = _.groupBy(tags.input, 'pos.roomName');
@@ -2036,6 +2002,8 @@ module.exports =
 	            }
 	        });
 	    }
+
+	    //// Terminals ////
 
 	    static levelTerminals(){
 	        let transferred = {};
@@ -2064,6 +2032,33 @@ module.exports =
 	            }
 	        });
 	        return transferred;
+	    }
+
+	    //// Reactions ////
+
+	    static runReaction(cluster, type, data){
+	        var labSet = data.lab;
+	        var labs = Game.getObjects(cluster.labs[data.lab]);
+	        for(var ix=2;ix<labs.length;ix++){
+	            Controller.react(type, labs[ix], labs[0], labs[1], data.components);
+	        }
+	    }
+
+	    static react(type, targetLab, labA, labB, components){
+	        if(!targetLab || !labA || !labB){
+	            Game.note('labnotify', 'invalid lab for reaction: ' + type);
+	            return false;
+	        }
+	        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
+	            return;
+	        }
+	        if(labA.mineralType != components[0] || labB.mineralType != components[1]){
+	            return;
+	        }
+	        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
+	            return;
+	        }
+	        targetLab.runReaction(labA, labB);
 	    }
 
 	    // static towerDefend(tower, catalog, targets) {
@@ -2101,42 +2096,6 @@ module.exports =
 	    //         var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
 	    //         tower.repair(damaged[0]);
 	    //     }
-	    // }
-
-	    // static runReaction(type, data){
-	    //     var labSet = data.lab;
-	    //     var labs = Util.getObjects(Memory.production.labs[data.lab]);
-	    //     _.forEach(data.components, component => Controller.registerReaction(component, labs[0].pos.roomName));
-	    //     for(var ix=2;ix<labs.length;ix++){
-	    //         Controller.react(type, labs[ix], labs[0], labs[1], data.components);
-	    //     }
-	    // }
-
-	    // static registerReaction(type, roomName){
-	    //     if(!Memory.transfer.reactions[type]){
-	    //         Memory.transfer.reactions[type] = [];
-	    //     }
-	    //     if(!_.includes(Memory.transfer.reactions[type], roomName)){
-	    //         Memory.transfer.reactions[type].push(roomName);
-	    //     }
-	    // }
-
-	    // static react(type, targetLab, labA, labB, components){
-	    //     if(!targetLab || !labA || !labB){
-	    //         Util.notify('labnotify', 'invalid lab for reaction: ' + type);
-	    //         console.log('invalid lab for reaction: ' + type);
-	    //         return false;
-	    //     }
-	    //     if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
-	    //         return;
-	    //     }
-	    //     if(labA.mineralType != components[0] || labB.mineralType != components[1]){
-	    //         return;
-	    //     }
-	    //     if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
-	    //         return;
-	    //     }
-	    //     targetLab.runReaction(labA, labB);
 	    // }
 
 	    // static boost(type, labId){
@@ -3716,6 +3675,41 @@ module.exports =
 	        }, []);
 	    }
 
+	    generateLabTransfers(cluster){
+	        var min = 1000;
+	        var max = 2000;
+	        return _.reduce(cluster.transfer, (result, resource, labId) => {
+	            var target = Game.structures[labId];
+	            if(!target){
+	                console.log('invalid lab', labId);
+	                delete cluster.transfer[labId];
+	                return result;
+	            }
+	            if(resource && resource.startsWith('store')){
+	                var parts = resource.split('-');
+	                var wrongType = target.mineralType && target.mineralType != parts[1];
+	                if(wrongType || target.mineralAmount >= 500){
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource: target.mineralType, amount: 0 }));
+	                }
+	                return result;
+	            }
+	            if(target.mineralType && target.mineralType != resource){
+	                result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource: target.mineralType, amount: 0 }));
+	                return result;
+	            }
+	            if(resource){
+	                var amount = target.getResource(resource);
+	                if(amount < min && cluster.resources[resource].stored > 0){
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 1500 }));
+	                }
+	                if(amount > max){
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 1500 }));
+	                }
+	            }
+	            return result;
+	        }, []);
+	    }
+
 	    /// Job ///
 
 	    transfer(cluster, subtype){
@@ -3723,6 +3717,7 @@ module.exports =
 	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_LAB, 2000));
 	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_TERMINAL, 50000));
 	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_NUKER, 300000));
+	        jobLists.push(this.generateLabTransfers(cluster));
 	        if(cluster.structures.terminal.length > 0){
 	            jobLists.push(this.generateTerminalTransfers(cluster));
 	        }

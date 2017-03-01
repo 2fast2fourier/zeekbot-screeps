@@ -111,6 +111,11 @@ class Cluster {
             if(Game.interval(30)){
                 Cluster.cleanupTags(cluster);
             }
+            if(Game.interval(2000)){
+                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !lab.hasTag('boost')));
+                let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
+                cluster.update('labs', _.values(labs));
+            }
         });
     }
 

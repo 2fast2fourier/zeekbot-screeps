@@ -33,54 +33,9 @@ class Controller {
 
         if(Game.interval(10)){
             Controller.linkTransfer(cluster);
+
+            _.forEach(cluster.reaction, (data, type) => Controller.runReaction(cluster, type, data));
         }
-        
-        // var towers = catalog.buildings.tower;
-        // var targets = _.map(catalog.jobs.jobs['defend'], 'target');
-        // var healCreeps = _.map(catalog.jobs.jobs['heal'], 'target');
-        // var repairTargets = _.filter(Game.getObjects(Memory.jobs.repair), target => target && target.hits < Math.min(target.hitsMax, Memory.settings.repairTarget) * Memory.settings.towerRepairPercent);
-        // towers.forEach((tower, ix) => {
-        //     if(!Controller.towerDefend(tower, catalog, targets)){
-        //         if(!Controller.towerHeal(tower, catalog, healCreeps) && tower.energy > tower.energyCapacity * 0.75){
-        //             Controller.towerRepair(tower, catalog, repairTargets);
-        //         }
-        //     }
-        // });
-
-        // if(Util.interval(10, 1)){
-        //     Memory.transfer.reactions = {};
-        //     _.forEach(Memory.reaction, (data, type) => Controller.runReaction(type, data));
-        // }
-
-        // if(Util.interval(10, 1) || Memory.boost.update){
-        //     Memory.boost.stored = {};
-        //     Memory.boost.labs = {};
-        //     Memory.boost.rooms = {};
-        //     _.forEach(Memory.production.boosts, Controller.boost);
-        //     Memory.boost.update = false;
-        // }
-        
-
-        // if(Util.interval(20, 1)){
-        //     if(!Controller.levelTerminals(catalog)){
-        //         Controller.sellOverage(catalog);
-        //     }
-        // }
-
-        // if(catalog.buildings.observer && Game.flags['Watch'] && _.size(catalog.buildings.observer) > 0){
-        //     _.first(catalog.buildings.observer).observeRoom(Game.flags['Watch'].pos.roomName);
-        // }
-
-        // var ix = 0;
-        // _.forEach(Memory.watch, (time, roomName)=>{
-        //     if(Game.time > time){
-        //         console.log('Ending watch for:', roomName);
-        //         delete Memory.watch[roomName];
-        //     }else if(ix < catalog.buildings.observer.length){
-        //         catalog.buildings.observer[ix].observeRoom(roomName);
-        //         ix++;
-        //     }
-        // });
     }
 
     static buildFlag(flag){
@@ -111,6 +66,8 @@ class Controller {
         }
     }
 
+    //// Links ////
+
     static linkTransfer(cluster){
         let tags = cluster.getTaggedStructures();
         let linkInput = _.groupBy(tags.input, 'pos.roomName');
@@ -124,6 +81,8 @@ class Controller {
             }
         });
     }
+
+    //// Terminals ////
 
     static levelTerminals(){
         let transferred = {};
@@ -152,6 +111,33 @@ class Controller {
             }
         });
         return transferred;
+    }
+
+    //// Reactions ////
+
+    static runReaction(cluster, type, data){
+        var labSet = data.lab;
+        var labs = Game.getObjects(cluster.labs[data.lab]);
+        for(var ix=2;ix<labs.length;ix++){
+            Controller.react(type, labs[ix], labs[0], labs[1], data.components);
+        }
+    }
+
+    static react(type, targetLab, labA, labB, components){
+        if(!targetLab || !labA || !labB){
+            Game.note('labnotify', 'invalid lab for reaction: ' + type);
+            return false;
+        }
+        if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
+            return;
+        }
+        if(labA.mineralType != components[0] || labB.mineralType != components[1]){
+            return;
+        }
+        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
+            return;
+        }
+        targetLab.runReaction(labA, labB);
     }
 
     // static towerDefend(tower, catalog, targets) {
@@ -189,42 +175,6 @@ class Controller {
     //         var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
     //         tower.repair(damaged[0]);
     //     }
-    // }
-
-    // static runReaction(type, data){
-    //     var labSet = data.lab;
-    //     var labs = Util.getObjects(Memory.production.labs[data.lab]);
-    //     _.forEach(data.components, component => Controller.registerReaction(component, labs[0].pos.roomName));
-    //     for(var ix=2;ix<labs.length;ix++){
-    //         Controller.react(type, labs[ix], labs[0], labs[1], data.components);
-    //     }
-    // }
-
-    // static registerReaction(type, roomName){
-    //     if(!Memory.transfer.reactions[type]){
-    //         Memory.transfer.reactions[type] = [];
-    //     }
-    //     if(!_.includes(Memory.transfer.reactions[type], roomName)){
-    //         Memory.transfer.reactions[type].push(roomName);
-    //     }
-    // }
-
-    // static react(type, targetLab, labA, labB, components){
-    //     if(!targetLab || !labA || !labB){
-    //         Util.notify('labnotify', 'invalid lab for reaction: ' + type);
-    //         console.log('invalid lab for reaction: ' + type);
-    //         return false;
-    //     }
-    //     if(targetLab.cooldown > 0 || targetLab.mineralAmount == targetLab.mineralCapacity){
-    //         return;
-    //     }
-    //     if(labA.mineralType != components[0] || labB.mineralType != components[1]){
-    //         return;
-    //     }
-    //     if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
-    //         return;
-    //     }
-    //     targetLab.runReaction(labA, labB);
     // }
 
     // static boost(type, labId){

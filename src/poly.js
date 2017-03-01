@@ -289,6 +289,10 @@ module.exports = function(){
         return this.pos;
     }
 
+    RoomObject.prototype.inRangeToAll = function(entities, range){
+        return _.every(entities, entity => this.pos.getRangeTo(entity) <= range);
+    }
+
     RoomPosition.prototype.getPos = function(){
         return this;
     }
