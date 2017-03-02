@@ -57,7 +57,8 @@ class Cluster {
         this._foundAll = {};
         this._roleRooms = {
             core: [],
-            harvest: []
+            harvest: [],
+            keep: []
         };
 
         this.roomflags = {
@@ -65,7 +66,9 @@ class Cluster {
             reserve: [],
             observe: [],
             claim: [],
-            autobuild: []
+            autobuild: [],
+            keep: [],
+            harvest: []
         }
 
         _.forEach(this.rooms, room => {
@@ -179,8 +182,10 @@ class Cluster {
         _.assign(Memory.rooms[roomName], {
             defend: true,
             observe: true,
-            reserve: true,
-            autobuild: true
+            reserve: role != 'keep',
+            autobuild: true,
+            keep: role == 'keep',
+            harvest: role != 'core'
         });
         if(role == 'core'){
             _.set(Memory, ['rooms', roomName, 'claim'], true);

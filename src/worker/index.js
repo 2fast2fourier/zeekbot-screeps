@@ -8,6 +8,7 @@ const workerCtors = {
     deliver: require('./deliver'),
     heal: require('./heal'),
     idle: require('./idle'),
+    keep: require('./keep'),
     mine: require('./mine'),
     observe: require('./observe'),
     pickup: require('./pickup'),
@@ -122,7 +123,8 @@ class Worker {
         var quota = {};
         var assignments = {};
         let cores = cluster.getRoomsByRole('core');
-        let harvest = cluster.getRoomsByRole('harvest');
+        let keeper = cluster.getRoomsByRole('keep');
+        let harvest = cluster.getRoomsByRole('harvest').concat(keeper);
 
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
@@ -137,6 +139,14 @@ class Worker {
 
         if(cluster.maxRCL < 5){
             quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
+        }
+
+        if(cluster.maxRCL >= 7){
+            assignments.keep = _.zipObject(_.map(keeper, 'name'), new Array(keeper.length).fill(1));
+            quota.keep = _.sum(assignments.keep);
+            if(quota.keep > 0){
+                quota.keep++;
+            }
         }
 
         cluster.update('quota', quota);

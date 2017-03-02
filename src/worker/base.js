@@ -1,12 +1,5 @@
 "use strict";
 
-function whitelistedRooms(roomName){
-    if(Memory.pathable[roomName]){
-        return 2.5;
-    }
-    return undefined;
-}
-
 class BaseWorker {
     constructor(type, opts){
         this.minEnergy = 1000;
@@ -112,7 +105,7 @@ class BaseWorker {
             if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
                 range = 1;
             }
-            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, routeCallback: whitelistedRooms });
+            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range });
         }
     }
 
@@ -121,6 +114,11 @@ class BaseWorker {
             this.move(creep, target);
         }
         return result;
+    }
+
+    moveAway(creep, target, range){
+        var result = PathFinder.search(creep.pos, { pos: target.pos, range }, { flee: true });
+        creep.moveByPath(result.path);
     }
 
     calculateQuota(cluster, quota){

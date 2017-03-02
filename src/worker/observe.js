@@ -44,11 +44,14 @@ class ObserveWorker extends BaseWorker {
     /// Creep ///
 
     continueJob(cluster, creep, opts, job){
+        if(opts.onlyReveal && Game.rooms[job.target.pos.roomName]){
+            return false;
+        }
         return super.continueJob(cluster, creep, opts, job) && (!opts.onlyReveal || !job.target.id);
     }
 
     calculateBid(cluster, creep, opts, job, distance){
-        if(opts.onlyReveal && job.target.id){
+        if(opts.onlyReveal && Game.rooms[job.target.pos.roomName]){
             return false;
         }
         return distance / 50;

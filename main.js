@@ -57,7 +57,7 @@ module.exports =
 	var Controller = __webpack_require__(8);
 	var Spawner = __webpack_require__(10);
 	var Worker = __webpack_require__(12);
-	var Production = __webpack_require__(35);
+	var Production = __webpack_require__(36);
 
 	module.exports.loop = function () {
 	    //// Startup ////
@@ -605,27 +605,45 @@ module.exports =
 	    }
 
 	    static convert(){
-
+	        // let oldMem = JSON.stringify(Memory);
+	        // Memory.oldMem = oldMem;
+	        _.forEach(Memory.rooms, (data, roomName)=>{
+	            if(data.cluster){
+	                let clusterName = data.cluster;
+	                if(!Memory.cluster[data.cluster]){
+	                    Cluster.createCluster(clusterName);
+	                }
+	                let room = Game.rooms[roomName];
+	                let role = 'harvest';
+	                if(room && room.controller && room.controller.my){
+	                    role = 'core';
+	                }else if(room && !room.controller){
+	                    role = 'keep';
+	                }
+	                Cluster.addRoom(clusterName, roomName, data.role || role);
+	            }
+	        });
 	    }
 
 	    static migrate(ver){
 	        console.log('Migrating from version', ver, 'to', VERSION);
 	        switch(ver){
+	            case 0:
+	                if(!Memory.uid){
+	                    Memory.uid = 1;
+	                }
+	                Memory.stats = { profile: {}, profileCount: {}};
+	                Memory.cache = {
+	                    roompos: {},
+	                    path: {}
+	                };
+	                Memory.clusters = {};
+	                if(Memory.memoryVersion){
+	                    console.log('Converting last-gen memory!');
+	                    Startup.convert();
+	                    delete Memory.memoryVersion;
+	                }
 	            case 1:
-	            Memory.clusters = {};
-	            Memory.uid = 1;
-	            if(Memory.memoryVersion){
-	                console.log('Converting last-gen memory!');
-	                Startup.convert();
-	                delete Memory.memoryVersion;
-	            }
-	            Memory.stats = { profile: {}, profileCount: {}};
-	            Memory.jobs = {};
-	            Memory.pathable = {};
-	            Memory.cache = {
-	                roompos: {},
-	                path: {}
-	            };
 	            //TODO init memory
 	            // case 2:
 	            //TODO add migration
@@ -782,7 +800,8 @@ module.exports =
 	        this._foundAll = {};
 	        this._roleRooms = {
 	            core: [],
-	            harvest: []
+	            harvest: [],
+	            keep: []
 	        };
 
 	        this.roomflags = {
@@ -790,7 +809,9 @@ module.exports =
 	            reserve: [],
 	            observe: [],
 	            claim: [],
-	            autobuild: []
+	            autobuild: [],
+	            keep: [],
+	            harvest: []
 	        }
 
 	        _.forEach(this.rooms, room => {
@@ -904,8 +925,10 @@ module.exports =
 	        _.assign(Memory.rooms[roomName], {
 	            defend: true,
 	            observe: true,
-	            reserve: true,
-	            autobuild: true
+	            reserve: role != 'keep',
+	            autobuild: true,
+	            keep: role == 'keep',
+	            harvest: role != 'core'
 	        });
 	        if(role == 'core'){
 	            _.set(Memory, ['rooms', roomName, 'claim'], true);
@@ -1550,13 +1573,7 @@ module.exports =
 	                    AutoBuilder.buildRoads(source.pos, storage.pos);
 	                }
 	            }
-	            for(let source of cluster.structures.controller){
-	                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
-	                if(storage){
-	                    AutoBuilder.buildRoads(source.pos, storage.pos);
-	                }
-	            }
-	            for(let extractor of cluster.structures.extractor){
+	            for(let extractor of cluster.getAllStructures([STRUCTURE_EXTRACTOR, STRUCTURE_CONTROLLER])){
 	                let storage = AutoBuilder.findNearest(cluster, extractor.pos, STRUCTURE_STORAGE);
 	                if(storage){
 	                    AutoBuilder.buildRoads(extractor.pos, storage.pos);
@@ -2599,6 +2616,18 @@ module.exports =
 	        work: { reserve: {} },
 	        behavior: { avoid: {} }
 	    },
+	    keeper: {
+	        quota: 'keep',
+	        assignRoom: 'keep',
+	        parts: {
+	            milli: { move: 25, attack: 20, heal: 5 },
+	            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
+	            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
+	            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
+	        },
+	        work: { keep: {} },//, defend: {}//TODO defend tooo
+	        behavior: { selfheal: {} }
+	    },
 	    builderworker: {
 	        quota: 'build',
 	        maxQuota: 10000,
@@ -2706,16 +2735,17 @@ module.exports =
 	    deliver: __webpack_require__(16),
 	    heal: __webpack_require__(17),
 	    idle: __webpack_require__(18),
-	    mine: __webpack_require__(19),
-	    observe: __webpack_require__(20),
-	    pickup: __webpack_require__(21),
-	    repair: __webpack_require__(22),
-	    reserve: __webpack_require__(23),
-	    transfer: __webpack_require__(24),
-	    upgrade: __webpack_require__(25)
+	    keep: __webpack_require__(19),
+	    mine: __webpack_require__(20),
+	    observe: __webpack_require__(21),
+	    pickup: __webpack_require__(22),
+	    repair: __webpack_require__(23),
+	    reserve: __webpack_require__(24),
+	    transfer: __webpack_require__(25),
+	    upgrade: __webpack_require__(26)
 	};
 
-	const Behavior = __webpack_require__(26);
+	const Behavior = __webpack_require__(27);
 
 	class Worker {
 	    static process(cluster){
@@ -2820,7 +2850,8 @@ module.exports =
 	        var quota = {};
 	        var assignments = {};
 	        let cores = cluster.getRoomsByRole('core');
-	        let harvest = cluster.getRoomsByRole('harvest');
+	        let keeper = cluster.getRoomsByRole('keep');
+	        let harvest = cluster.getRoomsByRole('harvest').concat(keeper);
 
 	        _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
@@ -2835,6 +2866,14 @@ module.exports =
 
 	        if(cluster.maxRCL < 5){
 	            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
+	        }
+
+	        if(cluster.maxRCL >= 7){
+	            assignments.keep = _.zipObject(_.map(keeper, 'name'), new Array(keeper.length).fill(1));
+	            quota.keep = _.sum(assignments.keep);
+	            if(quota.keep > 0){
+	                quota.keep++;
+	            }
 	        }
 
 	        cluster.update('quota', quota);
@@ -2855,7 +2894,8 @@ module.exports =
 	const offsets = {
 	    spawn: -1,
 	    extension: -0.5,
-	    tower: -0.5
+	    tower: -0.5,
+	    container: -0.25
 	}
 
 	class BuildWorker extends BaseWorker {
@@ -2893,13 +2933,6 @@ module.exports =
 /***/ function(module, exports) {
 
 	"use strict";
-
-	function whitelistedRooms(roomName){
-	    if(Memory.pathable[roomName]){
-	        return 2.5;
-	    }
-	    return undefined;
-	}
 
 	class BaseWorker {
 	    constructor(type, opts){
@@ -3006,7 +3039,7 @@ module.exports =
 	            if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
 	                range = 1;
 	            }
-	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, routeCallback: whitelistedRooms });
+	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range });
 	        }
 	    }
 
@@ -3015,6 +3048,11 @@ module.exports =
 	            this.move(creep, target);
 	        }
 	        return result;
+	    }
+
+	    moveAway(creep, target, range){
+	        var result = PathFinder.search(creep.pos, { pos: target.pos, range }, { flee: true });
+	        creep.moveByPath(result.path);
 	    }
 
 	    calculateQuota(cluster, quota){
@@ -3277,7 +3315,15 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        this.orMove(creep, target, creep.heal(target));
+	        let range = creep.pos.getRangeTo(target);
+	        if(range > 1){
+	            this.move(creep, target);
+	            if(range <= 3){
+	                creep.rangedHeal(target);
+	            }
+	        }else{
+	            creep.heal(target);
+	        }
 	    }
 
 	}
@@ -3332,6 +3378,62 @@ module.exports =
 
 	const BaseWorker = __webpack_require__(14);
 
+	class KeepWorker extends BaseWorker {
+	    constructor(){ super('keep', {}); }
+
+	    /// Job ///
+
+	    keep(cluster, subtype){
+	        if(cluster.maxRCL < 7){
+	            return [];
+	        }
+	        let keeps = cluster.findIn(cluster.roomflags.keep, FIND_HOSTILE_STRUCTURES);
+	        return this.jobsForTargets(cluster, subtype, _.reject(keeps, keep => keep.ticksToSpawn > 60));
+	    }
+
+	    jobValid(cluster, job){
+	        return super.jobValid(cluster, job) && !(job.target.ticksToSpawn > 60 && job.target.ticksToSpawn < 280);
+	    }
+
+	    /// Creep ///
+
+	    continueJob(cluster, creep, opts, job){
+	        return super.continueJob(cluster, creep, opts, job);
+	    }
+
+	    canBid(cluster, creep, opts){
+	        return creep.hits > creep.hitsMax * 0.8 && creep.ticksToLive > 25;
+	    }
+
+	    calculateBid(cluster, creep, opts, job, distance){
+	        return (job.target.ticksToSpawn || 0) / 300 + distance / 500;
+	    }
+
+	    process(cluster, creep, opts, job, target){
+	        let idleRange = target.ticksToSpawn < 10 ? 1 : 2;
+	        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, { filter: target => creep.pos.getRangeTo(target) < 10 || _.get(target, 'owner.username', false) != 'Source Keeper' });
+	        if(hostiles.length > 0){
+	            var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
+	            return this.orMove(creep, enemy, creep.attack(enemy)) == OK;
+	        }else if(creep.pos.getRangeTo(target) > idleRange){
+	            this.move(creep, target);
+	        }else if(creep.pos.getRangeTo(target) < idleRange){
+	            this.moveAway(creep, target, idleRange);
+	        }
+	    }
+
+	}
+
+	module.exports = KeepWorker;
+
+/***/ },
+/* 20 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	const BaseWorker = __webpack_require__(14);
+
 	class MineWorker extends BaseWorker {
 	    constructor(){ super('mine', { quota: ['energy', 'mineral'], critical: 'energy' }); }
 
@@ -3374,7 +3476,7 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 20 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3423,11 +3525,14 @@ module.exports =
 	    /// Creep ///
 
 	    continueJob(cluster, creep, opts, job){
+	        if(opts.onlyReveal && Game.rooms[job.target.pos.roomName]){
+	            return false;
+	        }
 	        return super.continueJob(cluster, creep, opts, job) && (!opts.onlyReveal || !job.target.id);
 	    }
 
 	    calculateBid(cluster, creep, opts, job, distance){
-	        if(opts.onlyReveal && job.target.id){
+	        if(opts.onlyReveal && Game.rooms[job.target.pos.roomName]){
 	            return false;
 	        }
 	        return distance / 50;
@@ -3444,7 +3549,7 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 21 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3466,11 +3571,11 @@ module.exports =
 	    }
 
 	    harvest(cluster, subtype){
-	        var targets = _.reduce(cluster.getRoomsByRole('harvest'), (result, room)=>{
+	        var targets = _.reduce(cluster.roomflags.harvest, (result, room)=>{
 	            var energy = cluster.find(room, FIND_DROPPED_ENERGY);
 	            var containers = _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => struct.getResource(RESOURCE_ENERGY) > 0);
 	            return result.concat(energy).concat(containers);
-	        }, [])
+	        }, []);
 	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
 	    }
 
@@ -3529,7 +3634,7 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 22 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3575,7 +3680,7 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3588,7 +3693,7 @@ module.exports =
 	    /// Job ///
 
 	    reserve(cluster, subtype){
-	        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000), 'controller');
+	        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000 && room.controller), 'controller');
 	        return this.jobsForTargets(cluster, subtype, controllers);
 	    }
 
@@ -3643,7 +3748,7 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3918,7 +4023,7 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3975,18 +4080,18 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var AssignRoomAction = __webpack_require__(27);
-	var Avoid = __webpack_require__(29);
-	var Boost = __webpack_require__(30);
-	var Energy = __webpack_require__(31);
-	var MinecartAction = __webpack_require__(32);
-	var Repair = __webpack_require__(33);
-	var SelfHeal = __webpack_require__(34);
+	var AssignRoomAction = __webpack_require__(28);
+	var Avoid = __webpack_require__(30);
+	var Boost = __webpack_require__(31);
+	var Energy = __webpack_require__(32);
+	var MinecartAction = __webpack_require__(33);
+	var Repair = __webpack_require__(34);
+	var SelfHeal = __webpack_require__(35);
 
 	module.exports = function(){
 	    return {
@@ -4001,12 +4106,12 @@ module.exports =
 	};
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	class AssignRoomAction extends BaseAction {
 	    constructor(catalog){
@@ -4047,7 +4152,7 @@ module.exports =
 	module.exports = AssignRoomAction;
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -4089,12 +4194,12 @@ module.exports =
 	module.exports = BaseAction;
 
 /***/ },
-/* 29 */
+/* 30 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	class AvoidAction extends BaseAction {
 	    constructor(){
@@ -4103,24 +4208,38 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
+	        var idle = false;
 	        var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
+	        if(creep.room.memory.keep){
+	            let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
+	            if(keeps.length > 0){
+	                hostiles = hostiles.concat(keeps);
+	            }
+	        }
 	        if(hostiles.length > 0){
 	            let avoidTargets = [];
 	            for(var enemy of hostiles){
-	                if(creep.pos.getRangeTo(enemy) <= this.range){
+	                let distance = creep.pos.getRangeTo(enemy);
+	                if(distance == this.range){
+	                    idle = true;
+	                }else if(distance < this.range){
 	                    avoidTargets.push({ pos: enemy.pos, range: this.range + 2, enemy });
 	                }
 	            }
 	            if(avoidTargets.length > 0){
 	                return { type: this.type, data: avoidTargets };
+	            }else if(idle && !Game.interval(5)){
+	                return { type: this.type, data: 'idle' };
 	            }
 	        }
 	        return false;
 	    }
 
 	    blocked(cluster, creep, opts, block){
-	        var result = PathFinder.search(creep.pos, block, { flee: true });
-	        creep.moveByPath(result.path);
+	        if(block != 'idle'){
+	            var result = PathFinder.search(creep.pos, block, { flee: true });
+	            creep.moveByPath(result.path);
+	        }
 	    }
 
 	}
@@ -4129,12 +4248,12 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 30 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 	var Util = __webpack_require__(9);
 
 	class BoostAction extends BaseAction {
@@ -4205,12 +4324,12 @@ module.exports =
 	module.exports = BoostAction;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	var offsets = {
 	    container: -1,
@@ -4241,12 +4360,12 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	var offsets = {
 	    container: 0.5,
@@ -4284,12 +4403,12 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 33 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -4311,12 +4430,12 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 34 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(28);
+	var BaseAction = __webpack_require__(29);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(){
@@ -4348,7 +4467,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 35 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";

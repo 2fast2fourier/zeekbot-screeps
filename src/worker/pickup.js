@@ -17,11 +17,11 @@ class PickupWorker extends BaseWorker {
     }
 
     harvest(cluster, subtype){
-        var targets = _.reduce(cluster.getRoomsByRole('harvest'), (result, room)=>{
+        var targets = _.reduce(cluster.roomflags.harvest, (result, room)=>{
             var energy = cluster.find(room, FIND_DROPPED_ENERGY);
             var containers = _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => struct.getResource(RESOURCE_ENERGY) > 0);
             return result.concat(energy).concat(containers);
-        }, [])
+        }, []);
         return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
 

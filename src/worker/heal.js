@@ -24,7 +24,15 @@ class HealWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        this.orMove(creep, target, creep.heal(target));
+        let range = creep.pos.getRangeTo(target);
+        if(range > 1){
+            this.move(creep, target);
+            if(range <= 3){
+                creep.rangedHeal(target);
+            }
+        }else{
+            creep.heal(target);
+        }
     }
 
 }

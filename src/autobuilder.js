@@ -106,13 +106,7 @@ class AutoBuilder {
                     AutoBuilder.buildRoads(source.pos, storage.pos);
                 }
             }
-            for(let source of cluster.structures.controller){
-                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
-                if(storage){
-                    AutoBuilder.buildRoads(source.pos, storage.pos);
-                }
-            }
-            for(let extractor of cluster.structures.extractor){
+            for(let extractor of cluster.getAllStructures([STRUCTURE_EXTRACTOR, STRUCTURE_CONTROLLER])){
                 let storage = AutoBuilder.findNearest(cluster, extractor.pos, STRUCTURE_STORAGE);
                 if(storage){
                     AutoBuilder.buildRoads(extractor.pos, storage.pos);

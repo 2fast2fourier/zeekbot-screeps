@@ -8,7 +8,7 @@ class ReserveWorker extends BaseWorker {
     /// Job ///
 
     reserve(cluster, subtype){
-        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000), 'controller');
+        var controllers = _.map(_.filter(cluster.roomflags.reserve, room => _.get(room, 'controller.reservation.ticksToEnd', 0) < 3000 && room.controller), 'controller');
         return this.jobsForTargets(cluster, subtype, controllers);
     }
 

@@ -84,6 +84,18 @@ module.exports = {
         work: { reserve: {} },
         behavior: { avoid: {} }
     },
+    keeper: {
+        quota: 'keep',
+        assignRoom: 'keep',
+        parts: {
+            milli: { move: 25, attack: 20, heal: 5 },
+            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
+            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
+            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
+        },
+        work: { keep: {} },//, defend: {}//TODO defend tooo
+        behavior: { selfheal: {} }
+    },
     builderworker: {
         quota: 'build',
         maxQuota: 10000,

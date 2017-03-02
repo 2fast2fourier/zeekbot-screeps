@@ -19,27 +19,45 @@ class Startup {
     }
 
     static convert(){
-
+        // let oldMem = JSON.stringify(Memory);
+        // Memory.oldMem = oldMem;
+        _.forEach(Memory.rooms, (data, roomName)=>{
+            if(data.cluster){
+                let clusterName = data.cluster;
+                if(!Memory.cluster[data.cluster]){
+                    Cluster.createCluster(clusterName);
+                }
+                let room = Game.rooms[roomName];
+                let role = 'harvest';
+                if(room && room.controller && room.controller.my){
+                    role = 'core';
+                }else if(room && !room.controller){
+                    role = 'keep';
+                }
+                Cluster.addRoom(clusterName, roomName, data.role || role);
+            }
+        });
     }
 
     static migrate(ver){
         console.log('Migrating from version', ver, 'to', VERSION);
         switch(ver){
+            case 0:
+                if(!Memory.uid){
+                    Memory.uid = 1;
+                }
+                Memory.stats = { profile: {}, profileCount: {}};
+                Memory.cache = {
+                    roompos: {},
+                    path: {}
+                };
+                Memory.clusters = {};
+                if(Memory.memoryVersion){
+                    console.log('Converting last-gen memory!');
+                    Startup.convert();
+                    delete Memory.memoryVersion;
+                }
             case 1:
-            Memory.clusters = {};
-            Memory.uid = 1;
-            if(Memory.memoryVersion){
-                console.log('Converting last-gen memory!');
-                Startup.convert();
-                delete Memory.memoryVersion;
-            }
-            Memory.stats = { profile: {}, profileCount: {}};
-            Memory.jobs = {};
-            Memory.pathable = {};
-            Memory.cache = {
-                roompos: {},
-                path: {}
-            };
             //TODO init memory
             // case 2:
             //TODO add migration

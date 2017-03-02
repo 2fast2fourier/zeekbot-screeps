@@ -5,7 +5,8 @@ const BaseWorker = require('./base');
 const offsets = {
     spawn: -1,
     extension: -0.5,
-    tower: -0.5
+    tower: -0.5,
+    container: -0.25
 }
 
 class BuildWorker extends BaseWorker {
