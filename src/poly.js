@@ -60,8 +60,8 @@ module.exports = function(){
     };
 
     Game.note = function note(type, message){
+        console.log(message);
         if(_.get(Memory, ['notify', type], 0) < Game.time){
-            console.log(message);
             Game.notify(message);
             _.set(Memory, ['notify', type], Game.time + 5000);
         }

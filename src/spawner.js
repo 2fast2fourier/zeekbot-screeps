@@ -204,7 +204,7 @@ class Spawner {
         let type = config.assignRoom;
 
         let assignments = _.reduce(Game.creeps, (result, creep)=>{
-            if(creep.memory.room && creep.memory.roomtype == type){
+            if(creep.ticksToLive && creep.memory.room && creep.memory.roomtype == type){
                 _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
             }
             return result;
@@ -222,59 +222,10 @@ class Spawner {
         if(targetRoom){
             return targetRoom;
         }else{
-            Game.note('Failed to assign room '+type+' - '+spawnType+' - '+JSON.stringify(assignments));
+            Game.note('spawnAssignFailed', 'Failed to assign room '+type+' - '+spawnType+' - '+JSON.stringify(assignments));
             return false;
         }
     }
-
-    // static resetBehavior(catalog){
-    //     var classConvert = {
-    //         keepminer: 'miner',
-    //         keepfighter: 'fighter',
-    //         tender: 'hauler'
-    //     }
-    //     var classFallback = {
-    //         miner: 'milli',
-    //         hauler: 'micro',
-    //         worker: 'repair',
-    //         healer: 'pico',
-    //         fighter: 'melee'
-    //     }
-    //     _.forEach(Game.creeps, creep=>{
-    //         var newClass = _.get(classConvert, creep.memory.class, creep.memory.class);
-    //         var newVer = creep.memory.version;
-    //         var config = _.get(classConfig, newClass, false);
-    //         if(!config){
-    //             console.log('failed to find class', creep.memory.class, creep);
-    //             return;
-    //         }
-    //         var version = _.get(config, ['versions', creep.memory.version], false);
-    //         if(!version){
-    //             newVer = classFallback[newClass];
-    //             version = _.get(config, ['versions', newVer], false);
-    //             if(!version){
-    //                 console.log('failed to find version', creep.memory.version);
-    //                 return;
-    //             }
-    //             console.log('converting from', creep.memory.version, 'to', newVer, creep);
-    //         }
-    //         creep.memory.version = newVer;
-    //         creep.memory.type = newVer + newClass;
-    //         creep.memory.class = newClass;
-    //         creep.memory.rules = version.rules || config.rules;
-    //         creep.memory.actions = version.actions || config.actions;
-    //         creep.memory.jobId = false;
-    //         creep.memory.jobType = false;
-    //         creep.memory.jobAllocation = 0;
-    //         creep.memory.moveTicks = 0;
-    //         var optMemory = version.memory || config.memory;
-    //         if(optMemory){
-    //             _.assign(creep.memory, optMemory);
-    //         }
-    //     });
-    //     Memory.resetBehavior = false;
-    //     console.log("Reset behavior!");
-    // }
 }
 
 

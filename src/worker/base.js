@@ -162,6 +162,9 @@ class BaseWorker {
         if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
             return [];
         }
+        if(Game.cpu.bucket < 2500 && this.critical != subtype){
+            return [];
+        }
         var jobs = this.jobs[subtype];
         if(!jobs){
             // console.log('generating jobs for', subtype);

@@ -23,7 +23,7 @@ class Startup {
     static convert(){
         _.forEach(Game.rooms, (room, roomName)=>{
             let clusterName = _.get(room, 'memory.cluster', 'Main');
-            if(!Memory.cluster[clusterName]){
+            if(!Memory.clusters[clusterName]){
                 Cluster.createCluster(clusterName);
             }
             let role = 'harvest';
@@ -32,7 +32,7 @@ class Startup {
             }else if(!room.controller){
                 role = 'keep';
             }
-            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role));
+            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role), false);
             for(let creep of room.find(FIND_MY_CREEPS)){
                 creep.memory.cluster = clusterName;
             }
@@ -64,6 +64,27 @@ class Startup {
                 quotaAlloc: Spawner.getAllocation(data, _.first(_.keys(data.parts)))
             });
         });
+        delete Memory.transfer;
+        delete Memory.production;
+        delete Memory.jobs;
+        delete Memory.settings;
+        delete Memory.linkTransfer;
+        delete Memory.resetBehavior;
+        delete Memory.standDown;
+        delete Memory.upgradedLogic;
+        delete Memory.productionTime;
+        delete Memory.accessibility;
+        delete Memory.debugMisc;
+        delete Memory.debugType;
+        delete Memory.boost;
+        delete Memory.stockpile;
+        delete Memory.scaling;
+        delete Memory.limits;
+        delete Memory.notify;
+        delete Memory.reaction;
+        delete Memory.watch;
+        delete Memory.roomlist;
+        delete Memory.keeps;
     }
     
         // var memory = {
@@ -93,14 +114,14 @@ class Startup {
                 Memory.clusters = {};
                 if(Memory.memoryVersion){
                     console.log('Converting last-gen memory!');
-                    let oldMem;
+                    // let oldMem;
                     try{
-                        oldMem = JSON.stringify(Memory);
+                        // oldMem = JSON.stringify(Memory);
                         Startup.convert();
                     }catch(e){
                         console.log(e);
-                        console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
-                        Memory = JSON.parse(oldMem);
+                        // console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
+                        // Memory = JSON.parse(oldMem);
                         return;
                     }
                     delete Memory.memoryVersion;
@@ -167,7 +188,7 @@ class Startup {
                             break;
                         }
                         let role = parts.length > 3 ? parts[3] : 'harvest';
-                        Cluster.addRoom(cluster.id, roomName, role);
+                        Cluster.addRoom(cluster.id, roomName, role, true);
                         console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
                     }
                     break;
@@ -178,7 +199,7 @@ class Startup {
                             if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
                                 break;
                             }
-                            Cluster.addRoom(target, roomName, parts[3]);
+                            Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
                             if(room){
                                 _.forEach(room.find(FIND_MY_CREEPS), creep => {
                                     creep.memory.cluster = target;

@@ -49,13 +49,13 @@ module.exports =
 
 	var Poly = __webpack_require__(1);
 	var Startup = __webpack_require__(3);
-	var Traveller = __webpack_require__(5);
+	var Traveller = __webpack_require__(7);
 
-	var Hegemony = __webpack_require__(6);
-	var AutoBuilder = __webpack_require__(7);
+	var Hegemony = __webpack_require__(8);
+	var AutoBuilder = __webpack_require__(9);
 	var Cluster = __webpack_require__(4);
-	var Controller = __webpack_require__(8);
-	var Spawner = __webpack_require__(10);
+	var Controller = __webpack_require__(10);
+	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(12);
 	var Production = __webpack_require__(36);
 
@@ -225,8 +225,8 @@ module.exports =
 	    };
 
 	    Game.note = function note(type, message){
+	        console.log(message);
 	        if(_.get(Memory, ['notify', type], 0) < Game.time){
-	            console.log(message);
 	            Game.notify(message);
 	            _.set(Memory, ['notify', type], Game.time + 5000);
 	        }
@@ -616,8 +616,8 @@ module.exports =
 	let STAT_INTERVAL = 100;
 
 	const Cluster = __webpack_require__(4);
-	const creeps = __webpack_require__(11);
-	const Spawner = __webpack_require__(10);
+	const creeps = __webpack_require__(5);
+	const Spawner = __webpack_require__(6);
 
 	class Startup {
 	    static start(){
@@ -635,7 +635,7 @@ module.exports =
 	    static convert(){
 	        _.forEach(Game.rooms, (room, roomName)=>{
 	            let clusterName = _.get(room, 'memory.cluster', 'Main');
-	            if(!Memory.cluster[clusterName]){
+	            if(!Memory.clusters[clusterName]){
 	                Cluster.createCluster(clusterName);
 	            }
 	            let role = 'harvest';
@@ -644,7 +644,7 @@ module.exports =
 	            }else if(!room.controller){
 	                role = 'keep';
 	            }
-	            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role));
+	            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role), false);
 	            for(let creep of room.find(FIND_MY_CREEPS)){
 	                creep.memory.cluster = clusterName;
 	            }
@@ -676,6 +676,27 @@ module.exports =
 	                quotaAlloc: Spawner.getAllocation(data, _.first(_.keys(data.parts)))
 	            });
 	        });
+	        delete Memory.transfer;
+	        delete Memory.production;
+	        delete Memory.jobs;
+	        delete Memory.settings;
+	        delete Memory.linkTransfer;
+	        delete Memory.resetBehavior;
+	        delete Memory.standDown;
+	        delete Memory.upgradedLogic;
+	        delete Memory.productionTime;
+	        delete Memory.accessibility;
+	        delete Memory.debugMisc;
+	        delete Memory.debugType;
+	        delete Memory.boost;
+	        delete Memory.stockpile;
+	        delete Memory.scaling;
+	        delete Memory.limits;
+	        delete Memory.notify;
+	        delete Memory.reaction;
+	        delete Memory.watch;
+	        delete Memory.roomlist;
+	        delete Memory.keeps;
 	    }
 	    
 	        // var memory = {
@@ -705,14 +726,14 @@ module.exports =
 	                Memory.clusters = {};
 	                if(Memory.memoryVersion){
 	                    console.log('Converting last-gen memory!');
-	                    let oldMem;
+	                    // let oldMem;
 	                    try{
-	                        oldMem = JSON.stringify(Memory);
+	                        // oldMem = JSON.stringify(Memory);
 	                        Startup.convert();
 	                    }catch(e){
 	                        console.log(e);
-	                        console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
-	                        Memory = JSON.parse(oldMem);
+	                        // console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
+	                        // Memory = JSON.parse(oldMem);
 	                        return;
 	                    }
 	                    delete Memory.memoryVersion;
@@ -779,7 +800,7 @@ module.exports =
 	                            break;
 	                        }
 	                        let role = parts.length > 3 ? parts[3] : 'harvest';
-	                        Cluster.addRoom(cluster.id, roomName, role);
+	                        Cluster.addRoom(cluster.id, roomName, role, true);
 	                        console.log('Added', roomName, 'to cluster', cluster.id, 'role:', role);
 	                    }
 	                    break;
@@ -790,7 +811,7 @@ module.exports =
 	                            if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
 	                                break;
 	                            }
-	                            Cluster.addRoom(target, roomName, parts[3]);
+	                            Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
 	                            if(room){
 	                                _.forEach(room.find(FIND_MY_CREEPS), creep => {
 	                                    creep.memory.cluster = target;
@@ -977,9 +998,24 @@ module.exports =
 	            }
 	            delete Memory.removetag;
 	        }
+	        let flags = Flag.getByPrefix('tag');
+	        for(let flag of flags){
+	            console.log('Processing tag:', flag.name);
+	            let parts = flag.name.split('-');
+	            let tag = parts[1];
+	            let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+	            if(target && target.room && target.room.hasCluster()){
+	                console.log('Added tag:', tag, 'to', target);
+	                target.room.getCluster().addTag(tag, target.id);
+	            }else{
+	                console.log('could not find tag target', target, flag.pos);
+	            }
+	            flag.remove();
+	        }
 	    }
 
 	    static createCluster(id){
+	        //tags: stockpile, input, output, boost
 	        let data = {
 	            assignments: {},
 	            labs: [],
@@ -987,20 +1023,23 @@ module.exports =
 	            reaction: {},
 	            tags: {},
 	            transfer: {},
-	            work: {}
+	            work: {},
+	            totalEnergy: 0
 	        };
 	        _.set(Memory, ['clusters', id], data);
-	        Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
+	        if(Game.clusters){
+	            Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
+	        }
 	    }
 
-	    static addRoom(clusterId, roomName, role){
+	    static addRoom(clusterId, roomName, role, autobuild){
 	        _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
 	        _.set(Memory, ['rooms', roomName, 'role'], role);
 	        _.assign(Memory.rooms[roomName], {
 	            defend: true,
 	            observe: true,
 	            reserve: role != 'keep',
-	            autobuild: true,
+	            autobuild: autobuild,
 	            keep: role == 'keep',
 	            harvest: role != 'core'
 	        });
@@ -1009,6 +1048,7 @@ module.exports =
 	        }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
 	            delete Memory.rooms[roomName].claim;
 	        }
+	        console.log('Added room', roomName, 'to', clusterId, role, autobuild ? 'with autobuild' : '');
 	    }
 
 	    changeRole(roomName, newRole){
@@ -1134,6 +1174,440 @@ module.exports =
 
 /***/ },
 /* 5 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	var haulerParts = {
+	    mega: { carry: 32, move: 16 },//2400
+	    kilo: { carry: 24, move: 12 },//1500
+	    milli: { carry: 16, move: 8 },//1200
+	    micro: { carry: 8, move: 8 },//800
+	    nano: { carry: 5, move: 5 },//550
+	    pico: { carry: 3, move: 3 }//300
+	};
+
+	module.exports = {
+	    defender: {
+	        quota: 'defend',
+	        critical: true,
+	        parts: {
+	            // micro: { tough: 3, move: 11, ranged_attack: 8 },
+	            nano: { tough: 5, move: 10, ranged_attack: 5 },
+	            pico: { tough: 5, move: 7, ranged_attack: 2 },
+	            femto: { tough: 2, move: 4, ranged_attack: 2 }
+	        },
+	        work: { defend: {}, observe: { onlyReveal: true }, idle: { subtype: 'tower' } }
+	    },
+	    spawnhauler: {
+	        quota: 'spawnhauler',
+	        critical: true,
+	        assignRoom: 'spawn',
+	        parts: haulerParts,
+	        emergency: 'pico',
+	        work: { 
+	            pickup: { local: true },
+	            deliver: { subtype: 'spawn', local: true },
+	            idle: { subtype: 'spawn', local: true }
+	        },
+	        behavior: { avoid: {} }
+	    },
+	    energyminer: {
+	        quota: 'energy-mine',
+	        critical: true,
+	        allocation: 'work',
+	        allocationMax: 6,
+	        parts: {
+	            milli: { move: 4, carry: 2, work: 8 },//standard 1100
+	            micro: { move: 3, carry: 1, work: 6 },//800
+	            nano: { move: 2, carry: 2, work: 3 },//550
+	            pico: { move: 1, carry: 1, work: 2 }//300
+	        },
+	        emergency: 'pico',
+	        work: { mine: { subtype: 'energy' } },
+	        behavior: { avoid: {}, minecart: {} }
+	    },
+	    stockpilehauler: {
+	        quota: 'stockpile-deliver',
+	        allocation: 'carry',
+	        allocationMulti: 50,
+	        parts: haulerParts,
+	        work: { 
+	            pickup: {},
+	            deliver: { subtype: 'stockpile' }
+	        },
+	        behavior: { avoid: {} }
+	    },
+	    harvesthauler: {
+	        quota: 'harvesthauler',
+	        allocation: 'carry',
+	        allocationMax: 24,
+	        parts: haulerParts,
+	        assignRoom: 'harvest',
+	        work: {
+	            pickup: { subtype: 'harvest' },
+	            deliver: { subtype: 'storage' }
+	        },
+	        behavior: { avoid: {} }
+	    },
+	    reserver: {
+	        quota: 'reserve',
+	        allocation: 'claim',
+	        allocationMax: 2,
+	        parts: {
+	            micro: { claim: 4, move: 4 },
+	            nano: { claim: 2, move: 2 },
+	            pico: { claim: 1, move: 1 }
+	        },
+	        work: { reserve: {} },
+	        behavior: { avoid: {} }
+	    },
+	    keeper: {
+	        quota: 'keep',
+	        assignRoom: 'keep',
+	        parts: {
+	            milli: { move: 25, ranged_attack: 2, attack: 18, heal: 5 },
+	            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
+	            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
+	            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
+	        },
+	        work: { keep: { local: true } },//, defend: {}//TODO defend tooo
+	        behavior: { selfheal: {} }
+	    },
+	    builderworker: {
+	        quota: 'build',
+	        maxQuota: 10000,
+	        allocation: 'work',
+	        allocationMulti: 1000,
+	        parts: {
+	            kilo: { move: 17, carry: 12, work: 5 },//1700
+	            milli: { move: 10, carry: 6, work: 4 },//1200
+	            micro: { move: 7, carry: 5, work: 2 },//800
+	            nano: { move: 4, carry: 2, work: 2 },//550
+	            pico: { move: 2, carry: 1, work: 1 }//300
+	        },
+	        work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
+	        behavior: { avoid: {} }
+	    },
+	    upgradeworker: {
+	        quota: 'upgrade',
+	        allocation: 'work',
+	        parts: {
+	            mega: { work: 15, move: 12, carry: 9 },//2550
+	            kilo: { work: 15, move: 9, carry: 3 },//2100
+	            milli: { work: 5, move: 6, carry: 6 },//1200
+	            micro: { work: 5, move: 4, carry: 2 },//800
+	            nano: { move: 3, carry: 4, work: 2 },//550
+	            pico: { move: 2, carry: 1, work: 1 }//300
+	        },
+	        work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
+	        behavior: { energy: {}, avoid: {} }
+	    },
+	    repairworker: {
+	        quota: 'repair',
+	        allocation: 'work',
+	        allocationMulti: 8000,
+	        maxQuota: 200000,
+	        parts: {
+	            milli: { move: 6, carry: 7, work: 5 },//1150
+	            micro: { move: 7, carry: 5, work: 2 },//800
+	            nano: { move: 5, carry: 4, work: 1 },//550
+	            pico: { move: 2, carry: 1, work: 1 }//300
+	        },
+	        work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
+	        behavior: { avoid: {}, repair: {} }
+	    },
+	    observer: {
+	        quota: 'observe',
+	        critical: true,
+	        parts: { pico: { tough: 1, move: 1 } },
+	        work: { observe: {} },
+	        behavior: { avoid: {} }
+	    },
+	    healer: {
+	        quota: 'heal',
+	        maxQuota: 1,
+	        parts: {
+	            micro: { move: 4, heal: 4 },
+	            nano: { move: 2, heal: 2 },
+	            pico: { move: 1, heal: 1 }
+	        },
+	        work: { heal: {} }
+	    },
+	    mineralminer: {
+	        quota: 'mineral-mine',
+	        allocation: 'work',
+	        allocationMax: 6,
+	        parts: {
+	            pico: { move: 6, carry: 4, work: 8 }
+	        },
+	        work: { mine: { subtype: 'mineral' } },
+	        behavior: { avoid: {}, minecart: {} }
+	    },
+	    mineralhauler: {
+	        quota: 'mineral-pickup',
+	        allocation: 'carry',
+	        allocationMulti: 50,
+	        parts: { milli: { carry: 16, move: 8 } },
+	        work: {
+	            pickup: { subtype: 'mineral' },
+	            deliver: { subtype: 'terminal' }
+	        },
+	        behavior: { avoid: {} }
+	    },
+	    transferhauler: {
+	        quota: 'transfer',
+	        maxQuota: 4,
+	        allocation: 2,
+	        parts: { milli: { carry: 20, move: 10 } },
+	        work: {
+	            transfer: {},
+	            deliver: { subtype: 'terminal', priority: 99 },
+	            idle: { subtype: 'terminal' }
+	        },
+	        behavior: { avoid: {} }
+	    }
+	}
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var creepsConfig = __webpack_require__(5);
+
+	class Spawner {
+
+	    static processSpawnlist(cluster, spawnlist, targetCluster){
+	        if(spawnlist.totalCost == 0){
+	            return;
+	        }
+
+	        let result = false;
+	        if(_.size(spawnlist.critical) > 0){
+	            result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
+	        }else{
+	            //TODO insert boosted here
+	            result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
+	        }
+	        return !!result;
+	    }
+
+	    static attemptSpawn(cluster, spawnlist, type, count, targetCluster){
+	        var spawned = false;
+	        _.find(cluster.structures.spawn, spawn =>{
+	            if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
+	                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type);
+	            }
+	        });
+	        return spawned;
+	    }
+
+	    static generateSpawnList(cluster, targetCluster){
+	        var spawnlist = {
+	            boosted: {},
+	            costs: {},
+	            critical: {},
+	            count: {},
+	            parts: {},
+	            version: {},
+	            totalCost: 0
+	        };
+	        var allocation = Spawner.calculateQuotaAllocation(targetCluster);
+
+	        _.forEach(creepsConfig, (config, type)=>{
+	            let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
+	            let maxCost = 0;
+	            let version = false;
+	            let partSet = false;
+	            if(emergency){
+	                let cost = Spawner.calculateCost(config.parts[config.emergency]);
+	                maxCost = cost;
+	                version = config.emergency;
+	                partSet = config.parts[config.emergency];
+	                Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
+	            }else{
+	                _.forEach(config.parts, (parts, ver) => {
+	                    let cost = Spawner.calculateCost(parts);
+	                    if(cost > maxCost && cost <= cluster.maxSpawn){
+	                        maxCost = cost;
+	                        version = ver;
+	                        partSet = parts;
+	                    }
+	                });
+	            }
+	            if(version){
+	                //TODO spawn limits? currently noop
+	                const limit = Spawner.calculateSpawnLimit(cluster, type, config);
+	                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
+	                const need = Math.min(limit, quota);
+	                if(need > 0){
+	                    spawnlist.costs[type] = maxCost;
+	                    spawnlist.parts[type] = Spawner.partList(partSet);
+	                    spawnlist.version[type] = version;
+	                    if(config.critical){
+	                        spawnlist.critical[type] = need;
+	                    }
+	                    spawnlist.count[type] = need;
+	                    spawnlist.totalCost += need * spawnlist.costs[type];
+	                    // if(config.boost){
+	                    //     spawnlist.boosted[type] = _.keys(config.boost);
+	                    // }
+	                }
+	            }
+	        });
+
+	        return spawnlist;
+	    }
+
+	    static calculateQuotaAllocation(targetCluster){
+	        var allocation = {};
+	        _.forEach(targetCluster.creeps, creep =>{
+	            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3)){
+	                var quota = creep.memory.quota;
+	                _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
+	            }
+	        });
+
+	        return allocation;
+	    }
+
+	    static getAllocation(config, version){
+	        let alloc = _.get(config, 'allocation', 1);
+	        if(_.isString(alloc)){
+	            alloc = _.get(config, ['parts', version, alloc], 1);
+	        }
+	        alloc *= _.get(config, 'allocationMulti', 1);
+	        return Math.min(alloc, _.get(config, 'allocationMax', Infinity));
+	    }
+
+	    static calculateRemainingQuota(targetCluster, type, config, allocation, version){
+	        var perCreep = Spawner.getAllocation(config, version);
+	        var quota = Math.min(_.get(targetCluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
+	        var allocated = _.get(allocation, config.quota, 0);
+	        let unmetQuota = quota - allocated;
+	        var creepsNeeded = Math.ceil(unmetQuota/perCreep);
+	        return creepsNeeded;
+	    }
+
+	    static calculateSpawnLimit(cluster, type, config){
+	        var limit = Infinity;
+	        // if(version.boost && !version.boostOptional){
+	        //     //TODO account for in-progress boosts
+	        //     _.forEach(version.boost, (parts, type) =>{
+	        //         if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
+	        //             limit = 0;
+	        //         }
+	        //         limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
+	        //     });
+	        //     // console.log(type, limit);
+	        // }
+	        return limit;
+	    }
+
+	    static spawnCreep(cluster, spawn, spawnlist, spawnType){
+	        var versionName = spawnlist.version[spawnType];
+	        var config = creepsConfig[spawnType];
+	        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName));
+	        Memory.uid++;
+	        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
+	        return spawned;
+	    }
+
+	    static canSpawn(spawn, parts, cost){
+	        return spawn.room.energyAvailable >= cost && spawn.canCreateCreep(parts) == OK;
+	    }
+
+	    static prepareSpawnMemory(cluster, config, type, version){
+	        var memory = {
+	            type,
+	            version,
+	            cluster: cluster.id,
+	            job: false,
+	            jobType: false,
+	            jobSubType: false,
+	            jobAllocation: 0,
+	            quota: config.quota,
+	            quotaAlloc: Spawner.getAllocation(config, version)
+	        };
+	        
+	        if(config.critical){
+	            memory.critical = true;
+	        }
+
+	        if(config.boost){
+	            memory.boost = _.keys(config.boost);
+	            if(!_.has(memory, 'behavior.boost')){
+	                _.set(memory, 'behavior.boost', {});
+	            }
+	        }
+
+	        if(config.assignRoom){
+	            memory.room = Spawner.getRoomAssignment(cluster, type, config);
+	            memory.roomtype = config.assignRoom;
+	            console.log('Assigned', type, 'to room', memory.room, '-', memory.roomtype);
+	        }
+
+	        if(config.memory){
+	            _.assign(memory, config.memory);
+	        }
+
+	        return memory;
+	    }
+
+	    static partList(args){
+	        var parts = [];
+	        _.forEach(args, (count, name)=>{
+	            for(var iy=0;iy<count;iy++){
+	                parts.push(name);
+	            }
+	        });
+	        return parts;
+	    }
+
+	    static calculateCost(partList){
+	        var prices = { work: 100, carry: 50, move: 50, attack: 80, tough: 10, ranged_attack: 150, claim: 600, heal: 250 };
+	        var cost = 0;
+	        _.forEach(partList, (count, name)=>{
+	            cost += prices[name] * count;
+	        });
+	        return cost;
+	    }
+
+	    static getRoomAssignment(cluster, spawnType, config){
+	        let type = config.assignRoom;
+
+	        let assignments = _.reduce(Game.creeps, (result, creep)=>{
+	            if(creep.ticksToLive && creep.memory.room && creep.memory.roomtype == type){
+	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
+	            }
+	            return result;
+	        }, {});
+	        
+	        var least = Infinity;
+	        var targetRoom = false;
+	        _.forEach(cluster.assignments[type], (target, roomName) => {
+	            var assigned = _.get(assignments, roomName, 0) / target;
+	            if(assigned < least){
+	                least = assigned;
+	                targetRoom = roomName;
+	            }
+	        });
+	        if(targetRoom){
+	            return targetRoom;
+	        }else{
+	            Game.note('spawnAssignFailed', 'Failed to assign room '+type+' - '+spawnType+' - '+JSON.stringify(assignments));
+	            return false;
+	        }
+	    }
+	}
+
+
+	module.exports = Spawner;
+
+/***/ },
+/* 7 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1455,7 +1929,7 @@ module.exports =
 	module.exports = traveler;
 
 /***/ },
-/* 6 */
+/* 8 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -1536,7 +2010,7 @@ module.exports =
 	module.exports = Hegemony;
 
 /***/ },
-/* 7 */
+/* 9 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2007,12 +2481,12 @@ module.exports =
 	module.exports = AutoBuilder;
 
 /***/ },
-/* 8 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const Util = __webpack_require__(9);
+	const Util = __webpack_require__(11);
 
 	class Controller {
 
@@ -2260,7 +2734,7 @@ module.exports =
 	module.exports = Controller;
 
 /***/ },
-/* 9 */
+/* 11 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -2316,495 +2790,12 @@ module.exports =
 	};
 
 /***/ },
-/* 10 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	var creepsConfig = __webpack_require__(11);
-
-	class Spawner {
-
-	    static processSpawnlist(cluster, spawnlist, targetCluster){
-	        if(spawnlist.totalCost == 0){
-	            return;
-	        }
-
-	        let result = false;
-	        if(_.size(spawnlist.critical) > 0){
-	            result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
-	        }else{
-	            //TODO insert boosted here
-	            result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
-	        }
-	        return !!result;
-	    }
-
-	    static attemptSpawn(cluster, spawnlist, type, count, targetCluster){
-	        var spawned = false;
-	        _.find(cluster.structures.spawn, spawn =>{
-	            if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-	                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type);
-	            }
-	        });
-	        return spawned;
-	    }
-
-	    static generateSpawnList(cluster, targetCluster){
-	        var spawnlist = {
-	            boosted: {},
-	            costs: {},
-	            critical: {},
-	            count: {},
-	            parts: {},
-	            version: {},
-	            totalCost: 0
-	        };
-	        var allocation = Spawner.calculateQuotaAllocation(targetCluster);
-
-	        _.forEach(creepsConfig, (config, type)=>{
-	            let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
-	            let maxCost = 0;
-	            let version = false;
-	            let partSet = false;
-	            if(emergency){
-	                let cost = Spawner.calculateCost(config.parts[config.emergency]);
-	                maxCost = cost;
-	                version = config.emergency;
-	                partSet = config.parts[config.emergency];
-	                Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
-	            }else{
-	                _.forEach(config.parts, (parts, ver) => {
-	                    let cost = Spawner.calculateCost(parts);
-	                    if(cost > maxCost && cost <= cluster.maxSpawn){
-	                        maxCost = cost;
-	                        version = ver;
-	                        partSet = parts;
-	                    }
-	                });
-	            }
-	            if(version){
-	                //TODO spawn limits? currently noop
-	                const limit = Spawner.calculateSpawnLimit(cluster, type, config);
-	                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
-	                const need = Math.min(limit, quota);
-	                if(need > 0){
-	                    spawnlist.costs[type] = maxCost;
-	                    spawnlist.parts[type] = Spawner.partList(partSet);
-	                    spawnlist.version[type] = version;
-	                    if(config.critical){
-	                        spawnlist.critical[type] = need;
-	                    }
-	                    spawnlist.count[type] = need;
-	                    spawnlist.totalCost += need * spawnlist.costs[type];
-	                    // if(config.boost){
-	                    //     spawnlist.boosted[type] = _.keys(config.boost);
-	                    // }
-	                }
-	            }
-	        });
-
-	        return spawnlist;
-	    }
-
-	    static calculateQuotaAllocation(targetCluster){
-	        var allocation = {};
-	        _.forEach(targetCluster.creeps, creep =>{
-	            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3)){
-	                var quota = creep.memory.quota;
-	                _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
-	            }
-	        });
-
-	        return allocation;
-	    }
-
-	    static getAllocation(config, version){
-	        let alloc = _.get(config, 'allocation', 1);
-	        if(_.isString(alloc)){
-	            alloc = _.get(config, ['parts', version, alloc], 1);
-	        }
-	        alloc *= _.get(config, 'allocationMulti', 1);
-	        return Math.min(alloc, _.get(config, 'allocationMax', Infinity));
-	    }
-
-	    static calculateRemainingQuota(targetCluster, type, config, allocation, version){
-	        var perCreep = Spawner.getAllocation(config, version);
-	        var quota = Math.min(_.get(targetCluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
-	        var allocated = _.get(allocation, config.quota, 0);
-	        let unmetQuota = quota - allocated;
-	        var creepsNeeded = Math.ceil(unmetQuota/perCreep);
-	        return creepsNeeded;
-	    }
-
-	    static calculateSpawnLimit(cluster, type, config){
-	        var limit = Infinity;
-	        // if(version.boost && !version.boostOptional){
-	        //     //TODO account for in-progress boosts
-	        //     _.forEach(version.boost, (parts, type) =>{
-	        //         if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
-	        //             limit = 0;
-	        //         }
-	        //         limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
-	        //     });
-	        //     // console.log(type, limit);
-	        // }
-	        return limit;
-	    }
-
-	    static spawnCreep(cluster, spawn, spawnlist, spawnType){
-	        var versionName = spawnlist.version[spawnType];
-	        var config = creepsConfig[spawnType];
-	        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName));
-	        Memory.uid++;
-	        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
-	        return spawned;
-	    }
-
-	    static canSpawn(spawn, parts, cost){
-	        return spawn.room.energyAvailable >= cost && spawn.canCreateCreep(parts) == OK;
-	    }
-
-	    static prepareSpawnMemory(cluster, config, type, version){
-	        var memory = {
-	            type,
-	            version,
-	            cluster: cluster.id,
-	            job: false,
-	            jobType: false,
-	            jobSubType: false,
-	            jobAllocation: 0,
-	            quota: config.quota,
-	            quotaAlloc: Spawner.getAllocation(config, version)
-	        };
-	        
-	        if(config.critical){
-	            memory.critical = true;
-	        }
-
-	        if(config.boost){
-	            memory.boost = _.keys(config.boost);
-	            if(!_.has(memory, 'behavior.boost')){
-	                _.set(memory, 'behavior.boost', {});
-	            }
-	        }
-
-	        if(config.assignRoom){
-	            memory.room = Spawner.getRoomAssignment(cluster, type, config);
-	            memory.roomtype = config.assignRoom;
-	            console.log('Assigned', type, 'to room', memory.room, '-', memory.roomtype);
-	        }
-
-	        if(config.memory){
-	            _.assign(memory, config.memory);
-	        }
-
-	        return memory;
-	    }
-
-	    static partList(args){
-	        var parts = [];
-	        _.forEach(args, (count, name)=>{
-	            for(var iy=0;iy<count;iy++){
-	                parts.push(name);
-	            }
-	        });
-	        return parts;
-	    }
-
-	    static calculateCost(partList){
-	        var prices = { work: 100, carry: 50, move: 50, attack: 80, tough: 10, ranged_attack: 150, claim: 600, heal: 250 };
-	        var cost = 0;
-	        _.forEach(partList, (count, name)=>{
-	            cost += prices[name] * count;
-	        });
-	        return cost;
-	    }
-
-	    static getRoomAssignment(cluster, spawnType, config){
-	        let type = config.assignRoom;
-
-	        let assignments = _.reduce(Game.creeps, (result, creep)=>{
-	            if(creep.memory.room && creep.memory.roomtype == type){
-	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
-	            }
-	            return result;
-	        }, {});
-	        
-	        var least = Infinity;
-	        var targetRoom = false;
-	        _.forEach(cluster.assignments[type], (target, roomName) => {
-	            var assigned = _.get(assignments, roomName, 0) / target;
-	            if(assigned < least){
-	                least = assigned;
-	                targetRoom = roomName;
-	            }
-	        });
-	        if(targetRoom){
-	            return targetRoom;
-	        }else{
-	            Game.note('Failed to assign room '+type+' - '+spawnType+' - '+JSON.stringify(assignments));
-	            return false;
-	        }
-	    }
-
-	    // static resetBehavior(catalog){
-	    //     var classConvert = {
-	    //         keepminer: 'miner',
-	    //         keepfighter: 'fighter',
-	    //         tender: 'hauler'
-	    //     }
-	    //     var classFallback = {
-	    //         miner: 'milli',
-	    //         hauler: 'micro',
-	    //         worker: 'repair',
-	    //         healer: 'pico',
-	    //         fighter: 'melee'
-	    //     }
-	    //     _.forEach(Game.creeps, creep=>{
-	    //         var newClass = _.get(classConvert, creep.memory.class, creep.memory.class);
-	    //         var newVer = creep.memory.version;
-	    //         var config = _.get(classConfig, newClass, false);
-	    //         if(!config){
-	    //             console.log('failed to find class', creep.memory.class, creep);
-	    //             return;
-	    //         }
-	    //         var version = _.get(config, ['versions', creep.memory.version], false);
-	    //         if(!version){
-	    //             newVer = classFallback[newClass];
-	    //             version = _.get(config, ['versions', newVer], false);
-	    //             if(!version){
-	    //                 console.log('failed to find version', creep.memory.version);
-	    //                 return;
-	    //             }
-	    //             console.log('converting from', creep.memory.version, 'to', newVer, creep);
-	    //         }
-	    //         creep.memory.version = newVer;
-	    //         creep.memory.type = newVer + newClass;
-	    //         creep.memory.class = newClass;
-	    //         creep.memory.rules = version.rules || config.rules;
-	    //         creep.memory.actions = version.actions || config.actions;
-	    //         creep.memory.jobId = false;
-	    //         creep.memory.jobType = false;
-	    //         creep.memory.jobAllocation = 0;
-	    //         creep.memory.moveTicks = 0;
-	    //         var optMemory = version.memory || config.memory;
-	    //         if(optMemory){
-	    //             _.assign(creep.memory, optMemory);
-	    //         }
-	    //     });
-	    //     Memory.resetBehavior = false;
-	    //     console.log("Reset behavior!");
-	    // }
-	}
-
-
-	module.exports = Spawner;
-
-/***/ },
-/* 11 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	var haulerParts = {
-	    mega: { carry: 32, move: 16 },//2400
-	    kilo: { carry: 24, move: 12 },//1500
-	    milli: { carry: 16, move: 8 },//1200
-	    micro: { carry: 8, move: 8 },//800
-	    nano: { carry: 5, move: 5 },//550
-	    pico: { carry: 3, move: 3 }//300
-	};
-
-	module.exports = {
-	    defender: {
-	        quota: 'defend',
-	        critical: true,
-	        parts: {
-	            // micro: { tough: 3, move: 11, ranged_attack: 8 },
-	            nano: { tough: 5, move: 10, ranged_attack: 5 },
-	            pico: { tough: 5, move: 7, ranged_attack: 2 },
-	            femto: { tough: 2, move: 4, ranged_attack: 2 }
-	        },
-	        work: { defend: {}, observe: { onlyReveal: true }, idle: { subtype: 'tower' } }
-	    },
-	    spawnhauler: {
-	        quota: 'spawnhauler',
-	        critical: true,
-	        assignRoom: 'spawn',
-	        parts: haulerParts,
-	        emergency: 'pico',
-	        work: { 
-	            pickup: { local: true },
-	            deliver: { subtype: 'spawn', local: true },
-	            idle: { subtype: 'spawn', local: true }
-	        },
-	        behavior: { avoid: {} }
-	    },
-	    energyminer: {
-	        quota: 'energy-mine',
-	        critical: true,
-	        allocation: 'work',
-	        allocationMax: 6,
-	        parts: {
-	            milli: { move: 4, carry: 2, work: 8 },//standard 1100
-	            micro: { move: 3, carry: 1, work: 6 },//800
-	            nano: { move: 2, carry: 2, work: 3 },//550
-	            pico: { move: 1, carry: 1, work: 2 }//300
-	        },
-	        emergency: 'pico',
-	        work: { mine: { subtype: 'energy' } },
-	        behavior: { avoid: {}, minecart: {} }
-	    },
-	    stockpilehauler: {
-	        quota: 'stockpile-deliver',
-	        allocation: 'carry',
-	        allocationMulti: 50,
-	        parts: haulerParts,
-	        work: { 
-	            pickup: {},
-	            deliver: { subtype: 'stockpile' }
-	        },
-	        behavior: { avoid: {} }
-	    },
-	    harvesthauler: {
-	        quota: 'harvesthauler',
-	        allocation: 'carry',
-	        allocationMax: 24,
-	        parts: haulerParts,
-	        assignRoom: 'harvest',
-	        work: {
-	            pickup: { subtype: 'harvest' },
-	            deliver: { subtype: 'storage' }
-	        },
-	        behavior: { avoid: {} }
-	    },
-	    reserver: {
-	        quota: 'reserve',
-	        allocation: 'claim',
-	        allocationMax: 2,
-	        parts: {
-	            micro: { claim: 4, move: 4 },
-	            nano: { claim: 2, move: 2 },
-	            pico: { claim: 1, move: 1 }
-	        },
-	        work: { reserve: {} },
-	        behavior: { avoid: {} }
-	    },
-	    keeper: {
-	        quota: 'keep',
-	        assignRoom: 'keep',
-	        parts: {
-	            milli: { move: 25, ranged_attack: 2, attack: 18, heal: 5 },
-	            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
-	            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
-	            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
-	        },
-	        work: { keep: { local: true } },//, defend: {}//TODO defend tooo
-	        behavior: { selfheal: {} }
-	    },
-	    builderworker: {
-	        quota: 'build',
-	        maxQuota: 10000,
-	        allocation: 'work',
-	        allocationMulti: 1000,
-	        parts: {
-	            kilo: { move: 17, carry: 12, work: 5 },//1700
-	            milli: { move: 10, carry: 6, work: 4 },//1200
-	            micro: { move: 7, carry: 5, work: 2 },//800
-	            nano: { move: 4, carry: 2, work: 2 },//550
-	            pico: { move: 2, carry: 1, work: 1 }//300
-	        },
-	        work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
-	        behavior: { avoid: {} }
-	    },
-	    upgradeworker: {
-	        quota: 'upgrade',
-	        allocation: 'work',
-	        parts: {
-	            mega: { work: 15, move: 12, carry: 9 },//2550
-	            kilo: { work: 15, move: 9, carry: 3 },//2100
-	            milli: { work: 5, move: 6, carry: 6 },//1200
-	            micro: { work: 5, move: 4, carry: 2 },//800
-	            nano: { move: 3, carry: 4, work: 2 },//550
-	            pico: { move: 2, carry: 1, work: 1 }//300
-	        },
-	        work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
-	        behavior: { energy: {}, avoid: {} }
-	    },
-	    repairworker: {
-	        quota: 'repair',
-	        allocation: 'work',
-	        allocationMulti: 8000,
-	        maxQuota: 200000,
-	        parts: {
-	            milli: { move: 6, carry: 7, work: 5 },//1150
-	            micro: { move: 7, carry: 5, work: 2 },//800
-	            nano: { move: 5, carry: 4, work: 1 },//550
-	            pico: { move: 2, carry: 1, work: 1 }//300
-	        },
-	        work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
-	        behavior: { avoid: {}, repair: {} }
-	    },
-	    observer: {
-	        quota: 'observe',
-	        critical: true,
-	        parts: { pico: { tough: 1, move: 1 } },
-	        work: { observe: {} },
-	        behavior: { avoid: {} }
-	    },
-	    healer: {
-	        quota: 'heal',
-	        maxQuota: 1,
-	        parts: {
-	            micro: { move: 4, heal: 4 },
-	            nano: { move: 2, heal: 2 },
-	            pico: { move: 1, heal: 1 }
-	        },
-	        work: { heal: {} }
-	    },
-	    mineralminer: {
-	        quota: 'mineral-mine',
-	        allocation: 'work',
-	        allocationMax: 6,
-	        parts: {
-	            pico: { move: 6, carry: 4, work: 8 }
-	        },
-	        work: { mine: { subtype: 'mineral' } },
-	        behavior: { avoid: {}, minecart: {} }
-	    },
-	    mineralhauler: {
-	        quota: 'mineral-pickup',
-	        allocation: 'carry',
-	        allocationMulti: 50,
-	        parts: { milli: { carry: 16, move: 8 } },
-	        work: {
-	            pickup: { subtype: 'mineral' },
-	            deliver: { subtype: 'terminal' }
-	        },
-	        behavior: { avoid: {} }
-	    },
-	    transferhauler: {
-	        quota: 'transfer',
-	        maxQuota: 4,
-	        allocation: 2,
-	        parts: { milli: { carry: 20, move: 10 } },
-	        work: {
-	            transfer: {},
-	            deliver: { subtype: 'terminal', priority: 99 },
-	            idle: { subtype: 'terminal' }
-	        },
-	        behavior: { avoid: {} }
-	    }
-	}
-
-/***/ },
 /* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const config = __webpack_require__(11);
+	const config = __webpack_require__(5);
 
 	const workerCtors = {
 	    build: __webpack_require__(13),
@@ -3176,6 +3167,9 @@ module.exports =
 
 	    generateJobs(cluster, subtype){
 	        if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
+	            return [];
+	        }
+	        if(Game.cpu.bucket < 2500 && this.critical != subtype){
 	            return [];
 	        }
 	        var jobs = this.jobs[subtype];
@@ -3844,7 +3838,7 @@ module.exports =
 	"use strict";
 
 	const BaseWorker = __webpack_require__(14);
-	const Util = __webpack_require__(9);
+	const Util = __webpack_require__(11);
 
 	class TransferWorker extends BaseWorker {
 	    constructor(){ super('transfer', { args: ['id', 'action', 'resource', 'amount'], quota: true }); }
@@ -4338,7 +4332,7 @@ module.exports =
 	"use strict";
 
 	var BaseAction = __webpack_require__(29);
-	var Util = __webpack_require__(9);
+	var Util = __webpack_require__(11);
 
 	class BoostAction extends BaseAction {
 	    constructor(catalog){
@@ -4556,7 +4550,7 @@ module.exports =
 
 	"use strict";
 
-	var Util = __webpack_require__(9);
+	var Util = __webpack_require__(11);
 
 	var DEFICIT_START_MIN = 750;
 	var DEFICIT_END_MIN = 0;

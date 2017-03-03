@@ -160,9 +160,24 @@ class Cluster {
             }
             delete Memory.removetag;
         }
+        let flags = Flag.getByPrefix('tag');
+        for(let flag of flags){
+            console.log('Processing tag:', flag.name);
+            let parts = flag.name.split('-');
+            let tag = parts[1];
+            let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+            if(target && target.room && target.room.hasCluster()){
+                console.log('Added tag:', tag, 'to', target);
+                target.room.getCluster().addTag(tag, target.id);
+            }else{
+                console.log('could not find tag target', target, flag.pos);
+            }
+            flag.remove();
+        }
     }
 
     static createCluster(id){
+        //tags: stockpile, input, output, boost
         let data = {
             assignments: {},
             labs: [],
@@ -170,20 +185,23 @@ class Cluster {
             reaction: {},
             tags: {},
             transfer: {},
-            work: {}
+            work: {},
+            totalEnergy: 0
         };
         _.set(Memory, ['clusters', id], data);
-        Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
+        if(Game.clusters){
+            Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
+        }
     }
 
-    static addRoom(clusterId, roomName, role){
+    static addRoom(clusterId, roomName, role, autobuild){
         _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
         _.set(Memory, ['rooms', roomName, 'role'], role);
         _.assign(Memory.rooms[roomName], {
             defend: true,
             observe: true,
             reserve: role != 'keep',
-            autobuild: true,
+            autobuild: autobuild,
             keep: role == 'keep',
             harvest: role != 'core'
         });
@@ -192,6 +210,7 @@ class Cluster {
         }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
             delete Memory.rooms[roomName].claim;
         }
+        console.log('Added room', roomName, 'to', clusterId, role, autobuild ? 'with autobuild' : '');
     }
 
     changeRole(roomName, newRole){
