@@ -27,5 +27,14 @@ module.exports = [
             filename: "main.js",
             libraryTarget: "commonjs2"
         }
+    },
+    {
+        context: path.join(__dirname, 'src'),
+        entry: "./main",
+        output: {
+            path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\vmi105797_contabo_host___21025\\default",
+            filename: "main.js",
+            libraryTarget: "commonjs2"
+        }
     }
 ];

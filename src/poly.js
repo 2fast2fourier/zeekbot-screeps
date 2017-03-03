@@ -3,6 +3,7 @@
 var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 var profileData = {};
+var profileStart = 0;
 
 const Pathing = require('./pathing');
 
@@ -10,7 +11,7 @@ module.exports = function(){
     ///
     /// Game Helpers
     ///
-    Game.profile = function profile(type, value){
+    Game.profile = function(type, value){
         if(!_.has(Memory.stats.profile, type)){
             Memory.stats.profile[type] = value;
             Memory.stats.profileCount[type] = 1;
@@ -21,8 +22,24 @@ module.exports = function(){
         }
     };
 
-    Game.profileAdd = function profileAdd(type, value){
+    Game.profileAdd = function(type, value){
         _.set(profileData, type, _.get(profileData, type, 0) + value);
+    }
+
+    Game.perf = function(label){
+        var cpu = Game.cpu.getUsed();
+        if(label){
+            Game.profile(label, cpu - profileStart);
+        }
+        profileStart = cpu;
+    }
+
+    Game.perfAdd = function(label){
+        var cpu = Game.cpu.getUsed();
+        if(label){
+            Game.profileAdd(label, cpu - profileStart);
+        }
+        profileStart = cpu;
     }
 
     Game.finishProfile = function(){
@@ -32,6 +49,10 @@ module.exports = function(){
 
     Game.interval = function interval(num){
         return Game.time % num == 0;
+    };
+
+    Game.intervalOffset = function intervalOffset(num, offset){
+        return Game.time % num == offset;
     };
 
     Game.getObjects = function getObjects(idList){

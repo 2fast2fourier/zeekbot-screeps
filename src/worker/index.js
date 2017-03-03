@@ -22,15 +22,18 @@ const Behavior = require('../behavior');
 
 class Worker {
     static process(cluster){
+        // Game.perfAdd();
         const workers = _.mapValues(workerCtors, ctor => new ctor());
         const behaviors = Behavior();
         const creeps = _.filter(cluster.creeps, 'ticksToLive');
         _.forEach(creeps, Worker.validate.bind(this, workers, behaviors, cluster));
+        // Game.perfAdd('validate');
         _.forEach(creeps, Worker.work.bind(this, workers, behaviors, cluster));
 
         if(Game.interval(20) || cluster.requestedQuota){
             Worker.generateQuota(workers, cluster);
         }
+        // Game.perfAdd('quota');
     }
 
     //hydrate, validate, and end jobs
@@ -104,6 +107,7 @@ class Worker {
                 // console.log('starting', bidder.job.type, creep.name, bidder.job.id);
             }
         }
+        // Game.perfAdd('bid');
         var behave = _.get(config, [creep.memory.type, 'behavior'], false);
         if(creep.blocked){
             behaviors[creep.blocked.type].blocked(cluster, creep, behave[creep.blocked.type], creep.blocked.data);
@@ -116,6 +120,7 @@ class Worker {
             }
             _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }
+        // Game.perfAdd('process');
 
     }
 

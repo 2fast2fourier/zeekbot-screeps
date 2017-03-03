@@ -5,6 +5,7 @@ class BaseWorker {
         this.minEnergy = 1000;
         this.range = 1;
         this.priority = 0;
+        this.ignoreRoads = false;
         if(opts){
             Object.assign(this, opts);
         }
@@ -105,7 +106,7 @@ class BaseWorker {
             if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
                 range = 1;
             }
-            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range });
+            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: this.ignoreRoads });
         }
     }
 

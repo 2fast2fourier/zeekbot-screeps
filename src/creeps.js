@@ -88,12 +88,12 @@ module.exports = {
         quota: 'keep',
         assignRoom: 'keep',
         parts: {
-            milli: { move: 25, attack: 20, heal: 5 },
+            milli: { move: 25, ranged_attack: 2, attack: 18, heal: 5 },
             micro: { tough: 6, move: 25, attack: 15, heal: 4 },
             nano: { tough: 14, move: 17, attack: 15, heal: 4 }
             // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
         },
-        work: { keep: {} },//, defend: {}//TODO defend tooo
+        work: { keep: { local: true } },//, defend: {}//TODO defend tooo
         behavior: { selfheal: {} }
     },
     builderworker: {
@@ -115,7 +115,8 @@ module.exports = {
         quota: 'upgrade',
         allocation: 'work',
         parts: {
-            kilo: { work: 10, move: 6, carry: 2 },//1400
+            mega: { work: 15, move: 12, carry: 9 },//2550
+            kilo: { work: 15, move: 9, carry: 3 },//2100
             milli: { work: 5, move: 6, carry: 6 },//1200
             micro: { work: 5, move: 4, carry: 2 },//800
             nano: { move: 3, carry: 4, work: 2 },//550
@@ -178,7 +179,8 @@ module.exports = {
     },
     transferhauler: {
         quota: 'transfer',
-        maxQuota: 1,
+        maxQuota: 4,
+        allocation: 2,
         parts: { milli: { carry: 20, move: 10 } },
         work: {
             transfer: {},

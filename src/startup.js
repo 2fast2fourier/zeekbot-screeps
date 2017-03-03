@@ -4,6 +4,8 @@ let VERSION = 1;
 let STAT_INTERVAL = 100;
 
 const Cluster = require('./cluster');
+const creeps = require('./creeps');
+const Spawner = require('./spawner');
 
 class Startup {
     static start(){
@@ -19,25 +21,62 @@ class Startup {
     }
 
     static convert(){
-        // let oldMem = JSON.stringify(Memory);
-        // Memory.oldMem = oldMem;
-        _.forEach(Memory.rooms, (data, roomName)=>{
-            if(data.cluster){
-                let clusterName = data.cluster;
-                if(!Memory.cluster[data.cluster]){
-                    Cluster.createCluster(clusterName);
-                }
-                let room = Game.rooms[roomName];
-                let role = 'harvest';
-                if(room && room.controller && room.controller.my){
-                    role = 'core';
-                }else if(room && !room.controller){
-                    role = 'keep';
-                }
-                Cluster.addRoom(clusterName, roomName, data.role || role);
+        _.forEach(Game.rooms, (room, roomName)=>{
+            let clusterName = _.get(room, 'memory.cluster', 'Main');
+            if(!Memory.cluster[clusterName]){
+                Cluster.createCluster(clusterName);
+            }
+            let role = 'harvest';
+            if(room.controller && room.controller.my){
+                role = 'core';
+            }else if(!room.controller){
+                role = 'keep';
+            }
+            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role));
+            for(let creep of room.find(FIND_MY_CREEPS)){
+                creep.memory.cluster = clusterName;
             }
         });
+        var translateTypes = {
+            levelerhauler: 'spawnhauler',
+            longhauler: 'harvesthauler',
+            picoclaimer: 'reserver',
+            picohealer: 'healer',
+            meleefighter: 'keeper',
+            rangedfighter: 'defender',
+            picoobserver: 'observer'
+        };
+        _.forEach(Game.creeps, creep=>{
+            var newType = _.get(translateTypes, creep.memory.type, creep.memory.type);
+            if(!creeps[newType]){
+                console.log('Cannot translate creep type:', creep.memory.type, newType);
+                creep.suicide();
+                return;
+            }
+            let data = creeps[newType];
+            _.assign(creep.memory, {
+                type: newType,
+                job: false,
+                jobType: false,
+                jobSubType: false,
+                jobAllocation: 0,
+                quota: data.quota,
+                quotaAlloc: Spawner.getAllocation(data, _.first(_.keys(data.parts)))
+            });
+        });
     }
+    
+        // var memory = {
+        //     type,
+        //     version,
+        //     cluster: cluster.id,
+        //     job: false,
+        //     jobType: false,
+        //     jobSubType: false,
+        //     jobAllocation: 0,
+        //     quota: config.quota,
+        //     quotaAlloc: Spawner.getAllocation(config, version)
+        // };
 
     static migrate(ver){
         console.log('Migrating from version', ver, 'to', VERSION);
@@ -54,7 +93,16 @@ class Startup {
                 Memory.clusters = {};
                 if(Memory.memoryVersion){
                     console.log('Converting last-gen memory!');
-                    Startup.convert();
+                    let oldMem;
+                    try{
+                        oldMem = JSON.stringify(Memory);
+                        Startup.convert();
+                    }catch(e){
+                        console.log(e);
+                        console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
+                        Memory = JSON.parse(oldMem);
+                        return;
+                    }
                     delete Memory.memoryVersion;
                 }
             case 1:
@@ -75,7 +123,7 @@ class Startup {
                 break;
         }
         Memory.ver = VERSION;
-        Game.notify('Successfully migrated from version '+ver+' to '+version);
+        Game.notify('Successfully migrated from version '+ver+' to '+VERSION);
     }
 
     static shortStats(){

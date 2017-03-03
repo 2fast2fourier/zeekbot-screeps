@@ -222,6 +222,7 @@ class Spawner {
         if(targetRoom){
             return targetRoom;
         }else{
+            Game.note('Failed to assign room '+type+' - '+spawnType+' - '+JSON.stringify(assignments));
             return false;
         }
     }

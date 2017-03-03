@@ -21,8 +21,9 @@ class DeliverWorker extends BaseWorker {
     }
 
     storage(cluster, subtype){
-        var structures = cluster.getAllMyStructures([STRUCTURE_STORAGE]);
-        return this.jobsForTargets(cluster, subtype, structures, { resource: RESOURCE_ENERGY });
+        var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.8);
+        var tagged = cluster.getTaggedStructures();
+        return this.jobsForTargets(cluster, subtype, structures.concat(tagged.stockpile || []), { resource: RESOURCE_ENERGY });
     }
 
     terminal(cluster, subtype){

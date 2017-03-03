@@ -39,7 +39,10 @@ module.exports.loop = function () {
         bootstrap = target;
     }
 
+    let ix = 0;
+    let autobuildOffset = _.size(Game.clusters) * 100;
     for(let name in Game.clusters){
+        let clusterStart = Game.cpu.getUsed();
         let cluster = Game.clusters[name];
         Worker.process(cluster);
         
@@ -54,7 +57,7 @@ module.exports.loop = function () {
         Controller.control(cluster);
         production.process(cluster);
         
-        if(Game.interval(150)){
+        if(Game.intervalOffset(autobuildOffset, ix * 75)){
             for(let buildRoom of cluster.roomflags.autobuild){
                 let builder = new AutoBuilder(buildRoom);
                 builder.buildTerrain();
@@ -71,6 +74,8 @@ module.exports.loop = function () {
                 }
             });
         }
+        Game.profile(name, Game.cpu.getUsed() - clusterStart);
+        ix++;
     }
 
     Controller.hegemony();
@@ -87,7 +92,7 @@ module.exports.loop = function () {
     }
     // AutoBuilder.processRoadFlags();
 
-    if(Game.interval(999) && Game.cpu.bucket > 9000){
+    if(Game.interval(1999) && Game.cpu.bucket > 9000){
         var line = _.first(_.keys(Memory.cache.path));
         if(line){
             console.log('Clearing pathing cache for room:', line);

@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class ObserveWorker extends BaseWorker {
-    constructor(){ super('observe', { quota: true, critical: 'observe' }); }
+    constructor(){ super('observe', { quota: true, critical: 'observe', ignoreRoads: true }); }
 
     /// Job ///
 
