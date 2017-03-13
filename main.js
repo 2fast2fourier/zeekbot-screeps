@@ -2487,6 +2487,7 @@ module.exports =
 	"use strict";
 
 	const Util = __webpack_require__(11);
+	const roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 	class Controller {
 
@@ -2500,6 +2501,32 @@ module.exports =
 	    }
 
 	    static control(cluster){
+
+	        var scanner = Game.getObjectById(cluster.scanner);
+	        if(scanner){
+	            var scanPos = roomRegex.exec(scanner.pos.roomName);
+	            if(scanPos){
+	                var lastX = (Game.time % 18) - 9 + parseInt(scanPos[2]);
+	                var lastY = Math.floor((Game.time % 324) / 18) - 9 + parseInt(scanPos[4]);
+	                var scanRoom = Game.rooms[scanPos[1]+lastX+scanPos[3]+lastY];
+	                if(scanRoom){
+	                    var owner = _.get(scanRoom, 'controller.owner.username');
+	                    var reserved = _.get(scanRoom, 'controller.reservation.username');
+	                    if(owner && !scanRoom.controller.my){
+	                        Memory.avoidRoom[scanRoom.name] = true;
+	                    }else if(reserved && reserved != 'Zeekner'){
+	                        Memory.avoidRoom[scanRoom.name] = true;
+	                    }else{
+	                        delete Memory.avoidRoom[scanRoom.name];
+	                    }
+	                }
+
+	                var targetX = ((Game.time + 1) % 18) - 9 + parseInt(scanPos[2]);
+	                var targetY = Math.floor(((Game.time % 324) + 1) / 18) - 9 + parseInt(scanPos[4]);
+	                var queueRoom = scanPos[1]+targetX+scanPos[3]+targetY;
+	                scanner.observeRoom(queueRoom);
+	            }
+	        }
 
 	        _.forEach(cluster.structures.tower, tower=>{
 	            let action = false;
