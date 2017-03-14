@@ -58,7 +58,7 @@ class ObserveWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(creep.pos.getRangeTo(target) > (target.range || 1)){
+        if(creep.pos.getRangeTo(target) > (target.range || 3)){
             this.move(creep, target);
         }
     }

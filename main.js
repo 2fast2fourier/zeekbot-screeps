@@ -103,9 +103,10 @@ module.exports =
 
 	        Controller.control(cluster);
 	        production.process(cluster);
-	        
-	        if(Game.intervalOffset(autobuildOffset, ix * 75)){
-	            for(let buildRoom of cluster.roomflags.autobuild){
+	        let iy = 0;
+	        for(let buildRoom of cluster.roomflags.autobuild){
+	            if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
+	                // AutoBuilder.buildInfrastructureRoads(cluster);
 	                let builder = new AutoBuilder(buildRoom);
 	                builder.buildTerrain();
 	                let buildList = builder.generateBuildingList();
@@ -113,13 +114,7 @@ module.exports =
 	                    builder.autobuild(buildList);
 	                }
 	            }
-	            AutoBuilder.buildInfrastructureRoads(cluster);
-
-	            _.forEach(Memory.rooms, (room, name) =>{
-	                if(!room.cluster){
-	                    delete Memory.rooms[name];
-	                }
-	            });
+	            iy++;
 	        }
 	        Game.profile(name, Game.cpu.getUsed() - clusterStart);
 	        ix++;
@@ -152,10 +147,10 @@ module.exports =
 	    Game.profile('cpu', Game.cpu.getUsed());
 
 	    if(Game.cpu.bucket < 5000){
-	        Util.notify('cpubucket', 'CPU bucket under limit!');
+	        Game.note('cpubucket', 'CPU bucket under limit!');
 	    }
 	    if(Game.cpu.bucket < 600){
-	        Util.notify('cpubucketcrit', 'CPU bucket critical!');
+	        Game.note('cpubucketcrit', 'CPU bucket critical!');
 	    }
 	}
 
@@ -724,6 +719,7 @@ module.exports =
 	                    path: {}
 	                };
 	                Memory.clusters = {};
+	                Memory.avoidRoom = {};
 	                if(Memory.memoryVersion){
 	                    console.log('Converting last-gen memory!');
 	                    // let oldMem;
@@ -805,20 +801,24 @@ module.exports =
 	                    }
 	                    break;
 	                case 'reassign':
-	                        if(!target){
-	                            console.log('Missing cluster name!');
-	                        }else{
-	                            if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
-	                                break;
-	                            }
-	                            Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
-	                            if(room){
-	                                _.forEach(room.find(FIND_MY_CREEPS), creep => {
-	                                    creep.memory.cluster = target;
-	                                });
-	                            }
-	                            console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+	                    if(!target){
+	                        console.log('Missing cluster name!');
+	                    }else{
+	                        if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+	                            break;
 	                        }
+	                        Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
+	                        if(room){
+	                            _.forEach(room.find(FIND_MY_CREEPS), creep => {
+	                                creep.memory.cluster = target;
+	                            });
+	                        }
+	                        console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+	                    }
+	                    break;
+	                case 'unassign':
+	                    console.log('Removed room', roomName, 'from cluster.');
+	                    delete Memory.rooms[roomName];
 	                    break;
 	                default:
 	                    console.log('Unknown action:', parts[1]);
@@ -1509,7 +1509,11 @@ module.exports =
 	    static spawnCreep(cluster, spawn, spawnlist, spawnType){
 	        var versionName = spawnlist.version[spawnType];
 	        var config = creepsConfig[spawnType];
-	        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName));
+	        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName);
+	        if(spawn.room.memory.cluster != cluster.id){
+	            mem.bootstrap = true;
+	        }
+	        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, mem);
 	        Memory.uid++;
 	        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
 	        return spawned;
@@ -1579,8 +1583,8 @@ module.exports =
 	        let type = config.assignRoom;
 
 	        let assignments = _.reduce(Game.creeps, (result, creep)=>{
-	            if(creep.ticksToLive && creep.memory.room && creep.memory.roomtype == type){
-	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
+	            if(creep.memory.room && creep.memory.roomtype == type){
+	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (_.get(creep, 'ticksToLive', 1500) / 1500));
 	            }
 	            return result;
 	        }, {});
@@ -2525,9 +2529,7 @@ module.exports =
 	    }
 
 	    static buildFlag(flag){
-	        if(!flag.room || !flag.room.hasCluster()){
-	            Game.note('buildFlagUnknownRoom', 'buildflag in unknown room: ' + flag.pos);
-	            flag.remove();
+	        if(!flag.room){
 	            return;
 	        }
 	        let cluster = flag.room.getCluster();
@@ -3007,6 +3009,12 @@ module.exports =
 
 	"use strict";
 
+	function route(roomName){
+	    if(Memory.avoidRoom[roomName]){
+	        return 10;
+	    }
+	}
+
 	class BaseWorker {
 	    constructor(type, opts){
 	        this.minEnergy = 1000;
@@ -3113,7 +3121,7 @@ module.exports =
 	            if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
 	                range = 1;
 	            }
-	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: this.ignoreRoads });
+	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: this.ignoreRoads, routeCallback: route });
 	        }
 	    }
 
@@ -3623,7 +3631,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(creep.pos.getRangeTo(target) > (target.range || 1)){
+	        if(creep.pos.getRangeTo(target) > (target.range || 3)){
 	            this.move(creep, target);
 	        }
 	    }
@@ -4128,7 +4136,7 @@ module.exports =
 	        if(cluster.maxRCL <= 2){
 	            return 5;
 	        }
-	        if(cluster.maxRCL <= 5){
+	        if(cluster.maxRCL < 5){
 	            return 10;
 	        }
 	        let energy = _.get(target, 'room.storage.store.energy', 0);

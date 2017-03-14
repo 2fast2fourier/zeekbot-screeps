@@ -134,7 +134,11 @@ class Spawner {
     static spawnCreep(cluster, spawn, spawnlist, spawnType){
         var versionName = spawnlist.version[spawnType];
         var config = creepsConfig[spawnType];
-        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName));
+        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName);
+        if(spawn.room.memory.cluster != cluster.id){
+            mem.bootstrap = true;
+        }
+        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, mem);
         Memory.uid++;
         console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
         return spawned;
@@ -204,8 +208,8 @@ class Spawner {
         let type = config.assignRoom;
 
         let assignments = _.reduce(Game.creeps, (result, creep)=>{
-            if(creep.ticksToLive && creep.memory.room && creep.memory.roomtype == type){
-                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
+            if(creep.memory.room && creep.memory.roomtype == type){
+                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (_.get(creep, 'ticksToLive', 1500) / 1500));
             }
             return result;
         }, {});

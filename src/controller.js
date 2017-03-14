@@ -39,9 +39,7 @@ class Controller {
     }
 
     static buildFlag(flag){
-        if(!flag.room || !flag.room.hasCluster()){
-            Game.note('buildFlagUnknownRoom', 'buildflag in unknown room: ' + flag.pos);
-            flag.remove();
+        if(!flag.room){
             return;
         }
         let cluster = flag.room.getCluster();

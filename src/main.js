@@ -56,9 +56,10 @@ module.exports.loop = function () {
 
         Controller.control(cluster);
         production.process(cluster);
-        
-        if(Game.intervalOffset(autobuildOffset, ix * 75)){
-            for(let buildRoom of cluster.roomflags.autobuild){
+        let iy = 0;
+        for(let buildRoom of cluster.roomflags.autobuild){
+            if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
+                // AutoBuilder.buildInfrastructureRoads(cluster);
                 let builder = new AutoBuilder(buildRoom);
                 builder.buildTerrain();
                 let buildList = builder.generateBuildingList();
@@ -66,13 +67,7 @@ module.exports.loop = function () {
                     builder.autobuild(buildList);
                 }
             }
-            AutoBuilder.buildInfrastructureRoads(cluster);
-
-            _.forEach(Memory.rooms, (room, name) =>{
-                if(!room.cluster){
-                    delete Memory.rooms[name];
-                }
-            });
+            iy++;
         }
         Game.profile(name, Game.cpu.getUsed() - clusterStart);
         ix++;
@@ -105,9 +100,9 @@ module.exports.loop = function () {
     Game.profile('cpu', Game.cpu.getUsed());
 
     if(Game.cpu.bucket < 5000){
-        Util.notify('cpubucket', 'CPU bucket under limit!');
+        Game.note('cpubucket', 'CPU bucket under limit!');
     }
     if(Game.cpu.bucket < 600){
-        Util.notify('cpubucketcrit', 'CPU bucket critical!');
+        Game.note('cpubucketcrit', 'CPU bucket critical!');
     }
 }

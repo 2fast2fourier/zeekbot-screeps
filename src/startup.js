@@ -112,6 +112,7 @@ class Startup {
                     path: {}
                 };
                 Memory.clusters = {};
+                Memory.avoidRoom = {};
                 if(Memory.memoryVersion){
                     console.log('Converting last-gen memory!');
                     // let oldMem;
@@ -193,20 +194,24 @@ class Startup {
                     }
                     break;
                 case 'reassign':
-                        if(!target){
-                            console.log('Missing cluster name!');
-                        }else{
-                            if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
-                                break;
-                            }
-                            Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
-                            if(room){
-                                _.forEach(room.find(FIND_MY_CREEPS), creep => {
-                                    creep.memory.cluster = target;
-                                });
-                            }
-                            console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+                    if(!target){
+                        console.log('Missing cluster name!');
+                    }else{
+                        if(_.get(Memory, ['rooms', roomName, 'cluster'], false) == target){
+                            break;
                         }
+                        Cluster.addRoom(target, roomName, parts[3], _.get(room, 'memory.autobuild', true));
+                        if(room){
+                            _.forEach(room.find(FIND_MY_CREEPS), creep => {
+                                creep.memory.cluster = target;
+                            });
+                        }
+                        console.log('Reassigned room to cluster:', target, roomName, parts[3]);
+                    }
+                    break;
+                case 'unassign':
+                    console.log('Removed room', roomName, 'from cluster.');
+                    delete Memory.rooms[roomName];
                     break;
                 default:
                     console.log('Unknown action:', parts[1]);
