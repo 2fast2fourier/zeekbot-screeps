@@ -150,9 +150,13 @@ class Startup {
 
     static shortStats(){
         _.forEach(Memory.stats.profile, (value, type)=>console.log(type+':', value));
+        if(Game.cpu.bucket < 9500){
+            console.log('bucket:', Game.cpu.bucket);
+        }
         Memory.stats = {
             profile: {},
-            profileCount: {}
+            profileCount: {},
+            minerals: _.pick(_.mapValues(Game.hegemony.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
         }
     }
 

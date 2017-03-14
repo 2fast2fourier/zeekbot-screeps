@@ -341,12 +341,12 @@ module.exports = function(){
 
     StructureRampart.prototype.getMaxHits = function(){
         //TODO settings
-        return Math.min(this.hitsMax, 50000);
+        return Math.min(this.hitsMax, 500000);
     }
 
     StructureWall.prototype.getMaxHits = function(){
         //TODO settings
-        return Math.min(this.hitsMax, 50000);
+        return Math.min(this.hitsMax, 500000);
     }
 
     Structure.prototype.getDamage = function(){

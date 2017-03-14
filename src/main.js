@@ -16,6 +16,7 @@ module.exports.loop = function () {
     //// Startup ////
     PathFinder.use(true);
     Poly();
+    Game.hegemony = new Hegemony();
     Startup.start();
     
     for(var name in Memory.creeps) {
@@ -24,7 +25,6 @@ module.exports.loop = function () {
         }
     }
     Game.profile('memory', Game.cpu.getUsed());
-    Game.hegemony = new Hegemony();
     Cluster.init();
     Startup.processActions();
 

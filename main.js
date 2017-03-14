@@ -63,6 +63,7 @@ module.exports =
 	    //// Startup ////
 	    PathFinder.use(true);
 	    Poly();
+	    Game.hegemony = new Hegemony();
 	    Startup.start();
 	    
 	    for(var name in Memory.creeps) {
@@ -71,7 +72,6 @@ module.exports =
 	        }
 	    }
 	    Game.profile('memory', Game.cpu.getUsed());
-	    Game.hegemony = new Hegemony();
 	    Cluster.init();
 	    Startup.processActions();
 
@@ -501,12 +501,12 @@ module.exports =
 
 	    StructureRampart.prototype.getMaxHits = function(){
 	        //TODO settings
-	        return Math.min(this.hitsMax, 50000);
+	        return Math.min(this.hitsMax, 500000);
 	    }
 
 	    StructureWall.prototype.getMaxHits = function(){
 	        //TODO settings
-	        return Math.min(this.hitsMax, 50000);
+	        return Math.min(this.hitsMax, 500000);
 	    }
 
 	    Structure.prototype.getDamage = function(){
@@ -757,9 +757,13 @@ module.exports =
 
 	    static shortStats(){
 	        _.forEach(Memory.stats.profile, (value, type)=>console.log(type+':', value));
+	        if(Game.cpu.bucket < 9500){
+	            console.log('bucket:', Game.cpu.bucket);
+	        }
 	        Memory.stats = {
 	            profile: {},
-	            profileCount: {}
+	            profileCount: {},
+	            minerals: _.pick(_.mapValues(Game.hegemony.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
 	        }
 	    }
 
@@ -1306,8 +1310,8 @@ module.exports =
 	    repairworker: {
 	        quota: 'repair',
 	        allocation: 'work',
-	        allocationMulti: 8000,
-	        maxQuota: 200000,
+	        allocationMulti: 7500,
+	        maxQuota: 250000,
 	        parts: {
 	            milli: { move: 6, carry: 7, work: 5 },//1150
 	            micro: { move: 7, carry: 5, work: 2 },//800
@@ -2526,7 +2530,7 @@ module.exports =
 	                }
 
 	                var targetX = ((Game.time + 1) % 18) - 9 + parseInt(scanPos[2]);
-	                var targetY = Math.floor(((Game.time % 324) + 1) / 18) - 9 + parseInt(scanPos[4]);
+	                var targetY = Math.floor(((Game.time + 1) % 324) / 18) - 9 + parseInt(scanPos[4]);
 	                var queueRoom = scanPos[1]+targetX+scanPos[3]+targetY;
 	                scanner.observeRoom(queueRoom);
 	            }
@@ -3564,7 +3568,8 @@ module.exports =
 	    }
 
 	    mineral(cluster, subtype){
-	        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && mineral.hasExtractor());
+	        var resources = cluster.resources;
+	        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
 	        return this.jobsForTargets(cluster, subtype, minerals);
 	    }
 

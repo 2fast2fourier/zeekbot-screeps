@@ -13,7 +13,8 @@ class MineWorker extends BaseWorker {
     }
 
     mineral(cluster, subtype){
-        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && mineral.hasExtractor());
+        var resources = cluster.resources;
+        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
         return this.jobsForTargets(cluster, subtype, minerals);
     }
 

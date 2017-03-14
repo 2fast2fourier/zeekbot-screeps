@@ -36,7 +36,7 @@ class Controller {
                 }
 
                 var targetX = ((Game.time + 1) % 18) - 9 + parseInt(scanPos[2]);
-                var targetY = Math.floor(((Game.time % 324) + 1) / 18) - 9 + parseInt(scanPos[4]);
+                var targetY = Math.floor(((Game.time + 1) % 324) / 18) - 9 + parseInt(scanPos[4]);
                 var queueRoom = scanPos[1]+targetX+scanPos[3]+targetY;
                 scanner.observeRoom(queueRoom);
             }
