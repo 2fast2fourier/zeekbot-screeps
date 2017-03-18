@@ -18,6 +18,7 @@ class BaseWorker {
         this.type = type;
         this.hydratedJobs = {};
         this.jobs = {};
+        // Game.profileAdd('jobs-'+this.type, 0);
     }
 
     genTarget(cluster, subtype, id, args){
@@ -173,7 +174,7 @@ class BaseWorker {
         }
         var jobs = this.jobs[subtype];
         if(!jobs){
-            // console.log('generating jobs for', subtype);
+            // Game.profileAdd('jobs-'+this.type, 1);
             jobs = this.generateJobsForSubtype(cluster, subtype);
             this.jobs[subtype] = jobs;
         }

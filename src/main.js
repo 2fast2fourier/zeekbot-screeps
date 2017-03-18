@@ -12,6 +12,8 @@ var Spawner = require('./spawner');
 var Worker = require('./worker');
 var Production = require('./production');
 
+var REPAIR_CAP = 2000000;
+
 module.exports.loop = function () {
     //// Startup ////
     PathFinder.use(true);
@@ -59,7 +61,6 @@ module.exports.loop = function () {
         let iy = 0;
         for(let buildRoom of cluster.roomflags.autobuild){
             if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
-                // AutoBuilder.buildInfrastructureRoads(cluster);
                 let builder = new AutoBuilder(buildRoom);
                 builder.buildTerrain();
                 let buildList = builder.generateBuildingList();
@@ -67,8 +68,19 @@ module.exports.loop = function () {
                     builder.autobuild(buildList);
                 }
             }
+            if(Game.intervalOffset(autobuildOffset, 10)){
+                AutoBuilder.buildInfrastructureRoads(cluster);
+            }
             iy++;
         }
+
+        if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
+            cluster.opts.repair += 10000;
+            Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+            console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+        }
+
+
         Game.profile(name, Game.cpu.getUsed() - clusterStart);
         ix++;
     }

@@ -1,6 +1,6 @@
 "use strict";
 
-let VERSION = 1;
+let VERSION = 2;
 let STAT_INTERVAL = 100;
 
 const Cluster = require('./cluster');
@@ -128,8 +128,12 @@ class Startup {
                     delete Memory.memoryVersion;
                 }
             case 1:
-            //TODO init memory
-            // case 2:
+            _.forEach(Memory.clusters, cluster => {
+                cluster.opts = {
+                    repair: 500000
+                };
+            });
+            case 2:
             //TODO add migration
             // case 3:
             //TODO add migration

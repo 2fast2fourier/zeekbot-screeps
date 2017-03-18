@@ -59,6 +59,8 @@ module.exports =
 	var Worker = __webpack_require__(12);
 	var Production = __webpack_require__(36);
 
+	var REPAIR_CAP = 2000000;
+
 	module.exports.loop = function () {
 	    //// Startup ////
 	    PathFinder.use(true);
@@ -106,7 +108,6 @@ module.exports =
 	        let iy = 0;
 	        for(let buildRoom of cluster.roomflags.autobuild){
 	            if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
-	                // AutoBuilder.buildInfrastructureRoads(cluster);
 	                let builder = new AutoBuilder(buildRoom);
 	                builder.buildTerrain();
 	                let buildList = builder.generateBuildingList();
@@ -114,8 +115,19 @@ module.exports =
 	                    builder.autobuild(buildList);
 	                }
 	            }
+	            if(Game.intervalOffset(autobuildOffset, 10)){
+	                AutoBuilder.buildInfrastructureRoads(cluster);
+	            }
 	            iy++;
 	        }
+
+	        if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
+	            cluster.opts.repair += 10000;
+	            Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+	            console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+	        }
+
+
 	        Game.profile(name, Game.cpu.getUsed() - clusterStart);
 	        ix++;
 	    }
@@ -371,6 +383,16 @@ module.exports =
 	        return Game.clusters[this.memory.cluster];
 	    }
 
+	    if(!Room.prototype.hasOwnProperty('cluster')){
+	        Object.defineProperty(Room.prototype, 'cluster', {
+	            enumerable: false,
+	            configurable: true,
+	            get: function(){
+	                return Game.clusters[this.memory.cluster];
+	            }
+	        });
+	    }
+
 	    Room.prototype.getStructuresByType = function(type){
 	        return _.filter(this.find(FIND_STRUCTURES), struct => struct.structureType == type);
 	    }
@@ -495,18 +517,15 @@ module.exports =
 	    }
 
 	    Structure.prototype.getMaxHits = function(){
-	        //TODO settings
-	        return Math.min(this.hitsMax, 250000);
+	        return this.hitsMax;
 	    }
 
 	    StructureRampart.prototype.getMaxHits = function(){
-	        //TODO settings
-	        return Math.min(this.hitsMax, 500000);
+	        return Math.min(this.hitsMax, _.get(this.room, 'cluster.opts.repair', 250000));
 	    }
 
 	    StructureWall.prototype.getMaxHits = function(){
-	        //TODO settings
-	        return Math.min(this.hitsMax, 500000);
+	        return Math.min(this.hitsMax, _.get(this.room, 'cluster.opts.repair', 250000));
 	    }
 
 	    Structure.prototype.getDamage = function(){
@@ -607,7 +626,7 @@ module.exports =
 
 	"use strict";
 
-	let VERSION = 1;
+	let VERSION = 2;
 	let STAT_INTERVAL = 100;
 
 	const Cluster = __webpack_require__(4);
@@ -735,8 +754,12 @@ module.exports =
 	                    delete Memory.memoryVersion;
 	                }
 	            case 1:
-	            //TODO init memory
-	            // case 2:
+	            _.forEach(Memory.clusters, cluster => {
+	                cluster.opts = {
+	                    repair: 500000
+	                };
+	            });
+	            case 2:
 	            //TODO add migration
 	            // case 3:
 	            //TODO add migration
@@ -1028,7 +1051,10 @@ module.exports =
 	            tags: {},
 	            transfer: {},
 	            work: {},
-	            totalEnergy: 0
+	            totalEnergy: 0,
+	            opts: {
+	                repair: 25000
+	            }
 	        };
 	        _.set(Memory, ['clusters', id], data);
 	        if(Game.clusters){
@@ -1196,7 +1222,7 @@ module.exports =
 	        quota: 'defend',
 	        critical: true,
 	        parts: {
-	            // micro: { tough: 3, move: 11, ranged_attack: 8 },
+	            micro: { tough: 5, move: 25, ranged_attack: 15 },
 	            nano: { tough: 5, move: 10, ranged_attack: 5 },
 	            pico: { tough: 5, move: 7, ranged_attack: 2 },
 	            femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -1205,6 +1231,8 @@ module.exports =
 	    },
 	    spawnhauler: {
 	        quota: 'spawnhauler',
+	        allocation: 'carry',
+	        allocationMulti: 50,
 	        critical: true,
 	        assignRoom: 'spawn',
 	        parts: haulerParts,
@@ -1280,7 +1308,7 @@ module.exports =
 	    },
 	    builderworker: {
 	        quota: 'build',
-	        maxQuota: 10000,
+	        maxQuota: 20000,
 	        allocation: 'work',
 	        allocationMulti: 1000,
 	        parts: {
@@ -1310,7 +1338,7 @@ module.exports =
 	    repairworker: {
 	        quota: 'repair',
 	        allocation: 'work',
-	        allocationMulti: 7500,
+	        allocationMulti: 5000,
 	        maxQuota: 250000,
 	        parts: {
 	            milli: { move: 6, carry: 7, work: 5 },//1150
@@ -1324,7 +1352,7 @@ module.exports =
 	    observer: {
 	        quota: 'observe',
 	        critical: true,
-	        parts: { pico: { tough: 1, move: 1 } },
+	        parts: { pico: { move: 1 } },
 	        work: { observe: {} },
 	        behavior: { avoid: {} }
 	    },
@@ -1368,6 +1396,20 @@ module.exports =
 	            transfer: {},
 	            deliver: { subtype: 'terminal', priority: 99 },
 	            idle: { subtype: 'terminal' }
+	        },
+	        behavior: { avoid: {} }
+	    },
+	    spawnhaulerfb: {
+	        quota: 'spawnhauler',
+	        allocation: 'carry',
+	        allocationMulti: 100,
+	        critical: true,
+	        assignRoom: 'spawn',
+	        parts: { pico: {carry: 4, move: 2 } },
+	        work: {
+	            pickup: { local: true },
+	            deliver: { subtype: 'spawn', local: true },
+	            idle: { subtype: 'spawn', local: true }
 	        },
 	        behavior: { avoid: {} }
 	    }
@@ -2867,9 +2909,9 @@ module.exports =
 	    //hydrate, validate, and end jobs
 	    static validate(workers, behaviors, cluster, creep){
 	        if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
-	            creep.memory.sitting = Math.min( 256, creep.memory.sitting * 2);
+	            creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
 	        }else{
-	            creep.memory.sitting = 1;
+	            creep.memory.sitting = 3;
 	        }
 	        creep.memory.lx = creep.pos.x;
 	        creep.memory.ly = creep.pos.y;
@@ -2964,7 +3006,7 @@ module.exports =
 	        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
 	        assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
 
-	        quota.spawnhauler = _.sum(assignments.spawn) + 1;
+	        quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
 
 	        if(_.size(cluster.structures.storage) > 0){
 	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
@@ -3058,6 +3100,7 @@ module.exports =
 	        this.type = type;
 	        this.hydratedJobs = {};
 	        this.jobs = {};
+	        // Game.profileAdd('jobs-'+this.type, 0);
 	    }
 
 	    genTarget(cluster, subtype, id, args){
@@ -3213,7 +3256,7 @@ module.exports =
 	        }
 	        var jobs = this.jobs[subtype];
 	        if(!jobs){
-	            // console.log('generating jobs for', subtype);
+	            // Game.profileAdd('jobs-'+this.type, 1);
 	            jobs = this.generateJobsForSubtype(cluster, subtype);
 	            this.jobs[subtype] = jobs;
 	        }
@@ -3568,7 +3611,7 @@ module.exports =
 	    }
 
 	    mineral(cluster, subtype){
-	        var resources = cluster.resources;
+	        var resources = Game.hegemony.resources;
 	        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
 	        return this.jobsForTargets(cluster, subtype, minerals);
 	    }
@@ -3690,7 +3733,7 @@ module.exports =
 
 	    pickup(cluster, subtype){
 	        var energy = cluster.findAll(FIND_DROPPED_ENERGY);
-	        var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
+	        var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
 	        return this.jobsForTargets(cluster, subtype, energy.concat(storage), { resource: RESOURCE_ENERGY });
 	    }
 

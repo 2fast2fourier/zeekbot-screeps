@@ -39,9 +39,9 @@ class Worker {
     //hydrate, validate, and end jobs
     static validate(workers, behaviors, cluster, creep){
         if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
-            creep.memory.sitting = Math.min( 256, creep.memory.sitting * 2);
+            creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
         }else{
-            creep.memory.sitting = 1;
+            creep.memory.sitting = 3;
         }
         creep.memory.lx = creep.pos.x;
         creep.memory.ly = creep.pos.y;
@@ -136,7 +136,7 @@ class Worker {
         assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
         assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
 
-        quota.spawnhauler = _.sum(assignments.spawn) + 1;
+        quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
 
         if(_.size(cluster.structures.storage) > 0){
             quota.harvesthauler = _.sum(assignments.harvest) * 24;

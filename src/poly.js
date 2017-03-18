@@ -211,6 +211,16 @@ module.exports = function(){
         return Game.clusters[this.memory.cluster];
     }
 
+    if(!Room.prototype.hasOwnProperty('cluster')){
+        Object.defineProperty(Room.prototype, 'cluster', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                return Game.clusters[this.memory.cluster];
+            }
+        });
+    }
+
     Room.prototype.getStructuresByType = function(type){
         return _.filter(this.find(FIND_STRUCTURES), struct => struct.structureType == type);
     }
@@ -335,18 +345,15 @@ module.exports = function(){
     }
 
     Structure.prototype.getMaxHits = function(){
-        //TODO settings
-        return Math.min(this.hitsMax, 250000);
+        return this.hitsMax;
     }
 
     StructureRampart.prototype.getMaxHits = function(){
-        //TODO settings
-        return Math.min(this.hitsMax, 500000);
+        return Math.min(this.hitsMax, _.get(this.room, 'cluster.opts.repair', 250000));
     }
 
     StructureWall.prototype.getMaxHits = function(){
-        //TODO settings
-        return Math.min(this.hitsMax, 500000);
+        return Math.min(this.hitsMax, _.get(this.room, 'cluster.opts.repair', 250000));
     }
 
     Structure.prototype.getDamage = function(){

@@ -14,7 +14,7 @@ module.exports = {
         quota: 'defend',
         critical: true,
         parts: {
-            // micro: { tough: 3, move: 11, ranged_attack: 8 },
+            micro: { tough: 5, move: 25, ranged_attack: 15 },
             nano: { tough: 5, move: 10, ranged_attack: 5 },
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -23,6 +23,8 @@ module.exports = {
     },
     spawnhauler: {
         quota: 'spawnhauler',
+        allocation: 'carry',
+        allocationMulti: 50,
         critical: true,
         assignRoom: 'spawn',
         parts: haulerParts,
@@ -98,7 +100,7 @@ module.exports = {
     },
     builderworker: {
         quota: 'build',
-        maxQuota: 10000,
+        maxQuota: 20000,
         allocation: 'work',
         allocationMulti: 1000,
         parts: {
@@ -128,7 +130,7 @@ module.exports = {
     repairworker: {
         quota: 'repair',
         allocation: 'work',
-        allocationMulti: 7500,
+        allocationMulti: 5000,
         maxQuota: 250000,
         parts: {
             milli: { move: 6, carry: 7, work: 5 },//1150
@@ -142,7 +144,7 @@ module.exports = {
     observer: {
         quota: 'observe',
         critical: true,
-        parts: { pico: { tough: 1, move: 1 } },
+        parts: { pico: { move: 1 } },
         work: { observe: {} },
         behavior: { avoid: {} }
     },
@@ -186,6 +188,20 @@ module.exports = {
             transfer: {},
             deliver: { subtype: 'terminal', priority: 99 },
             idle: { subtype: 'terminal' }
+        },
+        behavior: { avoid: {} }
+    },
+    spawnhaulerfb: {
+        quota: 'spawnhauler',
+        allocation: 'carry',
+        allocationMulti: 100,
+        critical: true,
+        assignRoom: 'spawn',
+        parts: { pico: {carry: 4, move: 2 } },
+        work: {
+            pickup: { local: true },
+            deliver: { subtype: 'spawn', local: true },
+            idle: { subtype: 'spawn', local: true }
         },
         behavior: { avoid: {} }
     }
