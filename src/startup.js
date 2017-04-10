@@ -175,14 +175,13 @@ class Startup {
             let parts = flag.name.split('-');
             let action = parts[1];
             let target = parts[2];
-            console.log('Processing:', roomName, action);
             let room = Game.rooms[roomName];
 
             switch(action){
                 case 'new':
                     if(!parts[2]){
                         console.log('Missing cluster name!');
-                    }else{
+                    }else if(!Game.clusters[target]){
                         Cluster.createCluster(target);
                         console.log('Created cluster:', target);
                     }
@@ -225,7 +224,6 @@ class Startup {
                     console.log('Unknown action:', parts[1]);
                     break;
             }
-            console.log('Finished:', action, roomName);
             flag.remove();
         }
     }

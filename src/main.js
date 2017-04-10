@@ -106,6 +106,14 @@ module.exports.loop = function () {
             delete Memory.cache.path[line];
         }
     }
+
+    if(Game.interval(50)){
+        for(var roomName in Memory.rooms){
+            if(_.size(Memory.rooms[roomName]) == 0){
+                delete Memory.rooms[roomName];
+            }
+        }
+    }
     
     //// Wrapup ////
     Game.finishProfile();

@@ -58,7 +58,8 @@ class Cluster {
         this._roleRooms = {
             core: [],
             harvest: [],
-            keep: []
+            keep: [],
+            reserve: []
         };
 
         this.roomflags = {
@@ -204,9 +205,9 @@ class Cluster {
             defend: true,
             observe: true,
             reserve: role != 'keep',
-            autobuild: autobuild,
+            autobuild: role != 'reserve' && autobuild,
             keep: role == 'keep',
-            harvest: role != 'core'
+            harvest: role != 'core' && role != 'reserve'
         });
         if(role == 'core'){
             _.set(Memory, ['rooms', roomName, 'claim'], true);

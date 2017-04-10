@@ -6,6 +6,7 @@ const workerCtors = {
     build: require('./build'),
     defend: require('./defend'),
     deliver: require('./deliver'),
+    dismantle: require('./dismantle'),
     heal: require('./heal'),
     idle: require('./idle'),
     keep: require('./keep'),

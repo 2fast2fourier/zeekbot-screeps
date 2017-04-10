@@ -191,6 +191,21 @@ module.exports = {
         },
         behavior: { avoid: {} }
     },
+    dismantler: {
+        quota: 'dismantle',
+        allocation: 'work',
+        allocationMulti: 75000,
+        parts: {
+            mega: { work: 25, move: 25 },
+            kilo: { work: 15, move: 15 },
+            milli: { work: 12, move: 12 },
+            micro: { work: 8, move: 8 },
+            nano: { work: 5, move: 5 },
+            pico: { work: 2, move: 2 }
+        },
+        work: { dismantle: {} },
+        behavior: { avoid: {} }
+    },
     spawnhaulerfb: {
         quota: 'spawnhauler',
         allocation: 'carry',

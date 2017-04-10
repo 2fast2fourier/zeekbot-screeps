@@ -57,7 +57,7 @@ module.exports =
 	var Controller = __webpack_require__(10);
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(12);
-	var Production = __webpack_require__(36);
+	var Production = __webpack_require__(37);
 
 	var REPAIR_CAP = 2000000;
 
@@ -151,6 +151,14 @@ module.exports =
 	        if(line){
 	            console.log('Clearing pathing cache for room:', line);
 	            delete Memory.cache.path[line];
+	        }
+	    }
+
+	    if(Game.interval(50)){
+	        for(var roomName in Memory.rooms){
+	            if(_.size(Memory.rooms[roomName]) == 0){
+	                delete Memory.rooms[roomName];
+	            }
 	        }
 	    }
 	    
@@ -801,14 +809,13 @@ module.exports =
 	            let parts = flag.name.split('-');
 	            let action = parts[1];
 	            let target = parts[2];
-	            console.log('Processing:', roomName, action);
 	            let room = Game.rooms[roomName];
 
 	            switch(action){
 	                case 'new':
 	                    if(!parts[2]){
 	                        console.log('Missing cluster name!');
-	                    }else{
+	                    }else if(!Game.clusters[target]){
 	                        Cluster.createCluster(target);
 	                        console.log('Created cluster:', target);
 	                    }
@@ -851,7 +858,6 @@ module.exports =
 	                    console.log('Unknown action:', parts[1]);
 	                    break;
 	            }
-	            console.log('Finished:', action, roomName);
 	            flag.remove();
 	        }
 	    }
@@ -923,7 +929,8 @@ module.exports =
 	        this._roleRooms = {
 	            core: [],
 	            harvest: [],
-	            keep: []
+	            keep: [],
+	            reserve: []
 	        };
 
 	        this.roomflags = {
@@ -1069,9 +1076,9 @@ module.exports =
 	            defend: true,
 	            observe: true,
 	            reserve: role != 'keep',
-	            autobuild: autobuild,
+	            autobuild: role != 'reserve' && autobuild,
 	            keep: role == 'keep',
-	            harvest: role != 'core'
+	            harvest: role != 'core' && role != 'reserve'
 	        });
 	        if(role == 'core'){
 	            _.set(Memory, ['rooms', roomName, 'claim'], true);
@@ -1399,6 +1406,21 @@ module.exports =
 	        },
 	        behavior: { avoid: {} }
 	    },
+	    dismantler: {
+	        quota: 'dismantle',
+	        allocation: 'work',
+	        allocationMulti: 75000,
+	        parts: {
+	            mega: { work: 25, move: 25 },
+	            kilo: { work: 15, move: 15 },
+	            milli: { work: 12, move: 12 },
+	            micro: { work: 8, move: 8 },
+	            nano: { work: 5, move: 5 },
+	            pico: { work: 2, move: 2 }
+	        },
+	        work: { dismantle: {} },
+	        behavior: { avoid: {} }
+	    },
 	    spawnhaulerfb: {
 	        quota: 'spawnhauler',
 	        allocation: 'carry',
@@ -1434,7 +1456,6 @@ module.exports =
 	        if(_.size(spawnlist.critical) > 0){
 	            result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
 	        }else{
-	            //TODO insert boosted here
 	            result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
 	        }
 	        return !!result;
@@ -1452,7 +1473,6 @@ module.exports =
 
 	    static generateSpawnList(cluster, targetCluster){
 	        var spawnlist = {
-	            boosted: {},
 	            costs: {},
 	            critical: {},
 	            count: {},
@@ -1497,9 +1517,6 @@ module.exports =
 	                    }
 	                    spawnlist.count[type] = need;
 	                    spawnlist.totalCost += need * spawnlist.costs[type];
-	                    // if(config.boost){
-	                    //     spawnlist.boosted[type] = _.keys(config.boost);
-	                    // }
 	                }
 	            }
 	        });
@@ -2876,19 +2893,20 @@ module.exports =
 	    build: __webpack_require__(13),
 	    defend: __webpack_require__(15),
 	    deliver: __webpack_require__(16),
-	    heal: __webpack_require__(17),
-	    idle: __webpack_require__(18),
-	    keep: __webpack_require__(19),
-	    mine: __webpack_require__(20),
-	    observe: __webpack_require__(21),
-	    pickup: __webpack_require__(22),
-	    repair: __webpack_require__(23),
-	    reserve: __webpack_require__(24),
-	    transfer: __webpack_require__(25),
-	    upgrade: __webpack_require__(26)
+	    dismantle: __webpack_require__(17),
+	    heal: __webpack_require__(18),
+	    idle: __webpack_require__(19),
+	    keep: __webpack_require__(20),
+	    mine: __webpack_require__(21),
+	    observe: __webpack_require__(22),
+	    pickup: __webpack_require__(23),
+	    repair: __webpack_require__(24),
+	    reserve: __webpack_require__(25),
+	    transfer: __webpack_require__(26),
+	    upgrade: __webpack_require__(27)
 	};
 
-	const Behavior = __webpack_require__(27);
+	const Behavior = __webpack_require__(28);
 
 	class Worker {
 	    static process(cluster){
@@ -3453,6 +3471,66 @@ module.exports =
 
 	const BaseWorker = __webpack_require__(14);
 
+	class DismantleWorker extends BaseWorker {
+	    constructor(){ super('dismantle', { quota: true }); }
+
+	    /// Job ///
+	    calculateCapacity(cluster, subtype, id, target, args){
+	        return target.hits;
+	    }
+
+	    dismantle(cluster, subtype){
+	        var flags = Flag.getByPrefix("Dismantle");
+	        var targets = [];
+	        for(let flag of flags){
+	            let roomName = flag.pos.roomName;
+	            if(flag.room && _.get(Memory.rooms, [roomName, 'cluster']) == cluster.id){
+	                let parts = flag.name.split('-');
+	                let range = 0;
+	                if(parts.length > 1){
+	                    if(parts[1] == 'all'){
+	                        range = 50;
+	                    }else{
+	                        range = parseInt(parts[1]);
+	                    }
+	                }
+	                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.has(structure, 'hits'));
+	                if(structures.length > 0){
+	                    targets = targets.concat(structures);
+	                }else{
+	                    flag.remove();
+	                }
+	            }
+	        }
+	        return this.jobsForTargets(cluster, subtype, targets);
+	    }
+
+	    /// Creep ///
+
+	    allocate(cluster, creep, opts){
+	        return creep.getActiveBodyparts('work') * 50000;
+	    }
+
+	    calculateBid(cluster, creep, opts, job, distance){
+	        return distance / 50;
+	    }
+
+	    process(cluster, creep, opts, job, target){
+	        this.orMove(creep, target, creep.dismantle(target));
+	    }
+
+	}
+
+	module.exports = DismantleWorker;
+
+/***/ },
+/* 18 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	const BaseWorker = __webpack_require__(14);
+
 	class HealWorker extends BaseWorker {
 	    constructor(){ super('heal', { quota: true }); }
 
@@ -3491,7 +3569,7 @@ module.exports =
 	module.exports = HealWorker;
 
 /***/ },
-/* 18 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3531,7 +3609,7 @@ module.exports =
 	module.exports = IdleWorker;
 
 /***/ },
-/* 19 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3593,7 +3671,7 @@ module.exports =
 	module.exports = KeepWorker;
 
 /***/ },
-/* 20 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3606,7 +3684,7 @@ module.exports =
 	    /// Job ///
 
 	    energy(cluster, subtype){
-	        var sources = cluster.findAll(FIND_SOURCES);
+	        var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
 	        return this.jobsForTargets(cluster, subtype, sources);
 	    }
 
@@ -3643,7 +3721,7 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 21 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3716,7 +3794,7 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 22 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3801,7 +3879,7 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3847,7 +3925,7 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3915,7 +3993,7 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4190,7 +4268,7 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4241,18 +4319,18 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var AssignRoomAction = __webpack_require__(28);
-	var Avoid = __webpack_require__(30);
-	var Boost = __webpack_require__(31);
-	var Energy = __webpack_require__(32);
-	var MinecartAction = __webpack_require__(33);
-	var Repair = __webpack_require__(34);
-	var SelfHeal = __webpack_require__(35);
+	var AssignRoomAction = __webpack_require__(29);
+	var Avoid = __webpack_require__(31);
+	var Boost = __webpack_require__(32);
+	var Energy = __webpack_require__(33);
+	var MinecartAction = __webpack_require__(34);
+	var Repair = __webpack_require__(35);
+	var SelfHeal = __webpack_require__(36);
 
 	module.exports = function(){
 	    return {
@@ -4267,12 +4345,12 @@ module.exports =
 	};
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	class AssignRoomAction extends BaseAction {
 	    constructor(catalog){
@@ -4313,7 +4391,7 @@ module.exports =
 	module.exports = AssignRoomAction;
 
 /***/ },
-/* 29 */
+/* 30 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -4355,12 +4433,12 @@ module.exports =
 	module.exports = BaseAction;
 
 /***/ },
-/* 30 */
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	class AvoidAction extends BaseAction {
 	    constructor(){
@@ -4409,12 +4487,12 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 	var Util = __webpack_require__(11);
 
 	class BoostAction extends BaseAction {
@@ -4485,12 +4563,12 @@ module.exports =
 	module.exports = BoostAction;
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	var offsets = {
 	    container: -1,
@@ -4521,12 +4599,12 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 33 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	var offsets = {
 	    container: 0.5,
@@ -4564,12 +4642,12 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 34 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -4591,12 +4669,12 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 35 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(29);
+	var BaseAction = __webpack_require__(30);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(){
@@ -4628,7 +4706,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 36 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";

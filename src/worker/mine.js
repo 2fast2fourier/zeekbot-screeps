@@ -8,7 +8,7 @@ class MineWorker extends BaseWorker {
     /// Job ///
 
     energy(cluster, subtype){
-        var sources = cluster.findAll(FIND_SOURCES);
+        var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
         return this.jobsForTargets(cluster, subtype, sources);
     }
 

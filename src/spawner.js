@@ -13,7 +13,6 @@ class Spawner {
         if(_.size(spawnlist.critical) > 0){
             result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
         }else{
-            //TODO insert boosted here
             result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
         }
         return !!result;
@@ -31,7 +30,6 @@ class Spawner {
 
     static generateSpawnList(cluster, targetCluster){
         var spawnlist = {
-            boosted: {},
             costs: {},
             critical: {},
             count: {},
@@ -76,9 +74,6 @@ class Spawner {
                     }
                     spawnlist.count[type] = need;
                     spawnlist.totalCost += need * spawnlist.costs[type];
-                    // if(config.boost){
-                    //     spawnlist.boosted[type] = _.keys(config.boost);
-                    // }
                 }
             }
         });
