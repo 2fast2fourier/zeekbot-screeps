@@ -25,7 +25,7 @@ class DismantleWorker extends BaseWorker {
                         range = parseInt(parts[1]);
                     }
                 }
-                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.has(structure, 'hits'));
+                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0);
                 if(structures.length > 0){
                     targets = targets.concat(structures);
                 }else{

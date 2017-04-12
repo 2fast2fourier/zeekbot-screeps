@@ -61,8 +61,7 @@ class Spawner {
                 });
             }
             if(version){
-                //TODO spawn limits? currently noop
-                const limit = Spawner.calculateSpawnLimit(cluster, type, config);
+                const limit = Spawner.calculateSpawnLimit(cluster, type, config, version);
                 const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
@@ -111,18 +110,11 @@ class Spawner {
         return creepsNeeded;
     }
 
-    static calculateSpawnLimit(cluster, type, config){
+    static calculateSpawnLimit(cluster, type, config, version){
         var limit = Infinity;
-        // if(version.boost && !version.boostOptional){
-        //     //TODO account for in-progress boosts
-        //     _.forEach(version.boost, (parts, type) =>{
-        //         if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
-        //             limit = 0;
-        //         }
-        //         limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
-        //     });
-        //     // console.log(type, limit);
-        // }
+        if(config.boost && config.boost[version]){
+            limit = _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+        }
         return limit;
     }
 
@@ -160,11 +152,8 @@ class Spawner {
             memory.critical = true;
         }
 
-        if(config.boost){
-            memory.boost = _.keys(config.boost);
-            if(!_.has(memory, 'behavior.boost')){
-                _.set(memory, 'behavior.boost', {});
-            }
+        if(config.boost && config.boost[version]){
+            memory.boost = _.clone(config.boost[version]);
         }
 
         if(config.assignRoom){

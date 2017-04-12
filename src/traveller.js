@@ -6,16 +6,7 @@
 const DEFAULT_MAXOPS = 40000;
 const DEFAULT_STUCK_VALUE = 3;
 class Traveler {
-    constructor() {
-        // change this memory path to suit your needs
-        if (!Memory.empire) {
-            Memory.empire = {};
-        }
-        if (!Memory.empire.hostileRooms) {
-            Memory.empire.hostileRooms = {};
-        }
-        this.memory = Memory.empire;
-    }
+    constructor() {}
     findAllowedRooms(origin, destination, options = {}) {
         _.defaults(options, { restrictDistance: 16 });
         if (Game.map.getRoomLinearDistance(origin, destination) > options.restrictDistance) {
@@ -54,7 +45,7 @@ class Traveler {
                         return 10;
                     }
                 }
-                if (!options.allowHostile && this.memory.hostileRooms[roomName] &&
+                if (!options.allowHostile && Memory.avoidRoom[roomName] &&
                     roomName !== destination && roomName !== origin) {
                     return Number.POSITIVE_INFINITY;
                 }
@@ -94,7 +85,7 @@ class Traveler {
                     return false;
                 }
             }
-            else if (this.memory.hostileRooms[roomName] && !options.allowHostile) {
+            else if (Memory.avoidRoom[roomName] && !options.allowHostile) {
                 return false;
             }
             let room = Game.rooms[roomName];
@@ -127,15 +118,6 @@ class Traveler {
         });
     }
     travelTo(creep, destination, options = {}) {
-        // register hostile rooms entered
-        if (creep.room.controller) {
-            if (creep.room.controller.owner && !creep.room.controller.my) {
-                this.memory.hostileRooms[creep.room.name] = creep.room.controller.level;
-            }
-            else {
-                this.memory.hostileRooms[creep.room.name] = undefined;
-            }
-        }
         // initialize data object
         if (!creep.memory._travel) {
             creep.memory._travel = { stuck: 0, tick: Game.time, count: 0 };//cpu
@@ -193,14 +175,8 @@ class Traveler {
             }
             travelData.dest = destination.pos;
             travelData.prev = undefined;
-            // let cpu = Game.cpu.getUsed();
             let ret = this.findTravelPath(creep, destination, options);
-            // travelData.cpu += (Game.cpu.getUsed() - cpu);
             travelData.count++;
-            // if (travelData.cpu > REPORT_CPU_THRESHOLD) {
-            //     console.log(`TRAVELER: heavy cpu use: ${creep.name}, cpu: ${_.round(travelData.cpu, 2)},\n` +
-            //         `origin: ${creep.pos}, dest: ${destination.pos}`);
-            // }
             if (ret.incomplete) {
                 // console.log(`TRAVELER: incomplete path for ${creep.name}`);
                 if (ret.ops < 2000 && options.useFindRoute === undefined && travelData.stuck < DEFAULT_STUCK_VALUE) {

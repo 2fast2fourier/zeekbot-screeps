@@ -1,5 +1,11 @@
 "use strict";
 
+function route(roomName){
+    if(Memory.avoidRoom[roomName]){
+        return 10;
+    }
+}
+
 class Pathing {
 
     static posToSec(pos){
@@ -75,6 +81,17 @@ class Pathing {
             }
         }
         return result;
+    }
+
+    static moveCreep(creep, target, range, ignoreRoads){
+        if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
+            range = 1;
+        }
+        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
+    }
+
+    static attackMove(creep, target, ignoreStructures){
+        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, allowHostile: true, routeCallback: route });
     }
 }
 

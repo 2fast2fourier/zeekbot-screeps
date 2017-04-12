@@ -181,7 +181,7 @@ module.exports = {
     },
     transferhauler: {
         quota: 'transfer',
-        maxQuota: 4,
+        maxQuota: 12,
         allocation: 2,
         parts: { milli: { carry: 20, move: 10 } },
         work: {
@@ -219,5 +219,17 @@ module.exports = {
             idle: { subtype: 'spawn', local: true }
         },
         behavior: { avoid: {} }
+    },
+    attacker: {
+        quota: 'attack',
+        boost: {
+            milli: { damage: 5, attack: 15, heal: 5 }
+        },
+        parts: {
+            milli: { tough: 5, move: 25, attack: 15, heal: 5 },
+            micro: { tough: 5, move: 25, attack: 15, heal: 5 }
+        },
+        work: { attack: {} },
+        behavior: { selfheal: { block: 300 }, defend: {}, boost: {} }
     }
 }

@@ -77,6 +77,9 @@ class Production {
                 }
             });
         });
+        _.forEach(cluster.boost, (boost, labId)=>{
+            cluster.transfer[labId] = Game.boosts[boost];
+        });
     }
 
     startReaction(cluster, type, reaction, freeLabs){

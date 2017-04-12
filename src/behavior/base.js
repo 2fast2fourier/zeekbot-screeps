@@ -1,5 +1,7 @@
 "use strict";
 
+var Pathing = require('../pathing');
+
 class BaseAction {
     constructor(type){
         this.type = type;
@@ -17,20 +19,16 @@ class BaseAction {
         console.log('block not implemented!', this);
     }
 
-    hasJob(creep){
-        return creep.memory.job && creep.memory.jobType;
+    move(creep, target){
+        return Pathing.moveCreep(creep, target, 1, false);
     }
 
-    // getJobTarget(creep){
-    //     var job = this.catalog.jobs.getJob(creep.memory.jobType, creep.memory.jobId);
-    //     if(job && job.target){
-    //         return job.target;
-    //     }
-    //     if(creep.memory.jobId){
-    //         return Game.getObjectById(creep.memory.jobId);
-    //     }
-    //     return false;
-    // }
+    orMove(creep, target, result){
+        if(result == ERR_NOT_IN_RANGE){
+            this.move(creep, target);
+        }
+        return result;
+    }
 
 }
 

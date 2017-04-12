@@ -1,10 +1,6 @@
 "use strict";
 
-function route(roomName){
-    if(Memory.avoidRoom[roomName]){
-        return 10;
-    }
-}
+const Pathing = require('../pathing');
 
 class BaseWorker {
     constructor(type, opts){
@@ -109,17 +105,24 @@ class BaseWorker {
             }
             return creep.moveTo(target, { reusePath: 50 });
         }else{
-            let range = this.range;
-            if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
-                range = 1;
-            }
-            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: this.ignoreRoads, routeCallback: route });
+            return Pathing.moveCreep(creep, target, this.range, this.ignoreRoads);
         }
+    }
+
+    attackMove(creep, target){
+        return Pathing.attackMove(creep, target);
     }
 
     orMove(creep, target, result){
         if(result == ERR_NOT_IN_RANGE){
             this.move(creep, target);
+        }
+        return result;
+    }
+
+    orAttackMove(creep, target, result){
+        if(result == ERR_NOT_IN_RANGE){
+            Pathing.attackMove(creep, target);
         }
         return result;
     }

@@ -68,11 +68,11 @@ module.exports.loop = function () {
                     builder.autobuild(buildList);
                 }
             }
-            if(Game.intervalOffset(autobuildOffset, 10)){
-                AutoBuilder.buildInfrastructureRoads(cluster);
-            }
             iy++;
         }
+        // if(Game.intervalOffset(autobuildOffset, ix * 20)){
+        //     AutoBuilder.buildInfrastructureRoads(cluster);
+        // }
 
         if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
             cluster.opts.repair += 10000;

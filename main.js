@@ -57,7 +57,7 @@ module.exports =
 	var Controller = __webpack_require__(10);
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(12);
-	var Production = __webpack_require__(37);
+	var Production = __webpack_require__(38);
 
 	var REPAIR_CAP = 2000000;
 
@@ -115,11 +115,11 @@ module.exports =
 	                    builder.autobuild(buildList);
 	                }
 	            }
-	            if(Game.intervalOffset(autobuildOffset, 10)){
-	                AutoBuilder.buildInfrastructureRoads(cluster);
-	            }
 	            iy++;
 	        }
+	        // if(Game.intervalOffset(autobuildOffset, ix * 20)){
+	        //     AutoBuilder.buildInfrastructureRoads(cluster);
+	        // }
 
 	        if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
 	            cluster.opts.repair += 10000;
@@ -186,6 +186,18 @@ module.exports =
 	var profileStart = 0;
 
 	const Pathing = __webpack_require__(2);
+
+	const boostTypes = {};
+	for(let partType in BOOSTS){
+	    let resources = BOOSTS[partType];
+	    for(let resource in resources){
+	        if(resource.startsWith('X')){
+	            for(let effect in resources[resource]){
+	                boostTypes[effect] = resource;
+	            }
+	        }
+	    }
+	}
 
 	module.exports = function(){
 	    ///
@@ -254,6 +266,8 @@ module.exports =
 	    RoomObject.prototype.mine = function(){
 	        return this.my || !this.owner;
 	    }
+
+	    Game.boosts = boostTypes;
 
 	    /// Tag Helpers
 
@@ -548,6 +562,12 @@ module.exports =
 
 	"use strict";
 
+	function route(roomName){
+	    if(Memory.avoidRoom[roomName]){
+	        return 10;
+	    }
+	}
+
 	class Pathing {
 
 	    static posToSec(pos){
@@ -623,6 +643,17 @@ module.exports =
 	            }
 	        }
 	        return result;
+	    }
+
+	    static moveCreep(creep, target, range, ignoreRoads){
+	        if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
+	            range = 1;
+	        }
+	        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
+	    }
+
+	    static attackMove(creep, target, ignoreStructures){
+	        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, allowHostile: true, routeCallback: route });
 	    }
 	}
 
@@ -1032,12 +1063,11 @@ module.exports =
 	            }
 	            delete Memory.removetag;
 	        }
-	        let flags = Flag.getByPrefix('tag');
-	        for(let flag of flags){
+	        for(let flag of Flag.getByPrefix('tag')){
 	            console.log('Processing tag:', flag.name);
 	            let parts = flag.name.split('-');
 	            let tag = parts[1];
-	            let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+	            let target = Cluster.getFlagTarget(flag);
 	            if(target && target.room && target.room.hasCluster()){
 	                console.log('Added tag:', tag, 'to', target);
 	                target.room.getCluster().addTag(tag, target.id);
@@ -1046,6 +1076,24 @@ module.exports =
 	            }
 	            flag.remove();
 	        }
+	        for(let flag of Flag.getByPrefix('boost')){
+	            let parts = flag.name.split('-');
+	            let type = parts[1];
+	            let target = Cluster.getFlagTarget(flag);
+	            if(target && target.room.hasCluster() && Game.boosts[type]){
+	                let cluster = target.room.getCluster();
+	                cluster.boost[target.id] = type;
+	                if(target.hasTag('production')){
+	                    cluster.removeTag('production', target.id);
+	                }
+	                console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
+	            }
+	            flag.remove();
+	        }
+	    }
+
+	    static getFlagTarget(flag){
+	        return _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
 	    }
 
 	    static createCluster(id){
@@ -1061,7 +1109,8 @@ module.exports =
 	            totalEnergy: 0,
 	            opts: {
 	                repair: 25000
-	            }
+	            },
+	            boost: {}
 	        };
 	        _.set(Memory, ['clusters', id], data);
 	        if(Game.clusters){
@@ -1203,6 +1252,20 @@ module.exports =
 
 	    getResources(){
 	        return this.resources;
+	    }
+
+	    get boostMinerals(){
+	        if(!this._boostMinerals){
+	            this._boostMinerals = _.reduce(this.boost, (result, type, labId)=>{
+	                var resource = Game.boosts[type];
+	                var lab = Game.getObjectById(labId);
+	                if(lab && lab.mineralType == resource){
+	                    result[resource] = lab.mineralAmount;
+	                }
+	                return result;
+	            }, {});
+	        }
+	        return this._boostMinerals;
 	    }
 
 	}
@@ -1396,7 +1459,7 @@ module.exports =
 	    },
 	    transferhauler: {
 	        quota: 'transfer',
-	        maxQuota: 4,
+	        maxQuota: 12,
 	        allocation: 2,
 	        parts: { milli: { carry: 20, move: 10 } },
 	        work: {
@@ -1434,6 +1497,18 @@ module.exports =
 	            idle: { subtype: 'spawn', local: true }
 	        },
 	        behavior: { avoid: {} }
+	    },
+	    attacker: {
+	        quota: 'attack',
+	        boost: {
+	            milli: { damage: 5, attack: 15, heal: 5 }
+	        },
+	        parts: {
+	            milli: { tough: 5, move: 25, attack: 15, heal: 5 },
+	            micro: { tough: 5, move: 25, attack: 15, heal: 5 }
+	        },
+	        work: { attack: {} },
+	        behavior: { selfheal: { block: 300 }, defend: {}, boost: {} }
 	    }
 	}
 
@@ -1504,8 +1579,7 @@ module.exports =
 	                });
 	            }
 	            if(version){
-	                //TODO spawn limits? currently noop
-	                const limit = Spawner.calculateSpawnLimit(cluster, type, config);
+	                const limit = Spawner.calculateSpawnLimit(cluster, type, config, version);
 	                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
 	                const need = Math.min(limit, quota);
 	                if(need > 0){
@@ -1554,18 +1628,11 @@ module.exports =
 	        return creepsNeeded;
 	    }
 
-	    static calculateSpawnLimit(cluster, type, config){
+	    static calculateSpawnLimit(cluster, type, config, version){
 	        var limit = Infinity;
-	        // if(version.boost && !version.boostOptional){
-	        //     //TODO account for in-progress boosts
-	        //     _.forEach(version.boost, (parts, type) =>{
-	        //         if(!Memory.boost.labs[type] || _.get(Memory.boost.stored, type, 0) < 500){
-	        //             limit = 0;
-	        //         }
-	        //         limit = Math.min(limit, Math.floor(_.get(Memory.boost.stored, type, 0) / (parts * 30)));
-	        //     });
-	        //     // console.log(type, limit);
-	        // }
+	        if(config.boost && config.boost[version]){
+	            limit = _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+	        }
 	        return limit;
 	    }
 
@@ -1603,11 +1670,8 @@ module.exports =
 	            memory.critical = true;
 	        }
 
-	        if(config.boost){
-	            memory.boost = _.keys(config.boost);
-	            if(!_.has(memory, 'behavior.boost')){
-	                _.set(memory, 'behavior.boost', {});
-	            }
+	        if(config.boost && config.boost[version]){
+	            memory.boost = _.clone(config.boost[version]);
 	        }
 
 	        if(config.assignRoom){
@@ -1685,16 +1749,7 @@ module.exports =
 	const DEFAULT_MAXOPS = 40000;
 	const DEFAULT_STUCK_VALUE = 3;
 	class Traveler {
-	    constructor() {
-	        // change this memory path to suit your needs
-	        if (!Memory.empire) {
-	            Memory.empire = {};
-	        }
-	        if (!Memory.empire.hostileRooms) {
-	            Memory.empire.hostileRooms = {};
-	        }
-	        this.memory = Memory.empire;
-	    }
+	    constructor() {}
 	    findAllowedRooms(origin, destination, options = {}) {
 	        _.defaults(options, { restrictDistance: 16 });
 	        if (Game.map.getRoomLinearDistance(origin, destination) > options.restrictDistance) {
@@ -1733,7 +1788,7 @@ module.exports =
 	                        return 10;
 	                    }
 	                }
-	                if (!options.allowHostile && this.memory.hostileRooms[roomName] &&
+	                if (!options.allowHostile && Memory.avoidRoom[roomName] &&
 	                    roomName !== destination && roomName !== origin) {
 	                    return Number.POSITIVE_INFINITY;
 	                }
@@ -1773,7 +1828,7 @@ module.exports =
 	                    return false;
 	                }
 	            }
-	            else if (this.memory.hostileRooms[roomName] && !options.allowHostile) {
+	            else if (Memory.avoidRoom[roomName] && !options.allowHostile) {
 	                return false;
 	            }
 	            let room = Game.rooms[roomName];
@@ -1806,15 +1861,6 @@ module.exports =
 	        });
 	    }
 	    travelTo(creep, destination, options = {}) {
-	        // register hostile rooms entered
-	        if (creep.room.controller) {
-	            if (creep.room.controller.owner && !creep.room.controller.my) {
-	                this.memory.hostileRooms[creep.room.name] = creep.room.controller.level;
-	            }
-	            else {
-	                this.memory.hostileRooms[creep.room.name] = undefined;
-	            }
-	        }
 	        // initialize data object
 	        if (!creep.memory._travel) {
 	            creep.memory._travel = { stuck: 0, tick: Game.time, count: 0 };//cpu
@@ -1872,14 +1918,8 @@ module.exports =
 	            }
 	            travelData.dest = destination.pos;
 	            travelData.prev = undefined;
-	            // let cpu = Game.cpu.getUsed();
 	            let ret = this.findTravelPath(creep, destination, options);
-	            // travelData.cpu += (Game.cpu.getUsed() - cpu);
 	            travelData.count++;
-	            // if (travelData.cpu > REPORT_CPU_THRESHOLD) {
-	            //     console.log(`TRAVELER: heavy cpu use: ${creep.name}, cpu: ${_.round(travelData.cpu, 2)},\n` +
-	            //         `origin: ${creep.pos}, dest: ${destination.pos}`);
-	            // }
 	            if (ret.incomplete) {
 	                // console.log(`TRAVELER: incomplete path for ${creep.name}`);
 	                if (ret.ops < 2000 && options.useFindRoute === undefined && travelData.stuck < DEFAULT_STUCK_VALUE) {
@@ -2403,7 +2443,9 @@ module.exports =
 	                    this.addRoadsAround(struct, roads, 1);
 	                    break;
 	                case STRUCTURE_CONTROLLER:
-	                    this.addRoadsAround(struct, roads, 2);
+	                    if(this.room.memory.role == 'core'){
+	                        this.addRoadsAround(struct, roads, 2);
+	                    }
 	                    break;
 	                case STRUCTURE_EXTENSION:
 	                    for(let pos of rpos){
@@ -2890,23 +2932,24 @@ module.exports =
 	const config = __webpack_require__(5);
 
 	const workerCtors = {
-	    build: __webpack_require__(13),
-	    defend: __webpack_require__(15),
-	    deliver: __webpack_require__(16),
-	    dismantle: __webpack_require__(17),
-	    heal: __webpack_require__(18),
-	    idle: __webpack_require__(19),
-	    keep: __webpack_require__(20),
-	    mine: __webpack_require__(21),
-	    observe: __webpack_require__(22),
-	    pickup: __webpack_require__(23),
-	    repair: __webpack_require__(24),
-	    reserve: __webpack_require__(25),
-	    transfer: __webpack_require__(26),
-	    upgrade: __webpack_require__(27)
+	    attack: __webpack_require__(13),
+	    build: __webpack_require__(15),
+	    defend: __webpack_require__(16),
+	    deliver: __webpack_require__(17),
+	    dismantle: __webpack_require__(18),
+	    heal: __webpack_require__(19),
+	    idle: __webpack_require__(20),
+	    keep: __webpack_require__(21),
+	    mine: __webpack_require__(22),
+	    observe: __webpack_require__(23),
+	    pickup: __webpack_require__(24),
+	    repair: __webpack_require__(25),
+	    reserve: __webpack_require__(26),
+	    transfer: __webpack_require__(27),
+	    upgrade: __webpack_require__(28)
 	};
 
-	const Behavior = __webpack_require__(28);
+	const Behavior = __webpack_require__(29);
 
 	class Worker {
 	    static process(cluster){
@@ -3055,56 +3098,94 @@ module.exports =
 
 	"use strict";
 
+	const priorities = {
+	    tower: 0.01,
+	    spawn: 0.1,
+	    storage: 1
+	};
+
 	const BaseWorker = __webpack_require__(14);
 
-	const offsets = {
-	    spawn: -1,
-	    extension: -0.5,
-	    tower: -0.5,
-	    container: -0.25
-	}
-
-	class BuildWorker extends BaseWorker {
-	    constructor(){ super('build', { requiresEnergy: true, quota: true, range: 3, minEnergy: 500 }); }
+	class AttackWorker extends BaseWorker {
+	    constructor(){ super('attack', { quota: true }); }
 
 	    /// Job ///
-	    calculateCapacity(cluster, subtype, id, target, args){
-	        return  target.progressTotal - target.progress;
+
+	    attack(cluster, subtype){
+	        if(cluster.attackSource){
+	            return this.jobsForTargets(cluster, subtype, Flag.getByPrefix('attack'));
+	        }
+	        return [];
 	    }
 
-	    build(cluster, subtype){
-	        return this.jobsForTargets(cluster, subtype, cluster.findAll(FIND_MY_CONSTRUCTION_SITES));
+	    calculateCapacity(cluster, subtype, id, target, args){
+	        var parts = target.name.split('-');
+	        if(parts.length > 2){
+	            return parseInt(parts[1]);
+	        }
+	        return 1;
+	    }
+
+	    genTarget(cluster, subtype, id, args){
+	        return Game.flags[id];
+	    }
+
+	    createId(cluster, subtype, target, args){
+	        return target.name;
 	    }
 
 	    /// Creep ///
 
 	    calculateBid(cluster, creep, opts, job, distance){
-	        return distance / 50 + (1 - job.target.progress / job.target.progressTotal) + (offsets[job.target.structureType] || 0);
+	        return distance / 50;
 	    }
 
-	    allocate(cluster, creep, opts){
-	        return creep.getResource(RESOURCE_ENERGY);
+	    calculatePriority(creep, target){
+	        return creep.pos.getRangeTo(target) * _.get(priorities, target.structureType, 1);
 	    }
 
-	    process(cluster, creep, opts, job, target){
-	        this.orMove(creep, target, creep.build(target));
+	    process(cluster, creep, opts, job, flag){
+	        var action = false;
+	        var buildings = cluster.find(creep.room, FIND_HOSTILE_STRUCTURES);
+	        let hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
+	        let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
+	        var target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+	        if(target){
+	            let attack = creep.getActiveBodyparts('attack');
+	            let ranged = creep.getActiveBodyparts('ranged_attack');
+	            let dist = creep.pos.getRangeTo(target);
+	            if(attack > 0){
+	                action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
+	            }else if(ranged > 0){
+	                if(dist < 3){
+	                    var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
+	                    creep.move(creep.pos.getDirectionTo(result.path[0]));
+	                }else if(dist > 3){
+	                    this.attackMove(creep, target);
+	                }
+	            }
+	            if(ranged > 0 && dist <= 3){
+	                action = action || creep.rangedAttack(target) == OK;
+	            }
+	        }else if(creep.pos.getRangeTo(flag) > 3){
+	            this.attackMove(creep, flag);
+	        }else{
+	            flag.remove();
+	        }
+	        return action;
 	    }
 
 	}
 
-	module.exports = BuildWorker;
+	module.exports = AttackWorker;
 
 /***/ },
 /* 14 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	function route(roomName){
-	    if(Memory.avoidRoom[roomName]){
-	        return 10;
-	    }
-	}
+	const Pathing = __webpack_require__(2);
 
 	class BaseWorker {
 	    constructor(type, opts){
@@ -3209,17 +3290,24 @@ module.exports =
 	            }
 	            return creep.moveTo(target, { reusePath: 50 });
 	        }else{
-	            let range = this.range;
-	            if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
-	                range = 1;
-	            }
-	            return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: this.ignoreRoads, routeCallback: route });
+	            return Pathing.moveCreep(creep, target, this.range, this.ignoreRoads);
 	        }
+	    }
+
+	    attackMove(creep, target){
+	        return Pathing.attackMove(creep, target);
 	    }
 
 	    orMove(creep, target, result){
 	        if(result == ERR_NOT_IN_RANGE){
 	            this.move(creep, target);
+	        }
+	        return result;
+	    }
+
+	    orAttackMove(creep, target, result){
+	        if(result == ERR_NOT_IN_RANGE){
+	            Pathing.attackMove(creep, target);
 	        }
 	        return result;
 	    }
@@ -3337,6 +3425,51 @@ module.exports =
 
 	const BaseWorker = __webpack_require__(14);
 
+	const offsets = {
+	    spawn: -1,
+	    extension: -0.5,
+	    tower: -0.5,
+	    container: -0.25
+	}
+
+	class BuildWorker extends BaseWorker {
+	    constructor(){ super('build', { requiresEnergy: true, quota: true, range: 3, minEnergy: 500 }); }
+
+	    /// Job ///
+	    calculateCapacity(cluster, subtype, id, target, args){
+	        return  target.progressTotal - target.progress;
+	    }
+
+	    build(cluster, subtype){
+	        return this.jobsForTargets(cluster, subtype, cluster.findAll(FIND_MY_CONSTRUCTION_SITES));
+	    }
+
+	    /// Creep ///
+
+	    calculateBid(cluster, creep, opts, job, distance){
+	        return distance / 50 + (1 - job.target.progress / job.target.progressTotal) + (offsets[job.target.structureType] || 0);
+	    }
+
+	    allocate(cluster, creep, opts){
+	        return creep.getResource(RESOURCE_ENERGY);
+	    }
+
+	    process(cluster, creep, opts, job, target){
+	        this.orMove(creep, target, creep.build(target));
+	    }
+
+	}
+
+	module.exports = BuildWorker;
+
+/***/ },
+/* 16 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	const BaseWorker = __webpack_require__(14);
+
 	class DefendWorker extends BaseWorker {
 	    constructor(){ super('defend', { quota: true }); }
 
@@ -3381,7 +3514,7 @@ module.exports =
 	module.exports = DefendWorker;
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3464,7 +3597,7 @@ module.exports =
 	module.exports = DeliverWorker;
 
 /***/ },
-/* 17 */
+/* 18 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3494,7 +3627,7 @@ module.exports =
 	                        range = parseInt(parts[1]);
 	                    }
 	                }
-	                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.has(structure, 'hits'));
+	                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0);
 	                if(structures.length > 0){
 	                    targets = targets.concat(structures);
 	                }else{
@@ -3524,7 +3657,7 @@ module.exports =
 	module.exports = DismantleWorker;
 
 /***/ },
-/* 18 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3569,7 +3702,7 @@ module.exports =
 	module.exports = HealWorker;
 
 /***/ },
-/* 19 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3609,7 +3742,7 @@ module.exports =
 	module.exports = IdleWorker;
 
 /***/ },
-/* 20 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3671,7 +3804,7 @@ module.exports =
 	module.exports = KeepWorker;
 
 /***/ },
-/* 21 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3721,7 +3854,7 @@ module.exports =
 	module.exports = MineWorker;
 
 /***/ },
-/* 22 */
+/* 23 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3794,7 +3927,7 @@ module.exports =
 	module.exports = ObserveWorker;
 
 /***/ },
-/* 23 */
+/* 24 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3879,7 +4012,7 @@ module.exports =
 	module.exports = PickupWorker;
 
 /***/ },
-/* 24 */
+/* 25 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3925,7 +4058,7 @@ module.exports =
 	module.exports = RepairWorker;
 
 /***/ },
-/* 25 */
+/* 26 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -3993,7 +4126,7 @@ module.exports =
 	module.exports = ReserveWorker;
 
 /***/ },
-/* 26 */
+/* 27 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4268,7 +4401,7 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 27 */
+/* 28 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4319,24 +4452,24 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 28 */
+/* 29 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var AssignRoomAction = __webpack_require__(29);
-	var Avoid = __webpack_require__(31);
-	var Boost = __webpack_require__(32);
-	var Energy = __webpack_require__(33);
-	var MinecartAction = __webpack_require__(34);
-	var Repair = __webpack_require__(35);
-	var SelfHeal = __webpack_require__(36);
+	var Avoid = __webpack_require__(32);
+	var Boost = __webpack_require__(33);
+	var Defend = __webpack_require__(39);
+	var Energy = __webpack_require__(34);
+	var MinecartAction = __webpack_require__(35);
+	var Repair = __webpack_require__(36);
+	var SelfHeal = __webpack_require__(37);
 
 	module.exports = function(){
 	    return {
-	        // assignRoom: new AssignRoomAction(),
 	        avoid: new Avoid(),
-	        // boost: new Boost(),
+	        boost: new Boost(),
+	        defend: new Defend(),
 	        energy: new Energy(),
 	        minecart: new MinecartAction(),
 	        repair: new Repair(),
@@ -4345,56 +4478,13 @@ module.exports =
 	};
 
 /***/ },
-/* 29 */
+/* 30 */,
+/* 31 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
-
-	class AssignRoomAction extends BaseAction {
-	    constructor(catalog){
-	        super(catalog, 'assignRoom');
-	    }
-
-	    preWork(creep, opts){
-	        var type = creep.memory.actions.assignRoom.type;
-	        var assignments = this.generateAssignedList(type);
-	        var least = Infinity;
-	        var targetRoom = false;
-	        _.forEach(Memory.roomlist[type], (target, roomName) => {
-	            var assigned = _.get(assignments, roomName, 0) / target;
-	            if(assigned < least){
-	                least = assigned;
-	                targetRoom = roomName;
-	            }
-	        });
-	        if(targetRoom){
-	            creep.memory.room = targetRoom;
-	            creep.memory.roomtype = type;
-	            console.log('Assigned', creep.name, 'to room', targetRoom, creep.memory.roomtype, least);
-	        }
-	        delete creep.memory.actions.assignRoom;
-	    }
-
-	    generateAssignedList(type){
-	        return _.reduce(Game.creeps, (result, creep)=>{
-	            if(creep.memory.room && creep.memory.roomtype == type){
-	                _.set(result, creep.memory.room, _.get(result, creep.memory.room, 0) + (creep.ticksToLive / 1500));
-	            }
-	            return result;
-	        }, {});
-	    }
-	}
-
-
-	module.exports = AssignRoomAction;
-
-/***/ },
-/* 30 */
-/***/ function(module, exports) {
-
-	"use strict";
+	var Pathing = __webpack_require__(2);
 
 	class BaseAction {
 	    constructor(type){
@@ -4413,32 +4503,28 @@ module.exports =
 	        console.log('block not implemented!', this);
 	    }
 
-	    hasJob(creep){
-	        return creep.memory.job && creep.memory.jobType;
+	    move(creep, target){
+	        return Pathing.moveCreep(creep, target, 1, false);
 	    }
 
-	    // getJobTarget(creep){
-	    //     var job = this.catalog.jobs.getJob(creep.memory.jobType, creep.memory.jobId);
-	    //     if(job && job.target){
-	    //         return job.target;
-	    //     }
-	    //     if(creep.memory.jobId){
-	    //         return Game.getObjectById(creep.memory.jobId);
-	    //     }
-	    //     return false;
-	    // }
+	    orMove(creep, target, result){
+	        if(result == ERR_NOT_IN_RANGE){
+	            this.move(creep, target);
+	        }
+	        return result;
+	    }
 
 	}
 
 	module.exports = BaseAction;
 
 /***/ },
-/* 31 */
+/* 32 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 
 	class AvoidAction extends BaseAction {
 	    constructor(){
@@ -4487,73 +4573,75 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 32 */
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 	var Util = __webpack_require__(11);
 
 	class BoostAction extends BaseAction {
-	    constructor(catalog){
-	        super(catalog, 'boost');
+	    constructor(){
+	        super('boost');
 	    }
 
-	    shouldBlock(creep, opts){
+	    shouldBlock(cluster, creep, opts){
 	        if(creep.memory.calculateBoost){
 	            creep.memory.boosted = _.countBy(_.filter(creep.body, 'boost'), 'boost');
 	            delete creep.memory.calculateBoost;
 	        }
-	        if(!creep.memory.boost && creep.memory.actions.boost){
-	            delete creep.memory.actions.boost;
+	        if(creep.memory.boost){
+	            return { type: this.type, data: creep.memory.boost }
 	        }
-	        return creep.memory.boost;
+	        return false;
 	    }
 
-	    blocked(creep, opts, block){
-	        var mineral = _.isString(block) ? block : _.first(block);
-	        var labs = Memory.boost.labs[mineral];
-	        if(!labs){
-	            console.log(creep, 'no lab allocated to boost', mineral);
-	            delete creep.memory.boost;
-	            return;
-	        }
+	    blocked(cluster, creep, opts, block){
+	        var type = _.first(_.keys(creep.memory.boost));
+	        var resource = Game.boosts[type];
+	        var needed = creep.memory.boost[type];
+
 	        if(!creep.memory.boostlab){
-	            creep.memory.boostlab = _.get(_.first(Util.sort.closestReal(creep, Util.getObjects(labs))), 'id');
+	            var available = cluster.boostMinerals[resource];
+	            if(available > 30 * needed){
+	                var boostLabs = _.invert(cluster.boost);
+	                creep.memory.boostlab = boostLabs[type];
+	            }
+	            if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
+	                console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
+	                this.remove(cluster, creep, resource);
+	            }
 	        }
-	        var lab = Game.getObjectById(creep.memory.boostlab);
-	        if(lab){
-	            if(!lab || lab.mineralType != mineral || lab.mineralAmount < 50){
-	                console.log(creep, 'not enough to boost', mineral, lab);
-	                delete creep.memory.boost;
-	                return;
+
+	        if(creep.memory.boostlab){
+	            var lab = Game.getObjectById(creep.memory.boostlab);
+	            if(lab && lab.mineralType == resource && lab.mineralAmount >= needed * 30){
+	                if(creep.pos.getRangeTo(lab) > 1){
+	                    this.move(creep, lab);
+	                }else if(lab.boostCreep(creep) == OK){
+	                    this.remove(cluster, creep, type);
+	                }else{
+	                    Game.notify(cluster.id + ' - Unknown issue boosting ' + creep.name + ' - ' + resource + ' - ' + lab);
+	                    this.remove(cluster, creep, type);
+	                }
+	            }else{
+	                delete creep.memory.boostlab;
 	            }
-	            if(creep.pos.getRangeTo(lab) > 1){
-	                creep.moveTo(lab, { reusePath: 50 });
-	            }else if(lab.boostCreep(creep) == OK){
-	                this.boosted(creep, mineral);
-	            }
-	        }else{
-	            console.log(creep, 'no lab allocated to boost', mineral);
-	            delete creep.memory.boost;
-	            return;
 	        }
 	    }
 
-	    boosted(creep, mineral){
-	        Memory.boost.update = true;
+	    static validateLab(labId, resource, partCount){
+	        var lab = Game.getObjectById(labId);
+	        return lab && lab.mineralType == resource && lab.mineralAmount >= partCount * 30;
+	    }
+
+	    remove(cluster, creep, type){
 	        delete creep.memory.boostlab;
-	        if(_.isString(creep.memory.boost)){
-	            delete creep.memory.boost;
-	        }else if(_.isArray(creep.memory.boost)){
-	            if(creep.memory.boost.length > 1){
-	                creep.memory.boost = _.without(creep.memory.boost, mineral);
-	            }else{
-	                delete creep.memory.boost;
-	            }
+	        if(_.size(creep.memory.boost) > 1){
+	            delete creep.memory.boost[type];
 	        }else{
-	            console.log('boosted err', creep.memory.boost);
+	            delete creep.memory.boost;
 	        }
 	        creep.memory.calculateBoost = true;
 	    }
@@ -4563,12 +4651,12 @@ module.exports =
 	module.exports = BoostAction;
 
 /***/ },
-/* 33 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 
 	var offsets = {
 	    container: -1,
@@ -4599,12 +4687,12 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 34 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 
 	var offsets = {
 	    container: 0.5,
@@ -4642,12 +4730,12 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 35 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -4669,12 +4757,12 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 36 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(30);
+	var BaseAction = __webpack_require__(31);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(){
@@ -4682,7 +4770,7 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
-	        if(opts.block && creep.hits < creep.hitsMax - 200){
+	        if(opts.block && creep.hits < creep.hitsMax - opts.block){
 	            return { type: this.type, data: true };
 	        }
 	        return false;
@@ -4706,7 +4794,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 37 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -4788,6 +4876,9 @@ module.exports =
 	                }
 	            });
 	        });
+	        _.forEach(cluster.boost, (boost, labId)=>{
+	            cluster.transfer[labId] = Game.boosts[boost];
+	        });
 	    }
 
 	    startReaction(cluster, type, reaction, freeLabs){
@@ -4837,6 +4928,46 @@ module.exports =
 	}
 
 	module.exports = Production;
+
+/***/ },
+/* 39 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(31);
+	var Util = __webpack_require__(11);
+
+	var range = 5;
+
+	class DefendAction extends BaseAction {
+	    constructor(){
+	        super('defend');
+	    }
+
+	    shouldBlock(cluster, creep, opts){
+	        var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
+	        if(hostiles.length > 0){
+	            var targets = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < range && (hostile.getActiveBodyparts(ATTACK) > 0 || hostile.getActiveBodyparts(RANGED_ATTACK) > 0))
+	            var target = _.first(Util.sort.closest(targets));
+	            if(target){
+	                return { type: this.type, data: target };
+	            }
+	        }
+	        return false;
+	    }
+
+	    blocked(cluster, creep, opts, block){
+	        this.orMove(creep, block, creep.attack(block));
+	        if(creep.pos.getRangeTo(block) <= 3 && creep.getActiveBodyparts(RANGED_ATTACK) > 0){
+	            creep.rangedAttack(block);
+	        }
+	    }
+
+	}
+
+
+	module.exports = DefendAction;
 
 /***/ }
 /******/ ]);

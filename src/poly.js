@@ -7,6 +7,18 @@ var profileStart = 0;
 
 const Pathing = require('./pathing');
 
+const boostTypes = {};
+for(let partType in BOOSTS){
+    let resources = BOOSTS[partType];
+    for(let resource in resources){
+        if(resource.startsWith('X')){
+            for(let effect in resources[resource]){
+                boostTypes[effect] = resource;
+            }
+        }
+    }
+}
+
 module.exports = function(){
     ///
     /// Game Helpers
@@ -74,6 +86,8 @@ module.exports = function(){
     RoomObject.prototype.mine = function(){
         return this.my || !this.owner;
     }
+
+    Game.boosts = boostTypes;
 
     /// Tag Helpers
 

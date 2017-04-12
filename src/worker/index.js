@@ -3,6 +3,7 @@
 const config = require('../creeps');
 
 const workerCtors = {
+    attack: require('./attack'),
     build: require('./build'),
     defend: require('./defend'),
     deliver: require('./deliver'),

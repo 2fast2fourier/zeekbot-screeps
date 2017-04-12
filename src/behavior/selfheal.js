@@ -8,7 +8,7 @@ class SelfHealAction extends BaseAction {
     }
 
     shouldBlock(cluster, creep, opts){
-        if(opts.block && creep.hits < creep.hitsMax - 200){
+        if(opts.block && creep.hits < creep.hitsMax - opts.block){
             return { type: this.type, data: true };
         }
         return false;

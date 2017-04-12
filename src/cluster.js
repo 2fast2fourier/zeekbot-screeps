@@ -161,12 +161,11 @@ class Cluster {
             }
             delete Memory.removetag;
         }
-        let flags = Flag.getByPrefix('tag');
-        for(let flag of flags){
+        for(let flag of Flag.getByPrefix('tag')){
             console.log('Processing tag:', flag.name);
             let parts = flag.name.split('-');
             let tag = parts[1];
-            let target = _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+            let target = Cluster.getFlagTarget(flag);
             if(target && target.room && target.room.hasCluster()){
                 console.log('Added tag:', tag, 'to', target);
                 target.room.getCluster().addTag(tag, target.id);
@@ -175,6 +174,24 @@ class Cluster {
             }
             flag.remove();
         }
+        for(let flag of Flag.getByPrefix('boost')){
+            let parts = flag.name.split('-');
+            let type = parts[1];
+            let target = Cluster.getFlagTarget(flag);
+            if(target && target.room.hasCluster() && Game.boosts[type]){
+                let cluster = target.room.getCluster();
+                cluster.boost[target.id] = type;
+                if(target.hasTag('production')){
+                    cluster.removeTag('production', target.id);
+                }
+                console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
+            }
+            flag.remove();
+        }
+    }
+
+    static getFlagTarget(flag){
+        return _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
     }
 
     static createCluster(id){
@@ -190,7 +207,8 @@ class Cluster {
             totalEnergy: 0,
             opts: {
                 repair: 25000
-            }
+            },
+            boost: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
@@ -332,6 +350,20 @@ class Cluster {
 
     getResources(){
         return this.resources;
+    }
+
+    get boostMinerals(){
+        if(!this._boostMinerals){
+            this._boostMinerals = _.reduce(this.boost, (result, type, labId)=>{
+                var resource = Game.boosts[type];
+                var lab = Game.getObjectById(labId);
+                if(lab && lab.mineralType == resource){
+                    result[resource] = lab.mineralAmount;
+                }
+                return result;
+            }, {});
+        }
+        return this._boostMinerals;
     }
 
 }

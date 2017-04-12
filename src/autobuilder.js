@@ -321,7 +321,9 @@ class AutoBuilder {
                     this.addRoadsAround(struct, roads, 1);
                     break;
                 case STRUCTURE_CONTROLLER:
-                    this.addRoadsAround(struct, roads, 2);
+                    if(this.room.memory.role == 'core'){
+                        this.addRoadsAround(struct, roads, 2);
+                    }
                     break;
                 case STRUCTURE_EXTENSION:
                     for(let pos of rpos){
