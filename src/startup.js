@@ -220,6 +220,14 @@ class Startup {
                     console.log('Removed room', roomName, 'from cluster.');
                     delete Memory.rooms[roomName];
                     break;
+                case 'role':
+                    if(!target){
+                        console.log('Missing role name!');
+                    }else{
+                        console.log('Changing role for room:', roomName, 'to', target);
+                        Cluster.setRole(roomName, target, true);
+                    }
+                    break;
                 default:
                     console.log('Unknown action:', parts[1]);
                     break;

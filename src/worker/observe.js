@@ -18,10 +18,11 @@ class ObserveWorker extends BaseWorker {
     }
 
     createId(cluster, subtype, target, args){
-        return target.pos.roomName + '-' + target.pos.x + '-' +target.pos.y;
+        return target.pos.roomName + '-25-25';
     }
 
     observe(cluster, subtype){
+        let unobservedRooms = _.pick(Memory.observe || {}, timeout => timeout > Game.time);
         const targets = _.reduce(Memory.rooms, (result, data, name)=>{
             if(data.cluster == cluster.id && data.observe){
                 let targetRoom = Game.rooms[name];
@@ -34,10 +35,14 @@ class ObserveWorker extends BaseWorker {
                 }else{
                     target = targetRoom.controller;
                 }
+                if(!targetRoom && !unobservedRooms[name]){
+                    unobservedRooms[name] = Game.time + 200;
+                }
                 result.push(target);
             }
             return result;
         }, []);
+        Memory.observe = unobservedRooms;
         return this.jobsForTargets(cluster, subtype, targets);
     }
 

@@ -218,6 +218,11 @@ class Cluster {
 
     static addRoom(clusterId, roomName, role, autobuild){
         _.set(Memory, ['rooms', roomName, 'cluster'], clusterId);
+        Cluster.setRole(roomName, role, autobuild);
+        console.log('Added room', roomName, 'to', clusterId, role, autobuild ? 'with autobuild' : '');
+    }
+
+    static setRole(roomName, role, autobuild){
         _.set(Memory, ['rooms', roomName, 'role'], role);
         _.assign(Memory.rooms[roomName], {
             defend: true,
@@ -232,7 +237,6 @@ class Cluster {
         }else if(_.has(Memory, ['rooms', roomName, 'claim'])){
             delete Memory.rooms[roomName].claim;
         }
-        console.log('Added room', roomName, 'to', clusterId, role, autobuild ? 'with autobuild' : '');
     }
 
     changeRole(roomName, newRole){

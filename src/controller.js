@@ -5,19 +5,32 @@ const roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 class Controller {
 
-    static hegemony(){
+    static hegemony(allocated){
         if(Game.interval(20)){
             var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(flag));
 
             Controller.levelTerminals();
         }
+        if(_.size(Memory.observe) > 0){
+            var observers = _.filter(Game.hegemony.structures.observer, struct => !_.includes(allocated, struct.id));
+            for(let roomName in Memory.observe){
+                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+                if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+                    _.pull(observers, observer);
+                    observer.observeRoom(roomName);
+                }else{
+                    console.log('No observer for', roomName);
+                }
+            }
+        }
     }
 
-    static control(cluster){
+    static control(cluster, allocated){
 
         var scanner = Game.getObjectById(cluster.scanner);
         if(scanner){
+            allocated.push(scanner.id);
             var scanPos = roomRegex.exec(scanner.pos.roomName);
             if(scanPos){
                 var lastX = (Game.time % 18) - 9 + parseInt(scanPos[2]);

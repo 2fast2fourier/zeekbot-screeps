@@ -49,7 +49,7 @@ class Spawner {
                 maxCost = cost;
                 version = config.emergency;
                 partSet = config.parts[config.emergency];
-                Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
+                // Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
             }else{
                 _.forEach(config.parts, (parts, ver) => {
                     let cost = Spawner.calculateCost(parts);

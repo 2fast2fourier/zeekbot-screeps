@@ -19,7 +19,7 @@ module.exports = {
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
         },
-        work: { defend: {}, observe: { onlyReveal: true }, idle: { subtype: 'tower' } }
+        work: { defend: {}, idle: { subtype: 'tower' } }//observe: { onlyReveal: true }, 
     },
     spawnhauler: {
         quota: 'spawnhauler',

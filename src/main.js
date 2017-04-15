@@ -31,6 +31,8 @@ module.exports.loop = function () {
     Startup.processActions();
 
     let production = new Production();
+
+    let allocated = [];
     
 
     //// Process ////
@@ -56,7 +58,7 @@ module.exports.loop = function () {
             }
         }
 
-        Controller.control(cluster);
+        Controller.control(cluster, allocated);
         production.process(cluster);
         let iy = 0;
         for(let buildRoom of cluster.roomflags.autobuild){
@@ -85,7 +87,7 @@ module.exports.loop = function () {
         ix++;
     }
 
-    Controller.hegemony();
+    Controller.hegemony(allocated);
 
     if(Game.flags.autobuildDebug){
         let buildRoom = Game.flags.autobuildDebug.room;
