@@ -18,10 +18,10 @@ class Production {
             return;
         }
         var resources = cluster.getResources();
-        var targetAmount = _.size(cluster.structures.terminal) * 5000;
+        var targetAmount = _.size(cluster.structures.terminal) * 5000 + 1000;
         var resourceList = _.values(REACTIONS.X);//_.filter(, val => val != 'XUHO2');
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
-        quota.G = 5000;
+        quota.G = targetAmount;
         quota.UO = targetAmount;
 
         var reactions = {};
@@ -35,7 +35,7 @@ class Production {
             let deficit = _.get(reactions, [type, 'deficit'], 0);
             let capacity = _.get(reactions, [type, 'capacity'], 0);
             if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN){
-                console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
+                console.log(cluster.id, 'Ending reaction:', type, '-', deficit, 'of', capacity);
                 delete cluster.reaction[type];
             }else{
                 this.updateReaction(type, cluster.reaction[type], reactions[type]);
@@ -50,7 +50,7 @@ class Production {
         if(freeLabs.length > 0){
             for(let reaction of sortedReactions){
                 if(freeLabs.length > 0){
-                    console.log('Starting reaction:', reaction.type, '-', reaction.deficit, 'of', reaction.capacity);
+                    console.log(cluster.id, 'Starting reaction:', reaction.type, '-', reaction.deficit, 'of', reaction.capacity);
                     this.startReaction(cluster, reaction.type, reaction, freeLabs);
                     freeLabs = this.countFreeLabs(cluster);
                 }

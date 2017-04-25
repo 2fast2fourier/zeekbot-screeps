@@ -28,8 +28,8 @@ class TransferWorker extends BaseWorker {
     }
 
     generateLabTransfers(cluster){
-        var min = 1000;
-        var max = 2000;
+        var min = 1500;
+        var max = 2500;
         return _.reduce(cluster.transfer, (result, resource, labId) => {
             var target = Game.structures[labId];
             if(!target){
@@ -52,10 +52,10 @@ class TransferWorker extends BaseWorker {
             if(resource){
                 var amount = target.getResource(resource);
                 if(amount < min && cluster.resources[resource].stored > 0){
-                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 1500 }));
+                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 2000 }));
                 }
                 if(amount > max){
-                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 1500 }));
+                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 2000 }));
                 }
             }
             return result;

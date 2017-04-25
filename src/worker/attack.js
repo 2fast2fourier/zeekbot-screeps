@@ -9,7 +9,7 @@ const priorities = {
 const BaseWorker = require('./base');
 
 class AttackWorker extends BaseWorker {
-    constructor(){ super('attack', { quota: true }); }
+    constructor(){ super('attack', { quota: true, critical: true }); }
 
     /// Job ///
 
@@ -48,10 +48,16 @@ class AttackWorker extends BaseWorker {
 
     process(cluster, creep, opts, job, flag){
         var action = false;
-        var buildings = cluster.find(creep.room, FIND_HOSTILE_STRUCTURES);
+        var target = false;
+        if(creep.pos.roomName == flag.pos.roomName && flag.name.includes('target')){
+            target = flag.getStructure();
+        }
+        var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
         let hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
         let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
-        var target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+        if(!target){
+            target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+        }
         if(target){
             let attack = creep.getActiveBodyparts('attack');
             let ranged = creep.getActiveBodyparts('ranged_attack');
@@ -71,8 +77,8 @@ class AttackWorker extends BaseWorker {
             }
         }else if(creep.pos.getRangeTo(flag) > 3){
             this.attackMove(creep, flag);
-        }else{
-            flag.remove();
+        }else if(!flag.name.includes('stage')){
+           flag.remove();
         }
         return action;
     }

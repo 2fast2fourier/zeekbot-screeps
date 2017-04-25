@@ -14,6 +14,7 @@ module.exports = {
         quota: 'defend',
         critical: true,
         parts: {
+            milli: { tough: 5, move: 25, ranged_attack: 20 },
             micro: { tough: 5, move: 25, ranged_attack: 15 },
             nano: { tough: 5, move: 10, ranged_attack: 5 },
             pico: { tough: 5, move: 7, ranged_attack: 2 },
@@ -131,7 +132,7 @@ module.exports = {
         quota: 'repair',
         allocation: 'work',
         allocationMulti: 5000,
-        maxQuota: 250000,
+        maxQuota: 300000,
         parts: {
             milli: { move: 6, carry: 7, work: 5 },//1150
             micro: { move: 7, carry: 5, work: 2 },//800
@@ -195,6 +196,7 @@ module.exports = {
         quota: 'dismantle',
         allocation: 'work',
         allocationMulti: 75000,
+        maxQuota: 5000000,
         parts: {
             mega: { work: 25, move: 25 },
             kilo: { work: 15, move: 15 },
@@ -223,13 +225,13 @@ module.exports = {
     attacker: {
         quota: 'attack',
         boost: {
-            milli: { damage: 5, attack: 15, heal: 5 }
+            milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
         },
         parts: {
-            milli: { tough: 5, move: 25, attack: 15, heal: 5 },
+            milli: { tough: 10, move: 10, attack: 10, heal: 20 },
             micro: { tough: 5, move: 25, attack: 15, heal: 5 }
         },
         work: { attack: {} },
-        behavior: { selfheal: { block: 300 }, defend: {}, boost: {} }
+        behavior: { selfheal: { block: 1 }, defend: {}, boost: {} }
     }
 }

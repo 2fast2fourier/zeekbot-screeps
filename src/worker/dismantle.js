@@ -12,6 +12,7 @@ class DismantleWorker extends BaseWorker {
 
     dismantle(cluster, subtype){
         var flags = Flag.getByPrefix("Dismantle");
+        var type = false;
         var targets = [];
         for(let flag of flags){
             let roomName = flag.pos.roomName;
@@ -19,13 +20,16 @@ class DismantleWorker extends BaseWorker {
                 let parts = flag.name.split('-');
                 let range = 0;
                 if(parts.length > 1){
-                    if(parts[1] == 'all'){
+                    if(CONTROLLER_STRUCTURES[parts[1]]){
+                        range = 50;
+                        type = parts[1];
+                    }else if(parts[1] == 'all'){
                         range = 50;
                     }else{
                         range = parseInt(parts[1]);
                     }
                 }
-                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0);
+                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0 && (!type || structure.structureType == type));
                 if(structures.length > 0){
                     targets = targets.concat(structures);
                 }else{

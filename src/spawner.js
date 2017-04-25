@@ -127,7 +127,13 @@ class Spawner {
         }
         var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, mem);
         Memory.uid++;
-        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
+        if(spawned){
+            console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
+            Game.longtermAdd('spawn-'+cluster.id, _.size(spawnlist.parts[spawnType]) * 3);
+            Game.longtermAdd('spawn-energy-'+cluster.id, spawnlist.costs[spawnType]);
+        }else{
+            Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
+        }
         return spawned;
     }
 

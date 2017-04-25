@@ -13,7 +13,11 @@ class DefendWorker extends BaseWorker {
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
-        return 1;
+        var value = target.getActiveBodyparts(ATTACK) * 5;
+        value += target.getActiveBodyparts(RANGED_ATTACK) * 3;
+        value += target.getActiveBodyparts(WORK) * 2;
+        value += target.getActiveBodyparts(HEAL) * 5;
+        return Math.max(1, Math.ceil(value / 35));
     }
 
     /// Creep ///

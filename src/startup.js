@@ -1,7 +1,8 @@
 "use strict";
 
-let VERSION = 2;
+let VERSION = 3;
 let STAT_INTERVAL = 100;
+let LONGTERM_STAT_INTERVAL = 5000;
 
 const Cluster = require('./cluster');
 const creeps = require('./creeps');
@@ -17,6 +18,19 @@ class Startup {
         if(Game.interval(STAT_INTERVAL)){
             Startup.longStats();
             Startup.shortStats();
+        }
+        if(Game.interval(LONGTERM_STAT_INTERVAL)){
+            var msg = 'Statistics: \n';
+            _.forEach(Memory.stats.longterm, (value, type)=>{
+                if(type != 'count'){
+                    msg += type + ': ' + value + '\n';
+                    console.log('LT', type+':', value);
+                }
+            });
+            Memory.stats.longterm = {
+                count: {}
+            }
+            Game.notify(msg);
         }
     }
 
@@ -128,14 +142,20 @@ class Startup {
                     delete Memory.memoryVersion;
                 }
             case 1:
-            _.forEach(Memory.clusters, cluster => {
-                cluster.opts = {
-                    repair: 500000
-                };
-            });
+                _.forEach(Memory.clusters, cluster => {
+                    cluster.opts = {
+                        repair: 500000
+                    };
+                });
             case 2:
-            //TODO add migration
-            // case 3:
+                _.forEach(Memory.clusters, cluster => {
+                    delete cluster.observe;
+                    cluster.stats = {};
+                    cluster.stats.count = {};
+                });
+                Memory.stats.longterm = {};
+                Memory.stats.longterm.count = {};
+            case 3:
             //TODO add migration
             // case 4:
             //TODO add migration
@@ -157,7 +177,10 @@ class Startup {
         if(Game.cpu.bucket < 9500){
             console.log('bucket:', Game.cpu.bucket);
         }
+        var longterm = Memory.stats.longterm;
+        Memory.stats.longterm = null;
         Memory.stats = {
+            longterm,
             profile: {},
             profileCount: {},
             minerals: _.pick(_.mapValues(Game.hegemony.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
@@ -165,7 +188,7 @@ class Startup {
     }
 
     static longStats(){
-
+        _.forEach(Memory.stats.profile, (value, type)=>Game.longterm(type, value));
     }
 
     static processActions(){

@@ -74,6 +74,8 @@ module.exports =
 	        }
 	    }
 	    Game.profile('memory', Game.cpu.getUsed());
+	    Game.profileAdd('move', 0);
+	    Game.profileAdd('movements', 0);
 	    Cluster.init();
 	    Startup.processActions();
 
@@ -90,9 +92,13 @@ module.exports =
 	        bootstrap = target;
 	    }
 
-	    let ix = 0;
-	    let autobuildOffset = _.size(Game.clusters) * 100;
+	    let initTime = Game.cpu.getUsed();
+
+	    // let ix = 0;
+	    // let autobuildOffset = _.size(Game.clusters) * 100;
 	    for(let name in Game.clusters){
+	        Game.longtermAdd('spawn-'+name, 0);
+	        Game.longtermAdd('spawn-energy-'+name, 0);
 	        let clusterStart = Game.cpu.getUsed();
 	        let cluster = Game.clusters[name];
 	        Worker.process(cluster);
@@ -107,48 +113,49 @@ module.exports =
 
 	        Controller.control(cluster, allocated);
 	        production.process(cluster);
-	        let iy = 0;
-	        for(let buildRoom of cluster.roomflags.autobuild){
-	            if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
-	                let builder = new AutoBuilder(buildRoom);
-	                builder.buildTerrain();
-	                let buildList = builder.generateBuildingList();
-	                if(buildList){
-	                    builder.autobuild(buildList);
-	                }
-	            }
-	            iy++;
-	        }
+	        // let iy = 0;
+	        // for(let buildRoom of cluster.roomflags.autobuild){
+	        //     if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
+	        //         let builder = new AutoBuilder(buildRoom);
+	        //         builder.buildTerrain();
+	        //         let buildList = builder.generateBuildingList();
+	        //         if(buildList){
+	        //             builder.autobuild(buildList);
+	        //         }
+	        //     }
+	        //     iy++;
+	        // }
 	        // if(Game.intervalOffset(autobuildOffset, ix * 20)){
 	        //     AutoBuilder.buildInfrastructureRoads(cluster);
 	        // }
 
-	        if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
-	            cluster.opts.repair += 10000;
+	        if(Game.interval(100) && cluster.quota.repair < 750000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
+	            cluster.opts.repair += 25000;
 	            Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
 	            console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
 	        }
 
-
 	        Game.profile(name, Game.cpu.getUsed() - clusterStart);
-	        ix++;
+	        // ix++;
 	    }
+	    
+	    let clusterEndTime = Game.cpu.getUsed();
 
 	    Controller.hegemony(allocated);
 
-	    if(Game.flags.autobuildDebug){
-	        let buildRoom = Game.flags.autobuildDebug.room;
-	        if(buildRoom){
-	            let start = Game.cpu.getUsed();
-	            let builder = new AutoBuilder(buildRoom);
-	            builder.buildTerrain();
-	            let structs = builder.generateBuildingList();
-	            Game.profile('builder', Game.cpu.getUsed() - start);
-	        }
-	    }
+	    // if(Game.flags.autobuildDebug){
+	    //     let buildRoom = Game.flags.autobuildDebug.room;
+	    //     if(buildRoom){
+	    //         let start = Game.cpu.getUsed();
+	    //         let builder = new AutoBuilder(buildRoom);
+	    //         builder.buildTerrain();
+	    //         let structs = builder.generateBuildingList();
+	    //         Game.profile('builder', Game.cpu.getUsed() - start);
+	    //     }
+	    // }
 	    // AutoBuilder.processRoadFlags();
 
-	    if(Game.interval(1999) && Game.cpu.bucket > 9000){
+	    if(Game.interval(4899) && Game.cpu.bucket > 9000){
 	        var line = _.first(_.keys(Memory.cache.path));
 	        if(line){
 	            console.log('Clearing pathing cache for room:', line);
@@ -168,6 +175,9 @@ module.exports =
 	    Game.finishProfile();
 	    Game.profile('cpu', Game.cpu.getUsed());
 
+	    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
+	    Game.profile('clusters', clusterEndTime - initTime);
+
 	    if(Game.cpu.bucket < 5000){
 	        Game.note('cpubucket', 'CPU bucket under limit!');
 	    }
@@ -185,6 +195,7 @@ module.exports =
 	var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 	var profileData = {};
+	var longProfileData = {};
 	var profileStart = 0;
 
 	const Pathing = __webpack_require__(2);
@@ -205,6 +216,17 @@ module.exports =
 	    ///
 	    /// Game Helpers
 	    ///
+	    Game.longterm = function(type, value){
+	        if(!_.has(Memory.stats.longterm, type)){
+	            Memory.stats.longterm[type] = value;
+	            Memory.stats.longterm.count[type] = 1;
+	        }else{
+	            var count = Memory.stats.longterm.count[type];
+	            Memory.stats.longterm[type] = (Memory.stats.longterm[type] * count + value)/(count + 1);
+	            Memory.stats.longterm.count[type]++;
+	        }
+	    };
+
 	    Game.profile = function(type, value){
 	        if(!_.has(Memory.stats.profile, type)){
 	            Memory.stats.profile[type] = value;
@@ -218,6 +240,10 @@ module.exports =
 
 	    Game.profileAdd = function(type, value){
 	        _.set(profileData, type, _.get(profileData, type, 0) + value);
+	    }
+
+	    Game.longtermAdd = function(type, value){
+	        _.set(longProfileData, type, _.get(longProfileData, type, 0) + value);
 	    }
 
 	    Game.perf = function(label){
@@ -239,6 +265,8 @@ module.exports =
 	    Game.finishProfile = function(){
 	        _.forEach(profileData, (value, type) => Game.profile(type, value));
 	        profileData = {};
+	        _.forEach(longProfileData, (value, type) => Game.longterm(type, value));
+	        longProfileData = {};
 	    }
 
 	    Game.interval = function interval(num){
@@ -540,6 +568,10 @@ module.exports =
 	        return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
 	    }
 
+	    Flag.prototype.getStructure = function(){
+	        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+	    }
+
 	    Structure.prototype.getMaxHits = function(){
 	        return this.hitsMax;
 	    }
@@ -648,14 +680,20 @@ module.exports =
 	    }
 
 	    static moveCreep(creep, target, range, ignoreRoads){
+	        var start = Game.cpu.getUsed();
 	        if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
 	            range = 1;
 	        }
-	        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
+	        var result = creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
+	        Game.profileAdd('move', Game.cpu.getUsed() - start);
+	        if(result == OK){
+	            Game.profileAdd('movements', 0.2);
+	        }
+	        return result;
 	    }
 
 	    static attackMove(creep, target, ignoreStructures){
-	        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, allowHostile: true, routeCallback: route });
+	        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, routeCallback: route });
 	    }
 	}
 
@@ -667,8 +705,9 @@ module.exports =
 
 	"use strict";
 
-	let VERSION = 2;
+	let VERSION = 3;
 	let STAT_INTERVAL = 100;
+	let LONGTERM_STAT_INTERVAL = 5000;
 
 	const Cluster = __webpack_require__(4);
 	const creeps = __webpack_require__(5);
@@ -684,6 +723,19 @@ module.exports =
 	        if(Game.interval(STAT_INTERVAL)){
 	            Startup.longStats();
 	            Startup.shortStats();
+	        }
+	        if(Game.interval(LONGTERM_STAT_INTERVAL)){
+	            var msg = 'Statistics: \n';
+	            _.forEach(Memory.stats.longterm, (value, type)=>{
+	                if(type != 'count'){
+	                    msg += type + ': ' + value + '\n';
+	                    console.log('LT', type+':', value);
+	                }
+	            });
+	            Memory.stats.longterm = {
+	                count: {}
+	            }
+	            Game.notify(msg);
 	        }
 	    }
 
@@ -795,14 +847,20 @@ module.exports =
 	                    delete Memory.memoryVersion;
 	                }
 	            case 1:
-	            _.forEach(Memory.clusters, cluster => {
-	                cluster.opts = {
-	                    repair: 500000
-	                };
-	            });
+	                _.forEach(Memory.clusters, cluster => {
+	                    cluster.opts = {
+	                        repair: 500000
+	                    };
+	                });
 	            case 2:
-	            //TODO add migration
-	            // case 3:
+	                _.forEach(Memory.clusters, cluster => {
+	                    delete cluster.observe;
+	                    cluster.stats = {};
+	                    cluster.stats.count = {};
+	                });
+	                Memory.stats.longterm = {};
+	                Memory.stats.longterm.count = {};
+	            case 3:
 	            //TODO add migration
 	            // case 4:
 	            //TODO add migration
@@ -824,7 +882,10 @@ module.exports =
 	        if(Game.cpu.bucket < 9500){
 	            console.log('bucket:', Game.cpu.bucket);
 	        }
+	        var longterm = Memory.stats.longterm;
+	        Memory.stats.longterm = null;
 	        Memory.stats = {
+	            longterm,
 	            profile: {},
 	            profileCount: {},
 	            minerals: _.pick(_.mapValues(Game.hegemony.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
@@ -832,7 +893,7 @@ module.exports =
 	    }
 
 	    static longStats(){
-
+	        _.forEach(Memory.stats.profile, (value, type)=>Game.longterm(type, value));
 	    }
 
 	    static processActions(){
@@ -1118,9 +1179,10 @@ module.exports =
 	            work: {},
 	            totalEnergy: 0,
 	            opts: {
-	                repair: 25000
+	                repair: 250000
 	            },
-	            boost: {}
+	            boost: {},
+	            stats: {}
 	        };
 	        _.set(Memory, ['clusters', id], data);
 	        if(Game.clusters){
@@ -1306,6 +1368,7 @@ module.exports =
 	        quota: 'defend',
 	        critical: true,
 	        parts: {
+	            milli: { tough: 5, move: 25, ranged_attack: 20 },
 	            micro: { tough: 5, move: 25, ranged_attack: 15 },
 	            nano: { tough: 5, move: 10, ranged_attack: 5 },
 	            pico: { tough: 5, move: 7, ranged_attack: 2 },
@@ -1423,7 +1486,7 @@ module.exports =
 	        quota: 'repair',
 	        allocation: 'work',
 	        allocationMulti: 5000,
-	        maxQuota: 250000,
+	        maxQuota: 300000,
 	        parts: {
 	            milli: { move: 6, carry: 7, work: 5 },//1150
 	            micro: { move: 7, carry: 5, work: 2 },//800
@@ -1487,6 +1550,7 @@ module.exports =
 	        quota: 'dismantle',
 	        allocation: 'work',
 	        allocationMulti: 75000,
+	        maxQuota: 5000000,
 	        parts: {
 	            mega: { work: 25, move: 25 },
 	            kilo: { work: 15, move: 15 },
@@ -1515,14 +1579,14 @@ module.exports =
 	    attacker: {
 	        quota: 'attack',
 	        boost: {
-	            milli: { damage: 5, attack: 15, heal: 5 }
+	            milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
 	        },
 	        parts: {
-	            milli: { tough: 5, move: 25, attack: 15, heal: 5 },
+	            milli: { tough: 10, move: 10, attack: 10, heal: 20 },
 	            micro: { tough: 5, move: 25, attack: 15, heal: 5 }
 	        },
 	        work: { attack: {} },
-	        behavior: { selfheal: { block: 300 }, defend: {}, boost: {} }
+	        behavior: { selfheal: { block: 1 }, defend: {}, boost: {} }
 	    }
 	}
 
@@ -1659,7 +1723,13 @@ module.exports =
 	        }
 	        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, mem);
 	        Memory.uid++;
-	        console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
+	        if(spawned){
+	            console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
+	            Game.longtermAdd('spawn-'+cluster.id, _.size(spawnlist.parts[spawnType]) * 3);
+	            Game.longtermAdd('spawn-energy-'+cluster.id, spawnlist.costs[spawnType]);
+	        }else{
+	            Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
+	        }
 	        return spawned;
 	    }
 
@@ -2129,6 +2199,8 @@ module.exports =
 	}
 
 	module.exports = Hegemony;
+
+	//Game.hegemony.resources.H.terminal.map(terminal=>terminal.send('H', terminal.store.H || 0, 'E28S73'))
 
 /***/ },
 /* 9 */
@@ -3134,7 +3206,7 @@ module.exports =
 	const BaseWorker = __webpack_require__(14);
 
 	class AttackWorker extends BaseWorker {
-	    constructor(){ super('attack', { quota: true }); }
+	    constructor(){ super('attack', { quota: true, critical: true }); }
 
 	    /// Job ///
 
@@ -3173,10 +3245,16 @@ module.exports =
 
 	    process(cluster, creep, opts, job, flag){
 	        var action = false;
-	        var buildings = cluster.find(creep.room, FIND_HOSTILE_STRUCTURES);
+	        var target = false;
+	        if(creep.pos.roomName == flag.pos.roomName && flag.name.includes('target')){
+	            target = flag.getStructure();
+	        }
+	        var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
 	        let hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
 	        let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
-	        var target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+	        if(!target){
+	            target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+	        }
 	        if(target){
 	            let attack = creep.getActiveBodyparts('attack');
 	            let ranged = creep.getActiveBodyparts('ranged_attack');
@@ -3196,8 +3274,8 @@ module.exports =
 	            }
 	        }else if(creep.pos.getRangeTo(flag) > 3){
 	            this.attackMove(creep, flag);
-	        }else{
-	            flag.remove();
+	        }else if(!flag.name.includes('stage')){
+	           flag.remove();
 	        }
 	        return action;
 	    }
@@ -3508,7 +3586,11 @@ module.exports =
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
-	        return 1;
+	        var value = target.getActiveBodyparts(ATTACK) * 5;
+	        value += target.getActiveBodyparts(RANGED_ATTACK) * 3;
+	        value += target.getActiveBodyparts(WORK) * 2;
+	        value += target.getActiveBodyparts(HEAL) * 5;
+	        return Math.max(1, Math.ceil(value / 35));
 	    }
 
 	    /// Creep ///
@@ -3641,6 +3723,7 @@ module.exports =
 
 	    dismantle(cluster, subtype){
 	        var flags = Flag.getByPrefix("Dismantle");
+	        var type = false;
 	        var targets = [];
 	        for(let flag of flags){
 	            let roomName = flag.pos.roomName;
@@ -3648,13 +3731,16 @@ module.exports =
 	                let parts = flag.name.split('-');
 	                let range = 0;
 	                if(parts.length > 1){
-	                    if(parts[1] == 'all'){
+	                    if(CONTROLLER_STRUCTURES[parts[1]]){
+	                        range = 50;
+	                        type = parts[1];
+	                    }else if(parts[1] == 'all'){
 	                        range = 50;
 	                    }else{
 	                        range = parseInt(parts[1]);
 	                    }
 	                }
-	                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0);
+	                let structures = _.filter(flag.pos.findInRange(FIND_STRUCTURES, range), structure => _.get(structure, 'hits', 0) > 0 && (!type || structure.structureType == type));
 	                if(structures.length > 0){
 	                    targets = targets.concat(structures);
 	                }else{
@@ -4191,8 +4277,8 @@ module.exports =
 	    }
 
 	    generateLabTransfers(cluster){
-	        var min = 1000;
-	        var max = 2000;
+	        var min = 1500;
+	        var max = 2500;
 	        return _.reduce(cluster.transfer, (result, resource, labId) => {
 	            var target = Game.structures[labId];
 	            if(!target){
@@ -4215,10 +4301,10 @@ module.exports =
 	            if(resource){
 	                var amount = target.getResource(resource);
 	                if(amount < min && cluster.resources[resource].stored > 0){
-	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 1500 }));
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 2000 }));
 	                }
 	                if(amount > max){
-	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 1500 }));
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 2000 }));
 	                }
 	            }
 	            return result;
@@ -4888,10 +4974,10 @@ module.exports =
 	            return;
 	        }
 	        var resources = cluster.getResources();
-	        var targetAmount = _.size(cluster.structures.terminal) * 5000;
+	        var targetAmount = _.size(cluster.structures.terminal) * 5000 + 1000;
 	        var resourceList = _.values(REACTIONS.X);//_.filter(, val => val != 'XUHO2');
 	        var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
-	        quota.G = 5000;
+	        quota.G = targetAmount;
 	        quota.UO = targetAmount;
 
 	        var reactions = {};
@@ -4905,7 +4991,7 @@ module.exports =
 	            let deficit = _.get(reactions, [type, 'deficit'], 0);
 	            let capacity = _.get(reactions, [type, 'capacity'], 0);
 	            if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN){
-	                console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
+	                console.log(cluster.id, 'Ending reaction:', type, '-', deficit, 'of', capacity);
 	                delete cluster.reaction[type];
 	            }else{
 	                this.updateReaction(type, cluster.reaction[type], reactions[type]);
@@ -4920,7 +5006,7 @@ module.exports =
 	        if(freeLabs.length > 0){
 	            for(let reaction of sortedReactions){
 	                if(freeLabs.length > 0){
-	                    console.log('Starting reaction:', reaction.type, '-', reaction.deficit, 'of', reaction.capacity);
+	                    console.log(cluster.id, 'Starting reaction:', reaction.type, '-', reaction.deficit, 'of', reaction.capacity);
 	                    this.startReaction(cluster, reaction.type, reaction, freeLabs);
 	                    freeLabs = this.countFreeLabs(cluster);
 	                }

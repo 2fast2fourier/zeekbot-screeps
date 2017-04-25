@@ -206,9 +206,10 @@ class Cluster {
             work: {},
             totalEnergy: 0,
             opts: {
-                repair: 25000
+                repair: 250000
             },
-            boost: {}
+            boost: {},
+            stats: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){

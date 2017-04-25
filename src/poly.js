@@ -3,6 +3,7 @@
 var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
 var profileData = {};
+var longProfileData = {};
 var profileStart = 0;
 
 const Pathing = require('./pathing');
@@ -23,6 +24,17 @@ module.exports = function(){
     ///
     /// Game Helpers
     ///
+    Game.longterm = function(type, value){
+        if(!_.has(Memory.stats.longterm, type)){
+            Memory.stats.longterm[type] = value;
+            Memory.stats.longterm.count[type] = 1;
+        }else{
+            var count = Memory.stats.longterm.count[type];
+            Memory.stats.longterm[type] = (Memory.stats.longterm[type] * count + value)/(count + 1);
+            Memory.stats.longterm.count[type]++;
+        }
+    };
+
     Game.profile = function(type, value){
         if(!_.has(Memory.stats.profile, type)){
             Memory.stats.profile[type] = value;
@@ -36,6 +48,10 @@ module.exports = function(){
 
     Game.profileAdd = function(type, value){
         _.set(profileData, type, _.get(profileData, type, 0) + value);
+    }
+
+    Game.longtermAdd = function(type, value){
+        _.set(longProfileData, type, _.get(longProfileData, type, 0) + value);
     }
 
     Game.perf = function(label){
@@ -57,6 +73,8 @@ module.exports = function(){
     Game.finishProfile = function(){
         _.forEach(profileData, (value, type) => Game.profile(type, value));
         profileData = {};
+        _.forEach(longProfileData, (value, type) => Game.longterm(type, value));
+        longProfileData = {};
     }
 
     Game.interval = function interval(num){
@@ -356,6 +374,10 @@ module.exports = function(){
 
     Flag.getByPrefix = function getByPrefix(prefix){
         return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+    }
+
+    Flag.prototype.getStructure = function(){
+        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
     }
 
     Structure.prototype.getMaxHits = function(){

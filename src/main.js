@@ -27,6 +27,8 @@ module.exports.loop = function () {
         }
     }
     Game.profile('memory', Game.cpu.getUsed());
+    Game.profileAdd('move', 0);
+    Game.profileAdd('movements', 0);
     Cluster.init();
     Startup.processActions();
 
@@ -43,9 +45,13 @@ module.exports.loop = function () {
         bootstrap = target;
     }
 
-    let ix = 0;
-    let autobuildOffset = _.size(Game.clusters) * 100;
+    let initTime = Game.cpu.getUsed();
+
+    // let ix = 0;
+    // let autobuildOffset = _.size(Game.clusters) * 100;
     for(let name in Game.clusters){
+        Game.longtermAdd('spawn-'+name, 0);
+        Game.longtermAdd('spawn-energy-'+name, 0);
         let clusterStart = Game.cpu.getUsed();
         let cluster = Game.clusters[name];
         Worker.process(cluster);
@@ -60,48 +66,49 @@ module.exports.loop = function () {
 
         Controller.control(cluster, allocated);
         production.process(cluster);
-        let iy = 0;
-        for(let buildRoom of cluster.roomflags.autobuild){
-            if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
-                let builder = new AutoBuilder(buildRoom);
-                builder.buildTerrain();
-                let buildList = builder.generateBuildingList();
-                if(buildList){
-                    builder.autobuild(buildList);
-                }
-            }
-            iy++;
-        }
+        // let iy = 0;
+        // for(let buildRoom of cluster.roomflags.autobuild){
+        //     if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
+        //         let builder = new AutoBuilder(buildRoom);
+        //         builder.buildTerrain();
+        //         let buildList = builder.generateBuildingList();
+        //         if(buildList){
+        //             builder.autobuild(buildList);
+        //         }
+        //     }
+        //     iy++;
+        // }
         // if(Game.intervalOffset(autobuildOffset, ix * 20)){
         //     AutoBuilder.buildInfrastructureRoads(cluster);
         // }
 
-        if(Game.interval(100) && cluster.quota.repair < 500000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
-            cluster.opts.repair += 10000;
+        if(Game.interval(100) && cluster.quota.repair < 750000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
+            cluster.opts.repair += 25000;
             Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
             console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
         }
 
-
         Game.profile(name, Game.cpu.getUsed() - clusterStart);
-        ix++;
+        // ix++;
     }
+    
+    let clusterEndTime = Game.cpu.getUsed();
 
     Controller.hegemony(allocated);
 
-    if(Game.flags.autobuildDebug){
-        let buildRoom = Game.flags.autobuildDebug.room;
-        if(buildRoom){
-            let start = Game.cpu.getUsed();
-            let builder = new AutoBuilder(buildRoom);
-            builder.buildTerrain();
-            let structs = builder.generateBuildingList();
-            Game.profile('builder', Game.cpu.getUsed() - start);
-        }
-    }
+    // if(Game.flags.autobuildDebug){
+    //     let buildRoom = Game.flags.autobuildDebug.room;
+    //     if(buildRoom){
+    //         let start = Game.cpu.getUsed();
+    //         let builder = new AutoBuilder(buildRoom);
+    //         builder.buildTerrain();
+    //         let structs = builder.generateBuildingList();
+    //         Game.profile('builder', Game.cpu.getUsed() - start);
+    //     }
+    // }
     // AutoBuilder.processRoadFlags();
 
-    if(Game.interval(1999) && Game.cpu.bucket > 9000){
+    if(Game.interval(4899) && Game.cpu.bucket > 9000){
         var line = _.first(_.keys(Memory.cache.path));
         if(line){
             console.log('Clearing pathing cache for room:', line);
@@ -120,6 +127,9 @@ module.exports.loop = function () {
     //// Wrapup ////
     Game.finishProfile();
     Game.profile('cpu', Game.cpu.getUsed());
+
+    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
+    Game.profile('clusters', clusterEndTime - initTime);
 
     if(Game.cpu.bucket < 5000){
         Game.note('cpubucket', 'CPU bucket under limit!');

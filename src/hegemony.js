@@ -74,3 +74,5 @@ class Hegemony {
 }
 
 module.exports = Hegemony;
+
+//Game.hegemony.resources.H.terminal.map(terminal=>terminal.send('H', terminal.store.H || 0, 'E28S73'))
