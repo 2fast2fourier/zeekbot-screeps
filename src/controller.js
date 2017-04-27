@@ -66,6 +66,11 @@ class Controller {
                     let hurtCreep = _.first(_.filter(cluster.find(tower.room, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax));
                     if(hurtCreep){
                         tower.heal(hurtCreep);
+                    }else if(Game.interval(20)){
+                        let critStruct = _.first(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400));
+                        if(critStruct){
+                            tower.repair(critStruct);
+                        }
                     }
                 }
             }

@@ -84,19 +84,13 @@ class Pathing {
     }
 
     static moveCreep(creep, target, range, ignoreRoads){
-        var start = Game.cpu.getUsed();
         if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
             range = 1;
         }
-        var result = creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
-        Game.profileAdd('move', Game.cpu.getUsed() - start);
-        if(result == OK){
-            Game.profileAdd('movements', 0.2);
-        }
-        return result;
+        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
     }
 
-    static attackMove(creep, target, ignoreStructures){
+    static attackMove(creep, target){
         return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, routeCallback: route });
     }
 }

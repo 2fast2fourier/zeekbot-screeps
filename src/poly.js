@@ -377,7 +377,7 @@ module.exports = function(){
     }
 
     Flag.prototype.getStructure = function(){
-        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
+        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD));
     }
 
     Structure.prototype.getMaxHits = function(){

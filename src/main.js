@@ -12,7 +12,7 @@ var Spawner = require('./spawner');
 var Worker = require('./worker');
 var Production = require('./production');
 
-var REPAIR_CAP = 2000000;
+var REPAIR_CAP = 5000000;
 
 module.exports.loop = function () {
     //// Startup ////
@@ -27,8 +27,6 @@ module.exports.loop = function () {
         }
     }
     Game.profile('memory', Game.cpu.getUsed());
-    Game.profileAdd('move', 0);
-    Game.profileAdd('movements', 0);
     Cluster.init();
     Startup.processActions();
 
@@ -82,7 +80,7 @@ module.exports.loop = function () {
         //     AutoBuilder.buildInfrastructureRoads(cluster);
         // }
 
-        if(Game.interval(100) && cluster.quota.repair < 750000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
+        if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
             cluster.opts.repair += 25000;
             Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
             console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
@@ -132,9 +130,9 @@ module.exports.loop = function () {
     Game.profile('clusters', clusterEndTime - initTime);
 
     if(Game.cpu.bucket < 5000){
-        Game.note('cpubucket', 'CPU bucket under limit!');
+        Game.note('cpubucket', 'CPU bucket under limit! '+Game.cpu.bucket);
     }
     if(Game.cpu.bucket < 600){
-        Game.note('cpubucketcrit', 'CPU bucket critical!');
+        Game.note('cpubucketcrit', 'CPU bucket critical! '+Game.cpu.bucket);
     }
 }

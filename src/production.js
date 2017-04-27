@@ -19,7 +19,7 @@ class Production {
         }
         var resources = cluster.getResources();
         var targetAmount = _.size(cluster.structures.terminal) * 5000 + 1000;
-        var resourceList = _.values(REACTIONS.X);//_.filter(, val => val != 'XUHO2');
+        var resourceList = _.values(REACTIONS.X);
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
         quota.G = targetAmount;
         quota.UO = targetAmount;

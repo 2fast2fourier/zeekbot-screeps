@@ -62,6 +62,9 @@ class Cluster {
             reserve: []
         };
 
+        this._jobs = {};
+        this._hydratedJobs = {};
+
         this.roomflags = {
             defend: [],
             reserve: [],

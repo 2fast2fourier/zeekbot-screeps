@@ -12,9 +12,14 @@ class BaseWorker {
             Object.assign(this, opts);
         }
         this.type = type;
-        this.hydratedJobs = {};
-        this.jobs = {};
-        // Game.profileAdd('jobs-'+this.type, 0);
+    }
+
+    pretick(cluster){
+        if(this.profile){
+            Game.profileAdd('bid-'+this.type, 0);
+            Game.profileAdd('gen-'+this.type, 0);
+            Game.profileAdd('work-'+this.type, 0);
+        }
     }
 
     genTarget(cluster, subtype, id, args){
@@ -73,23 +78,23 @@ class BaseWorker {
     }
 
     hydrateJob(cluster, subtype, id, allocation){
-        let job = _.get(this.hydratedJobs, [this.type, subtype, id]);
+        let job = _.get(cluster._hydratedJobs, [this.type, subtype, id]);
         if(job){
             job.allocation += allocation;
         }else{
             job = this.parseJob(cluster, subtype, id, allocation);
             job.killed = !this.jobValid(cluster, job);
-            _.set(this.hydratedJobs, [this.type, subtype, id], job);
+            _.set(cluster._hydratedJobs, [this.type, subtype, id], job);
         }
         return job;
     }
 
     registerAllocation(cluster, job, allocated){
-        if(!_.has(this.hydratedJobs, [job.type, job.subtype, job.id])){
-            _.set(this.hydratedJobs, [job.type, job.subtype, job.id], job);
+        if(!_.has(cluster._hydratedJobs, [job.type, job.subtype, job.id])){
+            _.set(cluster._hydratedJobs, [job.type, job.subtype, job.id], job);
         }
-        let newAlloc = allocated + _.get(this.hydratedJobs, [job.type, job.subtype, job.id, 'allocation'], 0);
-        _.set(this.hydratedJobs, [job.type, job.subtype, job.id, 'allocation'], newAlloc);
+        let newAlloc = allocated + _.get(cluster._hydratedJobs, [job.type, job.subtype, job.id, 'allocation'], 0);
+        _.set(cluster._hydratedJobs, [job.type, job.subtype, job.id, 'allocation'], newAlloc);
     }
 
     move(creep, target){
@@ -172,14 +177,14 @@ class BaseWorker {
         if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
             return [];
         }
-        if(Game.cpu.bucket < 2500 && this.critical != subtype){
+        if(Game.cpu.bucket < 5000 && this.critical != subtype){
             return [];
         }
-        var jobs = this.jobs[subtype];
+        var jobs = cluster._jobs[this.type+'-'+subtype];
         if(!jobs){
             // Game.profileAdd('jobs-'+this.type, 1);
             jobs = this.generateJobsForSubtype(cluster, subtype);
-            this.jobs[subtype] = jobs;
+            cluster._jobs[this.type+'-'+subtype] = jobs;
         }
         return jobs;
     }
@@ -197,13 +202,20 @@ class BaseWorker {
             return false;
         }
         let subtype = _.get(opts, 'subtype', this.type);
+        var start;
+        if(this.profile){
+            start = Game.cpu.getUsed();
+        }
         let jobs = this.generateJobs(cluster, subtype);
+        if(this.profile){
+            Game.profileAdd('gen-'+this.type, Game.cpu.getUsed() - start);
+        }
         let lowestBid = Infinity;
         return _.reduce(jobs, (result, job) =>{
-            if(job.capacity <= _.get(this.hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
+            if(job.capacity <= _.get(cluster._hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
                 return result;
             }
-            let distance = creep.pos.getPathDistance(job.target);
+            let distance = this.ignoreDistance ? 0 : creep.pos.getPathDistance(job.target);
             if(opts.local && creep.memory.room && creep.memory.room != _.get(job, 'target.pos.roomName')){
                 return result;
             }

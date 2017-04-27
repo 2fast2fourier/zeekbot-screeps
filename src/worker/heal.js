@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class HealWorker extends BaseWorker {
-    constructor(){ super('heal', { quota: true }); }
+    constructor(){ super('heal', { quota: true, critical: 'heal' }); }
 
     /// Job ///
 

@@ -3,13 +3,14 @@
 const priorities = {
     tower: 0.01,
     spawn: 0.1,
-    storage: 1
+    storage: 2,
+    rampart: 10
 };
 
 const BaseWorker = require('./base');
 
 class AttackWorker extends BaseWorker {
-    constructor(){ super('attack', { quota: true, critical: true }); }
+    constructor(){ super('attack', { quota: true, critical: 'attack' }); }
 
     /// Job ///
 
@@ -22,7 +23,7 @@ class AttackWorker extends BaseWorker {
 
     calculateCapacity(cluster, subtype, id, target, args){
         var parts = target.name.split('-');
-        if(parts.length > 2){
+        if(parts.length > 1){
             return parseInt(parts[1]);
         }
         return 1;
@@ -49,13 +50,14 @@ class AttackWorker extends BaseWorker {
     process(cluster, creep, opts, job, flag){
         var action = false;
         var target = false;
-        if(creep.pos.roomName == flag.pos.roomName && flag.name.includes('target')){
+        var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
+        if(inTargetRoom && flag.name.includes('target')){
             target = flag.getStructure();
         }
-        var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
-        let hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
-        let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
         if(!target){
+            var buildings = inTargetRoom ? _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank') : [];
+            let hostiles = _.filter(cluster.find(creep.room, FIND_HOSTILE_CREEPS), target => _.get(target, 'owner.username', false) != 'Source Keeper');
+            let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
             target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
         }
         if(target){

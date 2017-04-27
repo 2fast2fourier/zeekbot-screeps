@@ -23,8 +23,8 @@ class Startup {
             var msg = 'Statistics: \n';
             _.forEach(Memory.stats.longterm, (value, type)=>{
                 if(type != 'count'){
-                    msg += type + ': ' + value + '\n';
-                    console.log('LT', type+':', value);
+                    msg += type + ': ' + value.toFixed(2) + '\n';
+                    console.log('LT', type+':', value.toFixed(2));
                 }
             });
             Memory.stats.longterm = {
@@ -173,7 +173,7 @@ class Startup {
     }
 
     static shortStats(){
-        _.forEach(Memory.stats.profile, (value, type)=>console.log(type+':', value));
+        _.forEach(Memory.stats.profile, (value, type)=>console.log(type+':', value.toFixed(2)));
         if(Game.cpu.bucket < 9500){
             console.log('bucket:', Game.cpu.bucket);
         }

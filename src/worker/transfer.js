@@ -89,7 +89,7 @@ class TransferWorker extends BaseWorker {
         }else if(job.args.action == 'deliver'){
             return targetResources < job.args.amount && data.stored > 0;
         }else if(job.args.action == 'terminal'){
-            return data.globals.terminal < job.args.amount && data.totals.storage > 0;
+            return data.totals.terminal < job.args.amount && data.totals.storage > 0;
         }
     }
 

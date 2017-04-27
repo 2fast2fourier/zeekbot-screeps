@@ -105,6 +105,7 @@ module.exports = {
         allocation: 'work',
         allocationMulti: 1000,
         parts: {
+            mega: { move: 15, carry: 20, work: 10 },
             kilo: { move: 17, carry: 12, work: 5 },//1700
             milli: { move: 10, carry: 6, work: 4 },//1200
             micro: { move: 7, carry: 5, work: 2 },//800
@@ -134,6 +135,7 @@ module.exports = {
         allocationMulti: 5000,
         maxQuota: 300000,
         parts: {
+            kilo: { move: 15, carry: 20, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150
             micro: { move: 7, carry: 5, work: 2 },//800
             nano: { move: 5, carry: 4, work: 1 },//550
@@ -224,6 +226,7 @@ module.exports = {
     },
     attacker: {
         quota: 'attack',
+        maxQuota: 6,
         boost: {
             milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
         },
@@ -232,6 +235,6 @@ module.exports = {
             micro: { tough: 5, move: 25, attack: 15, heal: 5 }
         },
         work: { attack: {} },
-        behavior: { selfheal: { block: 1 }, defend: {}, boost: {} }
+        behavior: { selfheal: { block: 500 }, defend: {}, boost: {} }
     }
 }

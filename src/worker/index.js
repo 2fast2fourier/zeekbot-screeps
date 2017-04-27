@@ -23,14 +23,18 @@ const workerCtors = {
 const Behavior = require('../behavior');
 
 class Worker {
+
     static process(cluster){
-        // Game.perfAdd();
         const workers = _.mapValues(workerCtors, ctor => new ctor());
         const behaviors = Behavior();
+
+        _.forEach(workers, worker => worker.pretick(cluster));
+        // Game.perfAdd();
         const creeps = _.filter(cluster.creeps, 'ticksToLive');
         _.forEach(creeps, Worker.validate.bind(this, workers, behaviors, cluster));
         // Game.perfAdd('validate');
         _.forEach(creeps, Worker.work.bind(this, workers, behaviors, cluster));
+        // Game.perfAdd('work');
 
         if(Game.interval(20) || cluster.requestedQuota){
             Worker.generateQuota(workers, cluster);
@@ -87,10 +91,16 @@ class Worker {
             var lowestBid = Infinity;
             var bidder = _.reduce(workConfig, (result, opts, type) => {
                 if(!workers[type]){
-                    // console.log('missing worker', type);
+                    console.log('missing worker', type);
                     return result;
                 }
+                if(workers[type].profile){
+                    Game.perfAdd();
+                }
                 var bid = workers[type].bid(cluster, creep, opts);
+                if(workers[type].profile){
+                    Game.perfAdd('bid-'+type);
+                }
                 if(bid !== false && bid.bid < lowestBid){
                     lowestBid = bid.bid;
                     return bid;
@@ -106,7 +116,6 @@ class Worker {
                 workers[bidder.type].start(cluster, creep, workConfig[bidder.type], bidder.job);
                 workers[bidder.type].registerAllocation(cluster, bidder.job, bidder.allocation);
                 creep.job = bidder.job;
-                // console.log('starting', bidder.job.type, creep.name, bidder.job.id);
             }
         }
         // Game.perfAdd('bid');
@@ -118,7 +127,13 @@ class Worker {
             if(creep.memory.job && creep.job){
                 let job = creep.job;
                 let type = job.type;
+                if(workers[type].profile){
+                    Game.perfAdd();
+                }
                 action = workers[type].process(cluster, creep, workConfig[type], job, job.target);
+                if(workers[type].profile){
+                    Game.perfAdd('work-'+type);
+                }
             }
             _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }

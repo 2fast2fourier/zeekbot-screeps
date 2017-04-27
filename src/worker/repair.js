@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class RepairWorker extends BaseWorker {
-    constructor(){ super('repair', { requiresEnergy: true, quota: true, range: 3 }); }
+    constructor(){ super('repair', { requiresEnergy: true, quota: true, range: 3, profile: true, ignoreDistance: true }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -26,9 +26,6 @@ class RepairWorker extends BaseWorker {
     }
 
     calculateBid(cluster, creep, opts, job, distance){
-        if(cluster.tags.ignorerepair && job.target.hasTag('ignorerepair')){
-            return false;
-        }
         return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);
     }
 
