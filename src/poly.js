@@ -253,6 +253,20 @@ module.exports = function(){
         });
     }
 
+    if(!Room.prototype.hasOwnProperty('flags')){
+        Object.defineProperty(Room.prototype, 'flags', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                return Game.hegemony.roomflags[this.name] || [];
+            }
+        });
+    }
+
+    Room.prototype.getFlagsByPrefix = function(prefix){
+        return _.filter(this.flags, flag => flag.name.startsWith(prefix));
+    }
+
     Room.prototype.getStructuresByType = function(type){
         return _.filter(this.find(FIND_STRUCTURES), struct => struct.structureType == type);
     }

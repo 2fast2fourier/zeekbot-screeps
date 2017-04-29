@@ -133,7 +133,7 @@ module.exports = {
         quota: 'repair',
         allocation: 'work',
         allocationMulti: 5000,
-        maxQuota: 300000,
+        maxQuota: 400000,
         parts: {
             kilo: { move: 15, carry: 20, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150

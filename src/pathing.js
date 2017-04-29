@@ -37,7 +37,11 @@ class Pathing {
         let distance = targetMem[pathName];
         if(_.isUndefined(distance)){
             let result = Pathing.generatePath(start, new RoomPosition(25, 25, end.roomName), { debug: true, range: 20 });
-            distance = _.size(result.path);
+            if(result.incomplete){
+                distance = Math.max(_.size(result.path), start.getLinearDistance(end));
+            }else{
+                distance = _.size(result.path);
+            }
             targetMem[pathName] = distance;
         }
         return distance;
@@ -45,7 +49,7 @@ class Pathing {
     
     static generatePath(start, end, opts){
         let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
-        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1) }, {
+        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1), maxOps: 10000 }, {
             plainCost: weights.plainCost,
             swampCost: weights.swampCost,
             roomCallback: function(roomName) {

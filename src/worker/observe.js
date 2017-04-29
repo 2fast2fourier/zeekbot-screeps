@@ -23,6 +23,10 @@ class ObserveWorker extends BaseWorker {
 
     observe(cluster, subtype){
         let unobservedRooms = _.pick(Memory.observe || {}, timeout => timeout > Game.time);
+        let flags = Flag.getByPrefix("Observe");
+        for(let flag of flags){
+            unobservedRooms[flag.pos.roomName] = Game.time + 25;
+        }
         const targets = _.reduce(Memory.rooms, (result, data, name)=>{
             if(data.cluster == cluster.id && data.observe){
                 let targetRoom = Game.rooms[name];

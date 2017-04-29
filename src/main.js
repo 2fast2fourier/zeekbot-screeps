@@ -11,6 +11,7 @@ var Controller = require('./controller');
 var Spawner = require('./spawner');
 var Worker = require('./worker');
 var Production = require('./production');
+var Pathing = require('./pathing');
 
 var REPAIR_CAP = 5000000;
 
@@ -38,9 +39,11 @@ module.exports.loop = function () {
     //// Process ////
 
     let bootstrap = false;
+    let bootstrapper = false;
     if(Memory.bootstrap){
-        let target = Game.clusters[Memory.bootstrap];
-        bootstrap = target;
+        bootstrap = Game.clusters[Memory.bootstrap];
+        let availableClusters = _.filter(Game.clusters, cluster => cluster.structures.spawn.length > 1);
+        bootstrapper = _.first(_.sortBy(availableClusters, cluster => Pathing.getMinPathDistance(new RoomPosition(25, 25, _.first(cluster.rooms).name), new RoomPosition(25, 25, _.first(bootstrap.rooms).name))));
     }
 
     let initTime = Game.cpu.getUsed();
@@ -56,7 +59,7 @@ module.exports.loop = function () {
         
         if(Game.interval(5)){
             let spawnlist = Spawner.generateSpawnList(cluster, cluster);
-            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && cluster.totalEnergy > 5000){
+            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
                 spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
                 Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
             }
@@ -104,7 +107,7 @@ module.exports.loop = function () {
     //         Game.profile('builder', Game.cpu.getUsed() - start);
     //     }
     // }
-    // AutoBuilder.processRoadFlags();
+    AutoBuilder.processRoadFlags();
 
     if(Game.interval(4899) && Game.cpu.bucket > 9000){
         var line = _.first(_.keys(Memory.cache.path));

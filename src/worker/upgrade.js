@@ -10,16 +10,19 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.totalEnergy < 2000){
             return 5;
         }
-        if(target.level == 8){
-            return 15;
-        }
         if(cluster.maxRCL <= 2){
             return 5;
         }
         if(cluster.maxRCL < 4){
             return 10;
         }
+        if(target.level == 8){
+            return 15;
+        }
         let energy = _.get(target, 'room.storage.store.energy', 0);
+        if(target.level < 7 && energy > 100000 && target.room.memory.powerlevel){
+            return Math.max(2, Math.floor(energy / 100000)) * 15;
+        }
         return Math.max(1, Math.floor(energy / 150000)) * 15;
     }
 

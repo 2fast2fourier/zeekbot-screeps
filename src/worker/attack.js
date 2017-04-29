@@ -9,6 +9,8 @@ const priorities = {
 
 const BaseWorker = require('./base');
 
+const Util = require('../util');
+
 class AttackWorker extends BaseWorker {
     constructor(){ super('attack', { quota: true, critical: 'attack' }); }
 
@@ -51,8 +53,20 @@ class AttackWorker extends BaseWorker {
         var action = false;
         var target = false;
         var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
-        if(inTargetRoom && flag.name.includes('target')){
-            target = flag.getStructure();
+        if(inTargetRoom && flag.room){
+            var flags = flag.room.getFlagsByPrefix('target');
+            if(flags.length > 0){
+                var targets = _.reduce(flags, (result, targetFlag) => {
+                    var struct = targetFlag.getStructure();
+                    if(struct){
+                        result.push(struct);
+                    }else{
+                        targetFlag.remove();
+                    }
+                    return result;
+                }, []);
+                target = _.first(Util.sort.closest(creep, targets));
+            }
         }
         if(!target){
             var buildings = inTargetRoom ? _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank') : [];
@@ -64,6 +78,7 @@ class AttackWorker extends BaseWorker {
             let attack = creep.getActiveBodyparts('attack');
             let ranged = creep.getActiveBodyparts('ranged_attack');
             let dist = creep.pos.getRangeTo(target);
+            target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
             if(attack > 0){
                 action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
             }else if(ranged > 0){

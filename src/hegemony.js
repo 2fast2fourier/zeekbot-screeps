@@ -71,6 +71,13 @@ class Hegemony {
         _.forEach(this.structures.terminal, cataFn);
     }
 
+    get roomflags(){
+        if(!this._roomflags){
+            this._roomflags = _.groupBy(Game.flags, 'pos.roomName');
+        }
+        return this._roomflags;
+    }
+
 }
 
 module.exports = Hegemony;

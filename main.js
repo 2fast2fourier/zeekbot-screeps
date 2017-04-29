@@ -58,6 +58,7 @@ module.exports =
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(12);
 	var Production = __webpack_require__(38);
+	var Pathing = __webpack_require__(2);
 
 	var REPAIR_CAP = 5000000;
 
@@ -85,9 +86,11 @@ module.exports =
 	    //// Process ////
 
 	    let bootstrap = false;
+	    let bootstrapper = false;
 	    if(Memory.bootstrap){
-	        let target = Game.clusters[Memory.bootstrap];
-	        bootstrap = target;
+	        bootstrap = Game.clusters[Memory.bootstrap];
+	        let availableClusters = _.filter(Game.clusters, cluster => cluster.structures.spawn.length > 1);
+	        bootstrapper = _.first(_.sortBy(availableClusters, cluster => Pathing.getMinPathDistance(new RoomPosition(25, 25, _.first(cluster.rooms).name), new RoomPosition(25, 25, _.first(bootstrap.rooms).name))));
 	    }
 
 	    let initTime = Game.cpu.getUsed();
@@ -103,7 +106,7 @@ module.exports =
 	        
 	        if(Game.interval(5)){
 	            let spawnlist = Spawner.generateSpawnList(cluster, cluster);
-	            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && cluster.totalEnergy > 5000){
+	            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
 	                spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
 	                Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
 	            }
@@ -151,7 +154,7 @@ module.exports =
 	    //         Game.profile('builder', Game.cpu.getUsed() - start);
 	    //     }
 	    // }
-	    // AutoBuilder.processRoadFlags();
+	    AutoBuilder.processRoadFlags();
 
 	    if(Game.interval(4899) && Game.cpu.bucket > 9000){
 	        var line = _.first(_.keys(Memory.cache.path));
@@ -443,6 +446,20 @@ module.exports =
 	        });
 	    }
 
+	    if(!Room.prototype.hasOwnProperty('flags')){
+	        Object.defineProperty(Room.prototype, 'flags', {
+	            enumerable: false,
+	            configurable: true,
+	            get: function(){
+	                return Game.hegemony.roomflags[this.name] || [];
+	            }
+	        });
+	    }
+
+	    Room.prototype.getFlagsByPrefix = function(prefix){
+	        return _.filter(this.flags, flag => flag.name.startsWith(prefix));
+	    }
+
 	    Room.prototype.getStructuresByType = function(type){
 	        return _.filter(this.find(FIND_STRUCTURES), struct => struct.structureType == type);
 	    }
@@ -631,7 +648,11 @@ module.exports =
 	        let distance = targetMem[pathName];
 	        if(_.isUndefined(distance)){
 	            let result = Pathing.generatePath(start, new RoomPosition(25, 25, end.roomName), { debug: true, range: 20 });
-	            distance = _.size(result.path);
+	            if(result.incomplete){
+	                distance = Math.max(_.size(result.path), start.getLinearDistance(end));
+	            }else{
+	                distance = _.size(result.path);
+	            }
 	            targetMem[pathName] = distance;
 	        }
 	        return distance;
@@ -639,7 +660,7 @@ module.exports =
 	    
 	    static generatePath(start, end, opts){
 	        let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
-	        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1) }, {
+	        let result = PathFinder.search(start, { pos: end, range: (opts.range || 1), maxOps: 10000 }, {
 	            plainCost: weights.plainCost,
 	            swampCost: weights.swampCost,
 	            roomCallback: function(roomName) {
@@ -1482,7 +1503,7 @@ module.exports =
 	        quota: 'repair',
 	        allocation: 'work',
 	        allocationMulti: 5000,
-	        maxQuota: 300000,
+	        maxQuota: 400000,
 	        parts: {
 	            kilo: { move: 15, carry: 20, work: 10 },
 	            milli: { move: 6, carry: 7, work: 5 },//1150
@@ -2194,6 +2215,13 @@ module.exports =
 	        _.forEach(this.structures.terminal, cataFn);
 	    }
 
+	    get roomflags(){
+	        if(!this._roomflags){
+	            this._roomflags = _.groupBy(Game.flags, 'pos.roomName');
+	        }
+	        return this._roomflags;
+	    }
+
 	}
 
 	module.exports = Hegemony;
@@ -2697,7 +2725,9 @@ module.exports =
 	                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
 	                if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
 	                    _.pull(observers, observer);
-	                    observer.observeRoom(roomName);
+	                    if(observer.observeRoom(roomName) == OK){
+	                        new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+	                    }
 	                }else{
 	                    console.log('No observer for', roomName);
 	                }
@@ -2746,7 +2776,7 @@ module.exports =
 	                    if(hurtCreep){
 	                        tower.heal(hurtCreep);
 	                    }else if(Game.interval(20)){
-	                        let critStruct = _.first(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400));
+	                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
 	                        if(critStruct){
 	                            tower.repair(critStruct);
 	                        }
@@ -3224,6 +3254,8 @@ module.exports =
 
 	const BaseWorker = __webpack_require__(14);
 
+	const Util = __webpack_require__(11);
+
 	class AttackWorker extends BaseWorker {
 	    constructor(){ super('attack', { quota: true, critical: 'attack' }); }
 
@@ -3266,8 +3298,20 @@ module.exports =
 	        var action = false;
 	        var target = false;
 	        var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
-	        if(inTargetRoom && flag.name.includes('target')){
-	            target = flag.getStructure();
+	        if(inTargetRoom && flag.room){
+	            var flags = flag.room.getFlagsByPrefix('target');
+	            if(flags.length > 0){
+	                var targets = _.reduce(flags, (result, targetFlag) => {
+	                    var struct = targetFlag.getStructure();
+	                    if(struct){
+	                        result.push(struct);
+	                    }else{
+	                        targetFlag.remove();
+	                    }
+	                    return result;
+	                }, []);
+	                target = _.first(Util.sort.closest(creep, targets));
+	            }
 	        }
 	        if(!target){
 	            var buildings = inTargetRoom ? _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank') : [];
@@ -3279,6 +3323,7 @@ module.exports =
 	            let attack = creep.getActiveBodyparts('attack');
 	            let ranged = creep.getActiveBodyparts('ranged_attack');
 	            let dist = creep.pos.getRangeTo(target);
+	            target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
 	            if(attack > 0){
 	                action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
 	            }else if(ranged > 0){
@@ -3759,7 +3804,8 @@ module.exports =
 	        var targets = [];
 	        for(let flag of flags){
 	            let roomName = flag.pos.roomName;
-	            if(flag.room && _.get(Memory.rooms, [roomName, 'cluster']) == cluster.id){
+	            let parts = flag.name.split('-');
+	            if(flag.room && (_.get(Memory.rooms, [roomName, 'cluster']) == cluster.id || parts[2] == cluster.id)){
 	                let parts = flag.name.split('-');
 	                let range = 0;
 	                if(parts.length > 1){
@@ -3794,7 +3840,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        this.orMove(creep, target, creep.dismantle(target));
+	        this.orAttackMove(creep, target, creep.dismantle(target));
 	    }
 
 	}
@@ -4027,6 +4073,10 @@ module.exports =
 
 	    observe(cluster, subtype){
 	        let unobservedRooms = _.pick(Memory.observe || {}, timeout => timeout > Game.time);
+	        let flags = Flag.getByPrefix("Observe");
+	        for(let flag of flags){
+	            unobservedRooms[flag.pos.roomName] = Game.time + 25;
+	        }
 	        const targets = _.reduce(Memory.rooms, (result, data, name)=>{
 	            if(data.cluster == cluster.id && data.observe){
 	                let targetRoom = Game.rooms[name];
@@ -4563,16 +4613,19 @@ module.exports =
 	        if(cluster.totalEnergy < 2000){
 	            return 5;
 	        }
-	        if(target.level == 8){
-	            return 15;
-	        }
 	        if(cluster.maxRCL <= 2){
 	            return 5;
 	        }
 	        if(cluster.maxRCL < 4){
 	            return 10;
 	        }
+	        if(target.level == 8){
+	            return 15;
+	        }
 	        let energy = _.get(target, 'room.storage.store.energy', 0);
+	        if(target.level < 7 && energy > 100000 && target.room.memory.powerlevel){
+	            return Math.max(2, Math.floor(energy / 100000)) * 15;
+	        }
 	        return Math.max(1, Math.floor(energy / 150000)) * 15;
 	    }
 
@@ -5003,7 +5056,7 @@ module.exports =
 	            return;
 	        }
 	        var resources = cluster.getResources();
-	        var targetAmount = _.size(cluster.structures.terminal) * 5000 + 1000;
+	        var targetAmount = _.size(cluster.structures.terminal) * 5000 + 2000;
 	        var resourceList = _.values(REACTIONS.X);
 	        var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
 	        quota.G = targetAmount;

@@ -16,7 +16,8 @@ class DismantleWorker extends BaseWorker {
         var targets = [];
         for(let flag of flags){
             let roomName = flag.pos.roomName;
-            if(flag.room && _.get(Memory.rooms, [roomName, 'cluster']) == cluster.id){
+            let parts = flag.name.split('-');
+            if(flag.room && (_.get(Memory.rooms, [roomName, 'cluster']) == cluster.id || parts[2] == cluster.id)){
                 let parts = flag.name.split('-');
                 let range = 0;
                 if(parts.length > 1){
@@ -51,7 +52,7 @@ class DismantleWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        this.orMove(creep, target, creep.dismantle(target));
+        this.orAttackMove(creep, target, creep.dismantle(target));
     }
 
 }

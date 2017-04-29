@@ -18,7 +18,9 @@ class Controller {
                 let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
                 if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
                     _.pull(observers, observer);
-                    observer.observeRoom(roomName);
+                    if(observer.observeRoom(roomName) == OK){
+                        new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+                    }
                 }else{
                     console.log('No observer for', roomName);
                 }
@@ -67,7 +69,7 @@ class Controller {
                     if(hurtCreep){
                         tower.heal(hurtCreep);
                     }else if(Game.interval(20)){
-                        let critStruct = _.first(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400));
+                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
                         if(critStruct){
                             tower.repair(critStruct);
                         }
