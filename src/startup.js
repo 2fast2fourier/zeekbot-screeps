@@ -191,6 +191,36 @@ class Startup {
         _.forEach(Memory.stats.profile, (value, type)=>Game.longterm(type, value));
     }
 
+    static processGenericFlags(){
+        let flags = Flag.getByPrefix('action');
+        for(let flag of flags){
+            let roomName = flag.pos.roomName;
+            let parts = flag.name.split('-');
+            let action = parts[1];
+            let target = parts[2];
+            switch(action){
+                case 'killroom':
+                    let confirmFlag = Game.flags['action-killroomconfirm'];
+                    let killFlag = Game.flags['action-killroom'];
+                    if(flag.room && killFlag && confirmFlag && killFlag.pos.roomName == confirmFlag.pos.roomName){
+                        console.log('Killing room', roomName);
+                        confirmFlag.remove();
+                        killFlag.remove();
+                        flag.room.find(FIND_MY_STRUCTURES).map(struct => struct.destroy());
+                    }
+                    break;
+                case 'harvest':
+                    Memory.rooms[roomName].harvest = true;
+                    flag.remove();
+                    break;
+                case 'debugroom':
+                    console.log(JSON.stringify(Memory.rooms[roomName]));
+                    flag.remove();
+                    break;
+            }
+        }
+    }
+
     static processActions(){
         let flags = Flag.getByPrefix('cluster');
         for(let flag of flags){
@@ -257,6 +287,8 @@ class Startup {
             }
             flag.remove();
         }
+
+        Startup.processGenericFlags();
     }
 }
 

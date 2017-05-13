@@ -40,19 +40,24 @@ module.exports.loop = function () {
 
     let bootstrap = false;
     let bootstrapper = false;
-    if(Memory.bootstrap){
+    if(Game.interval(5) && Memory.bootstrap){
         bootstrap = Game.clusters[Memory.bootstrap];
-        let availableClusters = _.filter(Game.clusters, cluster => cluster.structures.spawn.length > 1);
-        bootstrapper = _.first(_.sortBy(availableClusters, cluster => Pathing.getMinPathDistance(new RoomPosition(25, 25, _.first(cluster.rooms).name), new RoomPosition(25, 25, _.first(bootstrap.rooms).name))));
+        if(Game.flags.bootstrapper){
+            bootstrapper = Game.flags.bootstrapper.room.cluster;
+        }//else{
+        //     let availableClusters = _.filter(Game.clusters, cluster => cluster.structures.spawn.length > 1);
+        //     bootstrapper = _.first(_.sortBy(availableClusters, cluster => Pathing.getMinPathDistance(new RoomPosition(25, 25, _.first(cluster.rooms).name), new RoomPosition(25, 25, _.first(bootstrap.rooms).name))));
+        // }
     }
 
     let initTime = Game.cpu.getUsed();
 
-    // let ix = 0;
     // let autobuildOffset = _.size(Game.clusters) * 100;
+    let ix = 50;
+    let autobuildOffset = 1000;
     for(let name in Game.clusters){
-        Game.longtermAdd('spawn-'+name, 0);
-        Game.longtermAdd('spawn-energy-'+name, 0);
+        Game.longtermAdd('s-'+name, 0);
+        Game.longtermAdd('se-'+name, 0);
         let clusterStart = Game.cpu.getUsed();
         let cluster = Game.clusters[name];
         Worker.process(cluster);
@@ -67,30 +72,25 @@ module.exports.loop = function () {
 
         Controller.control(cluster, allocated);
         production.process(cluster);
-        // let iy = 0;
-        // for(let buildRoom of cluster.roomflags.autobuild){
-        //     if(Game.intervalOffset(autobuildOffset, ix * 75 + iy)){
-        //         let builder = new AutoBuilder(buildRoom);
-        //         builder.buildTerrain();
-        //         let buildList = builder.generateBuildingList();
-        //         if(buildList){
-        //             builder.autobuild(buildList);
-        //         }
-        //     }
-        //     iy++;
-        // }
-        // if(Game.intervalOffset(autobuildOffset, ix * 20)){
-        //     AutoBuilder.buildInfrastructureRoads(cluster);
-        // }
 
-        if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 500000 && cluster.opts.repair < REPAIR_CAP){
-            cluster.opts.repair += 25000;
+        let iy = 1;
+        for(let buildRoom of cluster.roomflags.autobuild){
+            if(Game.intervalOffset(autobuildOffset, ix + iy)){
+                let builder = new AutoBuilder(buildRoom);
+                builder.buildTerrain();
+                builder.autobuild(builder.generateBuildingList());
+            }
+            iy++;
+        }
+
+        if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
+            cluster.opts.repair += 50000;
             Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
             console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
         }
 
         Game.profile(name, Game.cpu.getUsed() - clusterStart);
-        // ix++;
+        ix+= 100;
     }
     
     let clusterEndTime = Game.cpu.getUsed();

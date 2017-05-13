@@ -68,8 +68,8 @@ class AttackWorker extends BaseWorker {
                 target = _.first(Util.sort.closest(creep, targets));
             }
         }
-        if(!target){
-            var buildings = inTargetRoom ? _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank') : [];
+        if(!target && inTargetRoom){
+            var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
             let hostiles = _.filter(cluster.find(creep.room, FIND_HOSTILE_CREEPS), target => _.get(target, 'owner.username', false) != 'Source Keeper');
             let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
             target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
@@ -79,6 +79,7 @@ class AttackWorker extends BaseWorker {
             let ranged = creep.getActiveBodyparts('ranged_attack');
             let dist = creep.pos.getRangeTo(target);
             target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
+            target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
             if(attack > 0){
                 action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
             }else if(ranged > 0){

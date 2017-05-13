@@ -27,6 +27,16 @@ class TransferWorker extends BaseWorker {
         }, []);
     }
 
+    generateTerminalEnergyTransfers(cluster){
+        return cluster.structures.terminal.reduce((result, struct) => {
+            let energy = struct.getResource(RESOURCE_ENERGY);
+            if(energy > 50000){
+                result.push(this.createJob(cluster, 'transfer', struct, { action: 'store', resource: RESOURCE_ENERGY, amount: 50000 }));
+            }
+            return result;
+        }, []);
+    }
+
     generateLabTransfers(cluster){
         var min = 1500;
         var max = 2500;
@@ -72,6 +82,7 @@ class TransferWorker extends BaseWorker {
         jobLists.push(this.generateLabTransfers(cluster));
         if(cluster.structures.terminal.length > 0){
             jobLists.push(this.generateTerminalTransfers(cluster));
+            jobLists.push(this.generateTerminalEnergyTransfers(cluster));
         }
         return _.flatten(jobLists);
     }
@@ -141,7 +152,7 @@ class TransferWorker extends BaseWorker {
         if(job.args.action == 'store' || job.args.action == 'terminal'){
             return current > 0;
         }else if(job.args.action == 'deliver'){
-            return current > 0 && job.target.getResource(resource) < job.args.amount;
+            return current > 0 && job.target && job.target.getResource(resource) < job.args.amount;
         }
     }
 
@@ -236,7 +247,7 @@ class TransferWorker extends BaseWorker {
         var target;
         if(action == 'store'){
             var terminalIdeal = 5000 * _.size(cluster.structures.terminal);
-            if(cluster.resources[type].totals.terminal + resources <= terminalIdeal + 10000){
+            if(type != RESOURCE_ENERGY && cluster.resources[type].totals.terminal + resources <= terminalIdeal + 10000){
                 target = _.first(Util.sort.closest(creep, cluster.structures.terminal));
             }else{
                 target = _.first(Util.sort.closest(creep, cluster.structures.storage));

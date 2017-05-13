@@ -2,15 +2,26 @@
 
 const Util = require('./util');
 const roomRegex = /([WE])(\d+)([NS])(\d+)/;
+const ENERGY_TRANSFER_AMOUNT = 20000;
 
 class Controller {
 
     static hegemony(allocated){
+        if(Game.interval(10)){
+            _.forEach(Game.flags, flag =>{
+                if(!flag.room){
+                    Memory.observe[flag.pos.roomName] = Game.time + 98;
+                    console.log('Observing', flag.pos.roomName);
+                }
+            });
+        }
         if(Game.interval(20)){
             var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(flag));
 
-            Controller.levelTerminals();
+            var transferred = Controller.levelTerminals();
+            Controller.terminalEnergy(transferred);
+            Controller.emptyTerminals();
         }
         if(_.size(Memory.observe) > 0){
             var observers = _.filter(Game.hegemony.structures.observer, struct => !_.includes(allocated, struct.id));
@@ -42,7 +53,8 @@ class Controller {
                     var owner = _.get(scanRoom, 'controller.owner.username');
                     var reserved = _.get(scanRoom, 'controller.reservation.username');
                     if(owner && !scanRoom.controller.my){
-                        Memory.avoidRoom[scanRoom.name] = true;
+                        let buildings = scanRoom.find(FIND_HOSTILE_STRUCTURES);
+                        Memory.avoidRoom[scanRoom.name] = buildings.length > 5;
                     }else if(reserved && reserved != 'Zeekner'){
                         Memory.avoidRoom[scanRoom.name] = true;
                     }else{
@@ -128,6 +140,41 @@ class Controller {
     }
 
     //// Terminals ////
+    static terminalEnergy(transferred){
+        let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
+        let sourceClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy > 300000 && cluster.structures.terminal.length > 0);
+        let sourceTerminals = _.reduce(sourceClusters, (result, cluster) => {
+            return result.concat(_.filter(cluster.structures.terminal, terminal => terminal.getResource(RESOURCE_ENERGY) > ENERGY_TRANSFER_AMOUNT + 20000 && !transferred[terminal.id]));
+        }, []);
+        if(targetClusters.length > 0 && sourceTerminals.length > 0){
+            for(let destCluster of targetClusters){
+                let targetTerminal = _.first(Util.sort.resource(RESOURCE_ENERGY, destCluster.structures.terminal));
+                if(targetTerminal.getResource(RESOURCE_ENERGY) < 100000){
+                    let closest = Util.closest(targetTerminal, sourceTerminals);
+                    if(closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, targetTerminal.pos.roomName) == OK){
+                        console.log('Transferred', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', destCluster.id);
+                        transferred[closest.id] = true;
+                        _.pull(sourceTerminals, closest);
+                    }
+                }
+            }
+        }
+    }
+
+    static emptyTerminals(){
+        let terminals = _.filter(Game.hegemony.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+        if(terminals.length){
+            let targets = _.filter(Game.hegemony.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
+            terminals.forEach(terminal => {
+                let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
+                let sending = _.first(_.keys(resources));
+                let target = Util.closest(terminal, targets);
+                if(target && terminal.send(sending, resources[sending], target.pos.roomName) == OK){
+                    console.log('Emptying terminal', terminal.pos.roomName, terminal.room.cluster.id, 'sending', sending, resources[sending], target.pos.roomName);
+                }
+            });
+        }
+    }
 
     static levelTerminals(){
         let transferred = {};
@@ -140,7 +187,7 @@ class Controller {
                 return;
             }
 
-            let needed = _.filter(terminals, terminal => terminal.getResource(type) < ideal - 100);
+            let needed = _.filter(terminals, terminal => terminal.getResource(type) < ideal - 100 && !terminal.hasTag('empty'));
             let excess = _.filter(terminals, terminal => !transferred[terminal.id] && terminal.getResource(type) > ideal + 100 && terminal.getResource(RESOURCE_ENERGY) > 20000);
             if(needed.length > 0 && excess.length > 0){
                 let source = _.last(Util.sort.resource(type, excess));

@@ -93,7 +93,7 @@ module.exports = function(){
         console.log(message);
         if(_.get(Memory, ['notify', type], 0) < Game.time){
             Game.notify(message);
-            _.set(Memory, ['notify', type], Game.time + 5000);
+            _.set(Memory, ['notify', type], Game.time + 2000);
         }
     };
 

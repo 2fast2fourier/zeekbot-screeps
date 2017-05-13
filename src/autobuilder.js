@@ -98,23 +98,6 @@ class AutoBuilder {
         return  _.first(_.sortBy(cluster.structures[type], struct => pos.getLinearDistance(struct)));
     }
 
-    static buildInfrastructureRoads(cluster){
-        if(cluster.structures.storage.length > 0 && _.size(Game.constructionSites) < 20){
-            for(let source of cluster.findAll(FIND_SOURCES)){
-                let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
-                if(storage){
-                    AutoBuilder.buildRoads(source.pos, storage.pos);
-                }
-            }
-            for(let extractor of cluster.getAllStructures([STRUCTURE_EXTRACTOR, STRUCTURE_CONTROLLER])){
-                let storage = AutoBuilder.findNearest(cluster, extractor.pos, STRUCTURE_STORAGE);
-                if(storage){
-                    AutoBuilder.buildRoads(extractor.pos, storage.pos);
-                }
-            }
-        }
-    }
-
     static buildRoads(start, end, debug){
         let visuals = {};
         visuals[start.roomName] = new RoomVisual(start.roomName);
@@ -207,24 +190,28 @@ class AutoBuilder {
                 if(gridTypes.includes(this.grid[xoff + ix])){
                     count++;
                 }
-                // this.vis.rect(ix - 0.25, iy - 0.25, 0.5, 0.5, { fill: '#ff0000', opacity: 0.25 });
             }
         }
         return count;
     }
 
     generateBuildingList(){
-        var extensions = [];
-        if(this.spawn){
+        var result = {
+            extensions: [],
+            roads: []
+        };
+        var buildRoads = _.get(this.room, 'memory.buildroads', 0) < Game.time;
+        if(this.spawn && this.room.getAvailableStructureCount(STRUCTURE_EXTENSION) > 0){
             var out = new Set();
             this.placeExtensions(this.spawn.pos.x, this.spawn.pos.y, 0, new Set(), doublerpos, out);
-            extensions = _.sortBy([...out], extension => this.spawn.pos.getRangeTo(ix2pos(extension, this.room.name)));
+            result.extensions = _.sortBy([...out], extension => this.spawn.pos.getRangeTo(ix2pos(extension, this.room.name)));
+            buildRoads = true;
         }
-        return {
-            containers: [...this.placeContainers()],
-            roads: [...this.placeRoads()],
-            extensions
+        if(buildRoads){
+            result.roads = [...this.placeRoads()];
+            _.set(this.room, 'memory.buildroads', Game.time + 5000);
         }
+        return result;
     }
 
     addWeights(x, y, minX, maxX, minY, maxY, weights){
@@ -266,36 +253,6 @@ class AutoBuilder {
         return target;
     }
 
-    placeContainers(){
-        var containerPos = new Set();
-        var pos = 0;
-        var sources = this.sources;
-        if(this.room.memory.role == 'core' || this.room.memory.keep){
-            sources = sources.concat(this.room.find(FIND_MINERALS) || []);
-        }
-        for(let source of sources){
-            if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(source.pos), 2) > 0){
-                continue;
-            }
-            let target = this.findAccessibleSpot(source.pos, 1);
-            if(target){
-                this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
-                containerPos.add(target);
-            }
-        }
-        if(this.room.controller && this.room.memory.role == 'core'){
-            let pos = this.room.controller.pos;
-            if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(pos), 2) == 0){
-                let target = this.findAccessibleSpot(pos, 2);
-                if(target){
-                    this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
-                    containerPos.add(target);
-                }
-            }
-        }
-        return containerPos;
-    }
-
     addRoadsAround(struct, roads, radius){
         for(var iy = Math.max(struct.pos.y - radius, 1); iy <= Math.min(struct.pos.y + radius, 48); iy++){
             for(var ix = Math.max(struct.pos.x - radius, 1); ix <= Math.min(struct.pos.x + radius, 48); ix++){
@@ -314,7 +271,7 @@ class AutoBuilder {
             switch(struct.structureType){
                 case STRUCTURE_EXTRACTOR:
                     this.extractor = struct;
-                    this.addRoadsAround(struct, roads, 2);
+                    this.addRoadsAround(struct, roads, 1);
                     break;
                 case STRUCTURE_SPAWN:
                 case STRUCTURE_STORAGE:
@@ -322,7 +279,7 @@ class AutoBuilder {
                     break;
                 case STRUCTURE_CONTROLLER:
                     if(this.room.memory.role == 'core'){
-                        this.addRoadsAround(struct, roads, 2);
+                        this.addRoadsAround(struct, roads, 1);
                     }
                     break;
                 case STRUCTURE_EXTENSION:
@@ -336,7 +293,7 @@ class AutoBuilder {
             }
         }
         for(let source of this.sources){
-            this.addRoadsAround(source, roads, 2);
+            this.addRoadsAround(source, roads, 1);
         }
         for(let road of roads){
             this.vis.rect(ix2x(road) - 0.25, ix2y(road) - 0.25, 0.5, 0.5, { fill: '#999999', opacity: 0.25 });
@@ -388,21 +345,29 @@ class AutoBuilder {
 
     autobuild(structs){
         if(structs.roads.length > 0){
-            structs.roads.forEach((ix)=>{
-                let targetPos = ix2pos(ix, this.room.name);
+            for(let road of structs.roads){
+                let targetPos = ix2pos(road, this.room.name);
                 targetPos.createConstructionSite(STRUCTURE_ROAD);
-            });
+            }
         }
-        if(structs.extensions.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_EXTENSION) > 0){
-            let targetPos = ix2pos(_.first(structs.extensions), this.room.name);
-            console.log('Building extension at', targetPos);
-            targetPos.createConstructionSite(STRUCTURE_EXTENSION);
+        if(structs.extensions.length > 0){
+            let total = this.room.getAvailableStructureCount(STRUCTURE_EXTENSION);
+            let ix = 0;
+            for(let extension of structs.extensions){
+                if(ix >= total){
+                    break;
+                }
+                let targetPos = ix2pos(extension, this.room.name);
+                console.log('Building extension at', targetPos);
+                targetPos.createConstructionSite(STRUCTURE_EXTENSION);
+                ix++;
+            }
         }
-        if(structs.containers.length > 0 && this.room.getAvailableStructureCount(STRUCTURE_CONTAINER) > 0){
-            let targetPos = ix2pos(_.first(structs.containers), this.room.name);
-            console.log('Building container at', targetPos);
-            targetPos.createConstructionSite(STRUCTURE_CONTAINER);
-        }
+        // if(structs.containers.length > 0){
+        //     let targetPos = ix2pos(_.first(structs.containers), this.room.name);
+        //     console.log('Building container at', targetPos);
+        //     targetPos.createConstructionSite(STRUCTURE_CONTAINER);
+        // }
         if(!this.extractor && this.room.memory.role == 'core' && this.room.getAvailableStructureCount(STRUCTURE_EXTRACTOR) > 0){
             let mineral = _.first(this.room.find(FIND_MINERALS));
             if(mineral){
@@ -410,7 +375,7 @@ class AutoBuilder {
                 mineral.pos.createConstructionSite(STRUCTURE_EXTRACTOR);
             }
         }
-        this.placeTags();
+        // this.placeTags();
     }
 
     findNearby(pos, type, range){
@@ -422,44 +387,91 @@ class AutoBuilder {
         return _.filter(this.structures, struct => types.includes(struct.structureType) && pos.getRangeTo(struct) <= range);
     }
 
-    placeTags(){
-        if(this.room.controller && this.room.memory.role == 'core'){
-            let pos = this.room.controller.pos;
-            let containers = this.findNearby(pos, STRUCTURE_CONTAINER, 3);
-            if(containers.length > 0 && !containers.some(container => container.hasTag('stockpile'))){
-                for(let container of containers){
-                    if(!container.hasTag('stockpile')){
-                        container.addTag('stockpile');
-                        console.log('Added stockpile tag to', container, 'in', container.pos.roomName);
-                        break;
-                    }
-                }
-            }
-            let links = this.findNearby(pos, STRUCTURE_LINK, 3);
-            if(links.length > 0 && !links.some(link => link.hasTag('output'))){
-                for(let link of links){
-                    if(!link.hasTag('output')){
-                        link.addTag('output');
-                        console.log('Added link output tag to', link, 'in', link.pos.roomName);
-                        break;
-                    }
-                }
-            }
-        }
-        for(let source of this.sources){
-            let links = this.findNearby(source.pos, STRUCTURE_LINK, 2);
-            if(links.length > 0 && !links.some(link => link.hasTag('input'))){
-                for(let link of links){
-                    if(!link.hasTag('input')){
-                        link.addTag('input');
-                        console.log('Added link input tag to', link, 'in', link.pos.roomName);
-                        break;
-                    }
-                }
-            }
-        }
-        // cluster.update('labs', _.filter(_.map(cluster.rooms, room => _.map(cluster.getStructuresByType(room, STRUCTURE_LAB), 'id')), list => list.length > 0));
-    }
+    // placeContainers(){
+    //     var containerPos = new Set();
+    //     var pos = 0;
+    //     var sources = this.sources;
+    //     if(this.room.memory.role == 'core' || this.room.memory.keep){
+    //         sources = sources.concat(this.room.find(FIND_MINERALS) || []);
+    //     }
+    //     for(let source of sources){
+    //         if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(source.pos), 2) > 0){
+    //             continue;
+    //         }
+    //         let target = this.findAccessibleSpot(source.pos, 1);
+    //         if(target){
+    //             this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
+    //             containerPos.add(target);
+    //         }
+    //     }
+    //     if(this.room.controller && this.room.memory.role == 'core'){
+    //         let pos = this.room.controller.pos;
+    //         if(this.countNearby([this.values.container, this.values.storage, this.values.link], pos2ix(pos), 2) == 0){
+    //             let target = this.findAccessibleSpot(pos, 2);
+    //             if(target){
+    //                 this.vis.circle(ix2x(target), ix2y(target), { fill: '#ff0000' });
+    //                 containerPos.add(target);
+    //             }
+    //         }
+    //     }
+    //     return containerPos;
+    // }
+
+    // static buildInfrastructureRoads(cluster){
+    //     if(cluster.structures.storage.length > 0 && _.size(Game.constructionSites) < 20){
+    //         for(let source of cluster.findAll(FIND_SOURCES)){
+    //             let storage = AutoBuilder.findNearest(cluster, source.pos, STRUCTURE_STORAGE);
+    //             if(storage){
+    //                 AutoBuilder.buildRoads(source.pos, storage.pos);
+    //             }
+    //         }
+    //         for(let extractor of cluster.getAllStructures([STRUCTURE_EXTRACTOR, STRUCTURE_CONTROLLER])){
+    //             let storage = AutoBuilder.findNearest(cluster, extractor.pos, STRUCTURE_STORAGE);
+    //             if(storage){
+    //                 AutoBuilder.buildRoads(extractor.pos, storage.pos);
+    //             }
+    //         }
+    //     }
+    // }
+
+    // placeTags(){
+    //     if(this.room.controller && this.room.memory.role == 'core'){
+    //         let pos = this.room.controller.pos;
+    //         let containers = this.findNearby(pos, STRUCTURE_CONTAINER, 3);
+    //         if(containers.length > 0 && !containers.some(container => container.hasTag('stockpile'))){
+    //             for(let container of containers){
+    //                 if(!container.hasTag('stockpile')){
+    //                     container.addTag('stockpile');
+    //                     console.log('Added stockpile tag to', container, 'in', container.pos.roomName);
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //         let links = this.findNearby(pos, STRUCTURE_LINK, 3);
+    //         if(links.length > 0 && !links.some(link => link.hasTag('output'))){
+    //             for(let link of links){
+    //                 if(!link.hasTag('output')){
+    //                     link.addTag('output');
+    //                     console.log('Added link output tag to', link, 'in', link.pos.roomName);
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     for(let source of this.sources){
+    //         let links = this.findNearby(source.pos, STRUCTURE_LINK, 2);
+    //         if(links.length > 0 && !links.some(link => link.hasTag('input'))){
+    //             for(let link of links){
+    //                 if(!link.hasTag('input')){
+    //                     link.addTag('input');
+    //                     console.log('Added link input tag to', link, 'in', link.pos.roomName);
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     // cluster.update('labs', _.filter(_.map(cluster.rooms, room => _.map(cluster.getStructuresByType(room, STRUCTURE_LAB), 'id')), list => list.length > 0));
+    // }
 
 
 

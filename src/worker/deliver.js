@@ -21,13 +21,13 @@ class DeliverWorker extends BaseWorker {
     }
 
     storage(cluster, subtype){
-        var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.8);
+        var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.9 && storage.getResource(RESOURCE_ENERGY) < storage.getCapacity() * 0.6);
         var tagged = cluster.getTaggedStructures();
         return this.jobsForTargets(cluster, subtype, structures.concat(tagged.stockpile || []), { resource: RESOURCE_ENERGY });
     }
 
     terminal(cluster, subtype){
-        var terminals = cluster.getAllMyStructures([STRUCTURE_STORAGE]);
+        var terminals = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.9);
         var jobs = [];
         for(let terminal of terminals){
             for(let resource of RESOURCES_ALL){

@@ -108,17 +108,16 @@ class Cluster {
                 cluster.structures[structure.structureType].push(structure);
             }
         });
-        // console.log(Game.hegemony.structures.storage.length);
         Cluster.processClusterFlags();
         _.forEach(Game.clusters, cluster => {
-            if(cluster.maxRCL < 2 || _.size(cluster.structures.spawn) == 0){
+            if(cluster.maxRCL < 3 || _.size(cluster.structures.spawn) == 0){
                 Memory.bootstrap = cluster.id;
                 cluster.bootstrap = true;
             }
             if(Game.interval(30)){
                 Cluster.cleanupTags(cluster);
             }
-            if(Game.interval(2000)){
+            if(Game.interval(200)){
                 let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !lab.hasTag('boost')));
                 let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
                 cluster.update('labs', _.values(labs));
@@ -165,17 +164,16 @@ class Cluster {
             delete Memory.removetag;
         }
         for(let flag of Flag.getByPrefix('tag')){
-            console.log('Processing tag:', flag.name);
             let parts = flag.name.split('-');
             let tag = parts[1];
             let target = Cluster.getFlagTarget(flag);
             if(target && target.room && target.room.hasCluster()){
                 console.log('Added tag:', tag, 'to', target);
                 target.room.getCluster().addTag(tag, target.id);
-            }else{
-                console.log('could not find tag target', target, flag.pos);
+                flag.remove();
+            }else if(Game.interval(25)){
+                console.log('cannot find flag target', flag.pos);
             }
-            flag.remove();
         }
         for(let flag of Flag.getByPrefix('boost')){
             let parts = flag.name.split('-');
@@ -244,7 +242,7 @@ class Cluster {
     }
 
     changeRole(roomName, newRole){
-        Cluster.addRoom(this.id, roomName, newRole);
+        Cluster.setRole(roomName, newRole, true);
     }
 
     addTag(tag, id){
@@ -372,6 +370,30 @@ class Cluster {
             }, {});
         }
         return this._boostMinerals;
+    }
+
+    findClosestCore(dest){
+        if(!dest){
+            return undefined;
+        }
+        let closest = false;
+        let distance = Infinity;
+        for(let room of this.getRoomsByRole('core')){
+            if(!room.controller){
+                continue;
+            }
+            let dist = room.controller.pos.getPathDistance(dest);
+            if(dist < distance){
+                distance = dist;
+                closest = room;
+            }
+        }
+        if(closest){
+            return {
+                room: closest,
+                distance
+            };
+        }
     }
 
 }

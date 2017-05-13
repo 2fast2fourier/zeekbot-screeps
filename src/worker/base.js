@@ -146,7 +146,7 @@ class BaseWorker {
                 let jobs = this.generateJobs(cluster, subtype);
                 quota[subtype+'-'+this.type] = _.sum(jobs, job => job.capacity);
             });
-        } 
+        }
     }
 
     //// Lifecycle ////

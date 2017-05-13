@@ -9,7 +9,7 @@ var haulerParts = {
     pico: { carry: 3, move: 3 }//300
 };
 
-module.exports = {
+var template = {
     defender: {
         quota: 'defend',
         critical: true,
@@ -30,12 +30,19 @@ module.exports = {
         assignRoom: 'spawn',
         parts: haulerParts,
         emergency: 'pico',
-        work: { 
+        work: {
             pickup: { local: true },
             deliver: { subtype: 'spawn', local: true },
             idle: { subtype: 'spawn', local: true }
         },
-        behavior: { avoid: {} }
+        behavior: { avoid: {} },
+        variants: {
+            fallback: {
+                emergency: false,
+                allocationMulti: 100,
+                parts: { pico: {carry: 4, move: 2 } }
+            }
+        }
     },
     energyminer: {
         quota: 'energy-mine',
@@ -43,6 +50,7 @@ module.exports = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
+            kilo: { move: 8, carry: 2, work: 8 },
             milli: { move: 4, carry: 2, work: 8 },//standard 1100
             micro: { move: 3, carry: 1, work: 6 },//800
             nano: { move: 2, carry: 2, work: 3 },//550
@@ -52,28 +60,40 @@ module.exports = {
         work: { mine: { subtype: 'energy' } },
         behavior: { avoid: {}, minecart: {} }
     },
-    stockpilehauler: {
-        quota: 'stockpile-deliver',
-        allocation: 'carry',
-        allocationMulti: 50,
-        parts: haulerParts,
-        work: { 
-            pickup: {},
-            deliver: { subtype: 'stockpile' }
-        },
-        behavior: { avoid: {} }
-    },
-    harvesthauler: {
+    hauler: {
         quota: 'harvesthauler',
         allocation: 'carry',
         allocationMax: 24,
         parts: haulerParts,
         assignRoom: 'harvest',
         work: {
-            pickup: { subtype: 'harvest' },
+            pickup: { subtype: 'harvest', local: true },
             deliver: { subtype: 'storage' }
         },
-        behavior: { avoid: {} }
+        behavior: { avoid: {} },
+        variants: {
+            stockpile: {
+                quota: 'stockpile-deliver',
+                allocationMulti: 50,
+                allocationMax: Infinity,
+                work: { 
+                    pickup: {},
+                    deliver: { subtype: 'stockpile' }
+                },
+                assignRoom: false
+            },
+            mineral: {
+                quota: 'mineral-pickup',
+                allocationMulti: 50,
+                allocationMax: Infinity,
+                parts: { milli: { carry: 16, move: 8 } },
+                work: {
+                    pickup: { subtype: 'mineral' },
+                    deliver: { subtype: 'terminal' }
+                },
+                assignRoom: false
+            }
+        }
     },
     reserver: {
         quota: 'reserve',
@@ -85,7 +105,16 @@ module.exports = {
             pico: { claim: 1, move: 1 }
         },
         work: { reserve: {} },
-        behavior: { avoid: {} }
+        behavior: { avoid: {} },
+        variants: {
+            downgrade: {
+                quota: 'downgrade',
+                allocation: 1,
+                allocationMax: 4,
+                work: { downgrade: { } },
+                parts: { pico: { claim: 5, move: 5 } }
+            }
+        }
     },
     keeper: {
         quota: 'keep',
@@ -112,14 +141,14 @@ module.exports = {
             nano: { move: 4, carry: 2, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, build: {}, repair: { priority: 99 }, idle: { subtype: 'controller' } },
+        work: { pickup: {}, build: {}, repair: { priority: 99 } },
         behavior: { avoid: {} }
     },
     upgradeworker: {
         quota: 'upgrade',
         allocation: 'work',
         parts: {
-            mega: { work: 15, move: 12, carry: 9 },//2550
+            mega: { work: 15, move: 24, carry: 9 },//2700
             kilo: { work: 15, move: 9, carry: 3 },//2100
             milli: { work: 5, move: 6, carry: 6 },//1200
             micro: { work: 5, move: 4, carry: 2 },//800
@@ -133,7 +162,8 @@ module.exports = {
         quota: 'repair',
         allocation: 'work',
         allocationMulti: 5000,
-        maxQuota: 400000,
+        maxQuota: 500000,
+        critical: true,
         parts: {
             kilo: { move: 15, carry: 20, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150
@@ -171,17 +201,6 @@ module.exports = {
         work: { mine: { subtype: 'mineral' } },
         behavior: { avoid: {}, minecart: {} }
     },
-    mineralhauler: {
-        quota: 'mineral-pickup',
-        allocation: 'carry',
-        allocationMulti: 50,
-        parts: { milli: { carry: 16, move: 8 } },
-        work: {
-            pickup: { subtype: 'mineral' },
-            deliver: { subtype: 'terminal' }
-        },
-        behavior: { avoid: {} }
-    },
     transferhauler: {
         quota: 'transfer',
         maxQuota: 12,
@@ -210,20 +229,6 @@ module.exports = {
         work: { dismantle: {} },
         behavior: { avoid: {} }
     },
-    spawnhaulerfb: {
-        quota: 'spawnhauler',
-        allocation: 'carry',
-        allocationMulti: 100,
-        critical: true,
-        assignRoom: 'spawn',
-        parts: { pico: {carry: 4, move: 2 } },
-        work: {
-            pickup: { local: true },
-            deliver: { subtype: 'spawn', local: true },
-            idle: { subtype: 'spawn', local: true }
-        },
-        behavior: { avoid: {} }
-    },
     attacker: {
         quota: 'attack',
         maxQuota: 6,
@@ -238,3 +243,19 @@ module.exports = {
         behavior: { selfheal: { block: 500 }, defend: {}, boost: {} }
     }
 }
+
+function buildCreeplist(creeps){
+    var result = _.cloneDeep(creeps);
+    for(var type in creeps){
+        var config = creeps[type];
+        if(config.variants){
+            for(var variant in config.variants){
+                var modification = config.variants[variant];
+                result[variant+'-'+type] = _.assign(_.cloneDeep(creeps[type]), modification);
+            }
+        }
+    }
+    return result;
+}
+
+module.exports = buildCreeplist(template);

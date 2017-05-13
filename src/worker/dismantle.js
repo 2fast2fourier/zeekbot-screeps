@@ -38,6 +38,9 @@ class DismantleWorker extends BaseWorker {
                 }
             }
         }
+        for(var target of targets){
+            target.room.visual.circle(target.pos);
+        }
         return this.jobsForTargets(cluster, subtype, targets);
     }
 
@@ -52,6 +55,7 @@ class DismantleWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
+        target.room.visual.circle(target.pos);
         this.orAttackMove(creep, target, creep.dismantle(target));
     }
 

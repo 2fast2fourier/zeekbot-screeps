@@ -12,11 +12,11 @@ class KeepWorker extends BaseWorker {
             return [];
         }
         let keeps = cluster.findIn(cluster.roomflags.keep, FIND_HOSTILE_STRUCTURES);
-        return this.jobsForTargets(cluster, subtype, _.reject(keeps, keep => keep.ticksToSpawn > 60));
+        return this.jobsForTargets(cluster, subtype, _.reject(keeps, keep => keep.ticksToSpawn > 75));
     }
 
     jobValid(cluster, job){
-        return super.jobValid(cluster, job) && !(job.target.ticksToSpawn > 60 && job.target.ticksToSpawn < 280);
+        return super.jobValid(cluster, job) && !(job.target.ticksToSpawn > 75 && job.target.ticksToSpawn < 280);
     }
 
     /// Creep ///

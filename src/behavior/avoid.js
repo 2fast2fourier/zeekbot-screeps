@@ -10,6 +10,9 @@ class AvoidAction extends BaseAction {
 
     shouldBlock(cluster, creep, opts){
         var idle = false;
+        if(_.get(creep, 'room.controller.safeMode')){
+            return false;
+        }
         var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
         if(creep.room.memory.keep){
             let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);

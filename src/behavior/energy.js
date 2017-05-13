@@ -16,7 +16,6 @@ class EnergyAction extends BaseAction {
     postWork(cluster, creep, opts, action){
         var storage = creep.getStored();
         if(storage < creep.carryCapacity * 0.25){
-            // var energy = this.catalog.lookForArea(creep.room, creep.pos, LOOK_ENERGY, 2);
             var containers = creep.room.lookForRadius(creep.pos, LOOK_STRUCTURES, 2);
             var targets = _.filter(containers, struct => (struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_LINK) && struct.getResource(RESOURCE_ENERGY) > 0);
             var nearby = _.first(_.sortBy(targets, target => offsets[target.structureType] * Math.min(creep.carryCapacity, target.getResource(RESOURCE_ENERGY))));

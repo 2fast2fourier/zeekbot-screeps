@@ -2,7 +2,7 @@
 
 var Util = require('./util');
 
-var DEFICIT_START_MIN = 750;
+var DEFICIT_START_MIN = 250;
 var DEFICIT_END_MIN = 0;
 var CAPACITY_END_MIN = 100;
 
@@ -22,7 +22,6 @@ class Production {
         var resourceList = _.values(REACTIONS.X);
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
         quota.G = targetAmount;
-        quota.UO = targetAmount;
 
         var reactions = {};
         _.forEach(quota, (amount, type) => {

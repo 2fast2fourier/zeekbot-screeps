@@ -14,7 +14,7 @@ class DefendAction extends BaseAction {
         var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
         if(hostiles.length > 0){
             var targets = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < range && (hostile.getActiveBodyparts(ATTACK) > 0 || hostile.getActiveBodyparts(RANGED_ATTACK) > 0))
-            var target = _.first(Util.sort.closest(targets));
+            var target = _.first(Util.sort.closest(creep, targets));
             if(target){
                 return { type: this.type, data: target };
             }

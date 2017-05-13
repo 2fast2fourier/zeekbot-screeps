@@ -40,6 +40,9 @@ class Spawner {
         var allocation = Spawner.calculateQuotaAllocation(targetCluster);
 
         _.forEach(creepsConfig, (config, type)=>{
+            if(config.deprecated){
+                return;
+            }
             let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
             let maxCost = 0;
             let version = false;
@@ -129,8 +132,8 @@ class Spawner {
         Memory.uid++;
         if(spawned){
             console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
-            Game.longtermAdd('spawn-'+cluster.id, _.size(spawnlist.parts[spawnType]) * 3);
-            Game.longtermAdd('spawn-energy-'+cluster.id, spawnlist.costs[spawnType]);
+            Game.longtermAdd('s-'+cluster.id, _.size(spawnlist.parts[spawnType]) * 3);
+            Game.longtermAdd('se-'+cluster.id, spawnlist.costs[spawnType]);
         }else{
             Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
         }

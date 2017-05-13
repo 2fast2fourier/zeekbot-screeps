@@ -47,10 +47,10 @@ class ReserveWorker extends BaseWorker {
             let result = creep.claimController(target);
             if(result == OK){
                 console.log('Claimed room', target.pos.roomName, 'for cluster', cluster.id);
+                cluster.changeRole(target.pos.roomName, 'core');
                 delete Memory.rooms[target.pos.roomName].observe;
                 delete Memory.rooms[target.pos.roomName].claim;
                 delete Memory.rooms[target.pos.roomName].reserve;
-                cluster.changeRole(target.pos.roomName, 'core');
             }else{
                 console.log('Could not claim room', target.pos.roomName, 'for cluster', cluster.id, '! result:', result);
             }

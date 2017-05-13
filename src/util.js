@@ -34,6 +34,14 @@ class Sorting {
         return _.sortBy(entities, SortPredicates.resource(type));
     }
     
+    static distance(entity, entities){
+        return _.sortBy(entities, SortPredicates.distance(entity));
+    }
+    
+    static distancePath(entity, entities){
+        return _.sortBy(entities, SortPredicates.distancePath(entity));
+    }
+
     static closest(entity, entities){
         return _.sortBy(entities, SortPredicates.distance(entity));
     }
@@ -44,6 +52,12 @@ class Sorting {
 }
 
 module.exports = {
+    closest: function(entity, entities){
+        return _.first(Sorting.distance(entity, entities));
+    },
+    furthest: function(entity, entities){
+        return _.last(Sorting.distance(entity, entities));
+    },
     sort: Sorting,
     predicates: {
         sort: SortPredicates

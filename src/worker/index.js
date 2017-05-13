@@ -8,6 +8,7 @@ const workerCtors = {
     defend: require('./defend'),
     deliver: require('./deliver'),
     dismantle: require('./dismantle'),
+    downgrade: require('./downgrade'),
     heal: require('./heal'),
     idle: require('./idle'),
     keep: require('./keep'),
@@ -146,12 +147,21 @@ class Worker {
         var assignments = {};
         let cores = cluster.getRoomsByRole('core');
         let keeper = cluster.getRoomsByRole('keep');
-        let harvest = cluster.getRoomsByRole('harvest').concat(keeper);
+        let harvest = cluster.getRoomsByRole('harvest');
 
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
         assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
         assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
+        for(let keepRoom of keeper){
+            let sources = cluster.find(keepRoom, FIND_SOURCES);
+            let harvestFactor = 1.5;
+            let closest = cluster.findClosestCore(_.first(sources));
+            if(closest){
+                harvestFactor = Math.max(1, 0.5 + Math.min(2, closest.distance / 75));
+            }
+            assignments.harvest[keepRoom.name] = Math.ceil(sources.length * harvestFactor);
+        }
 
         quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
 
