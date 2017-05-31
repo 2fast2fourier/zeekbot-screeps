@@ -11,7 +11,7 @@ class PickupWorker extends BaseWorker {
     }
 
     pickup(cluster, subtype){
-        var energy = cluster.findAll(FIND_DROPPED_ENERGY);
+        var energy = _.filter(cluster.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
         var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
         var terminals = _.filter(cluster.structures.terminal, terminal => terminal.getResource(RESOURCE_ENERGY) > 60000);
         return this.jobsForTargets(cluster, subtype, energy.concat(storage).concat(terminals), { resource: RESOURCE_ENERGY });
@@ -19,7 +19,7 @@ class PickupWorker extends BaseWorker {
 
     harvest(cluster, subtype){
         var targets = _.reduce(cluster.roomflags.harvest, (result, room)=>{
-            var energy = cluster.find(room, FIND_DROPPED_ENERGY);
+            var energy = _.filter(cluster.find(room, FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             var containers = _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => struct.getResource(RESOURCE_ENERGY) > 0 && !struct.hasTag('stockpile'));
             return result.concat(energy).concat(containers);
         }, []);

@@ -33,7 +33,7 @@ var template = {
         work: {
             pickup: { local: true },
             deliver: { subtype: 'spawn', local: true },
-            idle: { subtype: 'spawn', local: true }
+            idle: { subtype: 'extension', local: true }
         },
         behavior: { avoid: {} },
         variants: {
@@ -78,7 +78,8 @@ var template = {
                 allocationMax: Infinity,
                 work: { 
                     pickup: {},
-                    deliver: { subtype: 'stockpile' }
+                    deliver: { subtype: 'stockpile' },
+                    idle: { subtype: 'extractor' }
                 },
                 assignRoom: false
             },
@@ -99,6 +100,7 @@ var template = {
         quota: 'reserve',
         allocation: 'claim',
         allocationMax: 2,
+        critical: true,
         parts: {
             micro: { claim: 4, move: 4 },
             nano: { claim: 2, move: 2 },
@@ -111,6 +113,7 @@ var template = {
                 quota: 'downgrade',
                 allocation: 1,
                 allocationMax: 4,
+                critical: false,
                 work: { downgrade: { } },
                 parts: { pico: { claim: 5, move: 5 } }
             }
@@ -148,7 +151,7 @@ var template = {
         quota: 'upgrade',
         allocation: 'work',
         parts: {
-            mega: { work: 15, move: 24, carry: 9 },//2700
+            //mega: { work: 15, move: 24, carry: 9 },//2700
             kilo: { work: 15, move: 9, carry: 3 },//2100
             milli: { work: 5, move: 6, carry: 6 },//1200
             micro: { work: 5, move: 4, carry: 2 },//800
@@ -165,13 +168,14 @@ var template = {
         maxQuota: 500000,
         critical: true,
         parts: {
-            kilo: { move: 15, carry: 20, work: 10 },
+            // kilo: { move: 15, carry: 20, work: 10 },
+            kilo: { move: 10, carry: 10, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150
             micro: { move: 7, carry: 5, work: 2 },//800
             nano: { move: 5, carry: 4, work: 1 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, repair: {}, idle: { subtype: 'controller' } },
+        work: { pickup: { priority: 1 }, repair: {}, idle: { subtype: 'controller' } },
         behavior: { avoid: {}, repair: {} }
     },
     observer: {

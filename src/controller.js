@@ -6,7 +6,7 @@ const ENERGY_TRANSFER_AMOUNT = 20000;
 
 class Controller {
 
-    static hegemony(allocated){
+    static federation(allocated){
         if(Game.interval(10)){
             _.forEach(Game.flags, flag =>{
                 if(!flag.room){
@@ -24,7 +24,7 @@ class Controller {
             Controller.emptyTerminals();
         }
         if(_.size(Memory.observe) > 0){
-            var observers = _.filter(Game.hegemony.structures.observer, struct => !_.includes(allocated, struct.id));
+            var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
             for(let roomName in Memory.observe){
                 let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
                 if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
@@ -54,9 +54,20 @@ class Controller {
                     var reserved = _.get(scanRoom, 'controller.reservation.username');
                     if(owner && !scanRoom.controller.my){
                         let buildings = scanRoom.find(FIND_HOSTILE_STRUCTURES);
-                        Memory.avoidRoom[scanRoom.name] = buildings.length > 5;
+                        if(buildings.length > 5){
+                            Memory.avoidRoom[scanRoom.name] = true;
+                        }else{
+                            delete Memory.avoidRoom[scanRoom.name];
+                        }
                     }else if(reserved && reserved != 'Zeekner'){
                         Memory.avoidRoom[scanRoom.name] = true;
+                    }else if(!scanRoom.controller){
+                        let buildings = scanRoom.find(FIND_HOSTILE_STRUCTURES);
+                        if(buildings.length > 3){
+                            Memory.avoidRoom[scanRoom.name] = true;
+                        }else{
+                            delete Memory.avoidRoom[scanRoom.name];
+                        }
                     }else{
                         delete Memory.avoidRoom[scanRoom.name];
                     }
@@ -141,18 +152,27 @@ class Controller {
 
     //// Terminals ////
     static terminalEnergy(transferred){
+        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('overfill') && terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 0) < 325000);
+        let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('overfill') && terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000);
         let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
-        let sourceClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy > 300000 && cluster.structures.terminal.length > 0);
-        let sourceTerminals = _.reduce(sourceClusters, (result, cluster) => {
-            return result.concat(_.filter(cluster.structures.terminal, terminal => terminal.getResource(RESOURCE_ENERGY) > ENERGY_TRANSFER_AMOUNT + 20000 && !transferred[terminal.id]));
-        }, []);
-        if(targetClusters.length > 0 && sourceTerminals.length > 0){
-            for(let destCluster of targetClusters){
-                let targetTerminal = _.first(Util.sort.resource(RESOURCE_ENERGY, destCluster.structures.terminal));
-                if(targetTerminal.getResource(RESOURCE_ENERGY) < 100000){
-                    let closest = Util.closest(targetTerminal, sourceTerminals);
-                    if(closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, targetTerminal.pos.roomName) == OK){
-                        console.log('Transferred', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', destCluster.id);
+        if(sourceTerminals.length > 0){
+            if(targetClusters.length > 0){
+                for(let destCluster of targetClusters){
+                    let targetTerminal = _.first(Util.sort.resource(RESOURCE_ENERGY, destCluster.structures.terminal));
+                    if(targetTerminal.getResource(RESOURCE_ENERGY) < 100000 && sourceTerminals.length > 0){
+                        let closest = Util.closest(targetTerminal, sourceTerminals);
+                        if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, targetTerminal.pos.roomName) == OK){
+                            console.log('Transferred', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', destCluster.id);
+                            transferred[closest.id] = true;
+                            _.pull(sourceTerminals, closest);
+                        }
+                    }
+                }
+            }else if(overfill.length > 0){
+                for(let target of overfill){
+                    let closest = Util.closest(target, sourceTerminals);
+                    if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, target.pos.roomName) == OK){
+                        console.log('Overfilled', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', target.room.memory.cluster);
                         transferred[closest.id] = true;
                         _.pull(sourceTerminals, closest);
                     }
@@ -162,9 +182,9 @@ class Controller {
     }
 
     static emptyTerminals(){
-        let terminals = _.filter(Game.hegemony.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
         if(terminals.length){
-            let targets = _.filter(Game.hegemony.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
+            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
             terminals.forEach(terminal => {
                 let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
                 let sending = _.first(_.keys(resources));
@@ -178,11 +198,11 @@ class Controller {
 
     static levelTerminals(){
         let transferred = {};
-        let terminals = Game.hegemony.structures.terminal;
+        let terminals = Game.federation.structures.terminal;
         let terminalCount = terminals.length;
         let ideal = 5000;
         let idealTotal = ideal * terminalCount;
-        _.forEach(Game.hegemony.resources, (data, type)=>{
+        _.forEach(Game.federation.resources, (data, type)=>{
             if(type == RESOURCE_ENERGY || data.stored < ideal){
                 return;
             }
@@ -231,110 +251,6 @@ class Controller {
         }
         targetLab.runReaction(labA, labB);
     }
-
-    // static towerDefend(tower, catalog, targets) {
-    //     var hostiles = _.filter(targets, target => tower.pos.roomName == target.pos.roomName);
-    //     if(hostiles.length == 0){
-    //         return false;
-    //     }
-    //     var healer = _.find(hostiles, creep => creep.getActiveBodyparts(HEAL) > 0);
-    //     if(healer){
-    //         return tower.attack(healer) == OK;
-    //     }
-    //     if(hostiles.length > 0) {
-    //         var enemies = _.sortBy(hostiles, (target)=>tower.pos.getRangeTo(target));
-    //         return tower.attack(enemies[0]) == OK;
-    //     }
-    //     return false;
-    // }
-
-    // static towerHeal(tower, catalog, creeps) {
-    //     var injuredCreeps = _.filter(creeps, target => tower.pos.roomName == target.pos.roomName);
-    //     if(injuredCreeps.length > 0) {
-    //         var injuries = _.sortBy(injuredCreeps, creep => creep.hits / creep.hitsMax);
-    //         return tower.heal(injuries[0]) == OK;
-    //     }
-    //     return false;
-    // }
-
-    // static towerRepair(tower, catalog, repairTargets) {
-    //     if(!tower){
-    //         Util.notify('towerbug', 'missing tower somehow!?');
-    //         return;
-    //     }
-    //     var targets = _.filter(repairTargets, target => tower && target && tower.pos.roomName == target.pos.roomName);
-    //     if(targets.length > 0) {
-    //         var damaged = _.sortBy(targets, structure => structure.hits / Math.min(structure.hitsMax, Memory.settings.repairTarget));
-    //         tower.repair(damaged[0]);
-    //     }
-    // }
-
-    // static boost(type, labId){
-    //     Memory.transfer.lab[labId] = type;
-    //     var lab = Game.getObjectById(labId);
-    //     if(!lab){
-    //         delete Memory.production.boosts[labId];
-    //         Game.notify('Boost Lab no longer valid: '+labId + ' - ' + type);
-    //         return;
-    //     }
-    //     if(lab.mineralType == type && lab.mineralAmount > 500 && lab.energy > 500){
-    //         if(!Memory.boost.labs[type]){
-    //             Memory.boost.labs[type] = [];
-    //             Memory.boost.rooms[type] = [];
-    //         }
-    //         Memory.boost.stored[type] = _.get(Memory.boost.stored, type, 0) + lab.mineralAmount;
-    //         Memory.boost.labs[type].push(lab.id);
-    //         Memory.boost.rooms[type].push(lab.pos.roomName);
-    //     }
-    // }
-
-// {
-// 	id : "55c34a6b5be41a0a6e80c68b", 
-// 	created : 13131117, 
-// 	active: true,
-// 	type : "sell"    
-// 	resourceType : "OH", 
-// 	roomName : "W1N1", 
-// 	amount : 15821, 
-// 	remainingAmount : 30000,
-// 	totalAmount : 50000,
-// 	price : 2.95    
-// }
-    // static sellOverage(catalog){
-    //     var sold = false;
-    //     var terminalCount = _.size(catalog.buildings.terminal);
-    //     var ideal = Memory.settings.terminalIdealResources;
-    //     var max = terminalCount * ideal;
-    //     var orders = {};
-    //     _.forEach(Game.market.orders, order =>{
-    //         if(order.active && order.type == ORDER_SELL){
-    //             orders[order.resourceType] = order;
-    //         }
-    //     });
-    //     _.forEach(catalog.resources, (data, type)=>{
-    //         var overage = data.totals.terminal - max;
-    //         if(!sold && type != RESOURCE_ENERGY && overage > 20000 && Game.market.credits > 10000 && data.totals.storage > 50000){
-    //             if(!_.has(prices, type)){
-    //                 console.log('want to sell', type, 'but no price');
-    //                 return;
-    //             }
-    //             var existing = orders[type];
-    //             if(!existing){
-    //                 var source = _.first(_.sortBy(data.terminal, terminal => -Util.getResource(terminal, type)));
-    //                 var holding = Util.getResource(source, type);
-    //                 console.log('selling from', source.pos.roomName, overage, holding, prices[type]);
-    //                 sold = Game.market.createOrder(ORDER_SELL, type, prices[type], Math.min(overage, holding), source.pos.roomName) == OK;
-    //                 if(sold){
-    //                     console.log('created order', type, Math.min(overage, holding));
-    //                 }
-    //             }else if(existing && existing.remainingAmount < 250){
-    //                 console.log('cancelling order', existing.orderId, existing.remainingAmount, overage);
-    //                 sold = Game.market.cancelOrder(existing.orderId) == OK;
-    //             }
-
-    //         }
-    //     });
-    // }
 }
 
 module.exports = Controller;

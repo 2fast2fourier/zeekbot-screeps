@@ -183,7 +183,7 @@ class Startup {
             longterm,
             profile: {},
             profileCount: {},
-            minerals: _.pick(_.mapValues(Game.hegemony.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
+            minerals: _.pick(_.mapValues(Game.federation.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
         }
     }
 
@@ -216,6 +216,33 @@ class Startup {
                 case 'debugroom':
                     console.log(JSON.stringify(Memory.rooms[roomName]));
                     flag.remove();
+                    break;
+                case 'set':
+                    let value = parts[3];
+                    if(value == 'true'){
+                        value = true;
+                    }else if(value == 'false'){
+                        value = false;
+                    }
+                    _.set(Memory.rooms, [roomName, target], value);
+                    console.log('Updated', roomName, JSON.stringify(Memory.rooms[roomName]));
+                    flag.remove();
+                    break;
+                case 'destroy':
+                    if(flag.room){
+                        let range = parts.length > 3 ? _.parseInt(parts[3]) : 1;
+                        let targets = flag.pos.findInRange(FIND_STRUCTURES, range, { filter: { structureType: target }});
+                        targets.forEach(target => target.destroy());
+                        flag.remove();
+                    }
+                    break;
+                case 'removesites':
+                    if(flag.room){
+                        let range = parts.length > 3 ? _.parseInt(parts[3]) : 50;
+                        let targets = flag.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, range, { filter: { structureType: target }});
+                        targets.forEach(target => target.remove());
+                        flag.remove();
+                    }
                     break;
             }
         }

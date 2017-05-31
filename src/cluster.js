@@ -88,7 +88,7 @@ class Cluster {
             }
         });
         if(Game.interval(20)){
-            let energy = this.findAll(FIND_DROPPED_ENERGY);
+            let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
             this.update('totalEnergy', _.sum(_.map(energy, 'amount')) + _.sum(_.map(containers, struct => struct.getResource(RESOURCE_ENERGY))));
         }
@@ -168,8 +168,13 @@ class Cluster {
             let tag = parts[1];
             let target = Cluster.getFlagTarget(flag);
             if(target && target.room && target.room.hasCluster()){
-                console.log('Added tag:', tag, 'to', target);
-                target.room.getCluster().addTag(tag, target.id);
+                if(parts.length > 2 && parts[2] == 'remove'){
+                    console.log('Removed tag:', tag, 'from', target);
+                    target.room.getCluster().removeTag(tag, target.id);
+                }else{
+                    console.log('Added tag:', tag, 'to', target);
+                    target.room.getCluster().addTag(tag, target.id);
+                }
                 flag.remove();
             }else if(Game.interval(25)){
                 console.log('cannot find flag target', flag.pos);
@@ -192,6 +197,9 @@ class Cluster {
     }
 
     static getFlagTarget(flag){
+        if(!flag.room){
+            return undefined;
+        }
         return _.first(_.filter(flag.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD && struct.structureType != STRUCTURE_RAMPART));
     }
 
@@ -214,7 +222,7 @@ class Cluster {
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
-            Game.clusters[id] = new Cluster(id, data, [], [], Game.hegemony);
+            Game.clusters[id] = new Cluster(id, data, [], []);
         }
     }
 
@@ -232,7 +240,7 @@ class Cluster {
             reserve: role != 'keep',
             autobuild: role != 'reserve' && autobuild,
             keep: role == 'keep',
-            harvest: role != 'core' && role != 'reserve'
+            harvest: role != 'reserve'
         });
         if(role == 'core'){
             _.set(Memory, ['rooms', roomName, 'claim'], true);
@@ -298,6 +306,13 @@ class Cluster {
     }
 
     getTaggedStructures(){
+        if(!this._tagged){
+            this._tagged = _.mapValues(this.tags, (list, tag)=>_.compact(Game.getObjects(list)));
+        }
+        return this._tagged;
+    }
+
+    get tagged(){
         if(!this._tagged){
             this._tagged = _.mapValues(this.tags, (list, tag)=>_.compact(Game.getObjects(list)));
         }

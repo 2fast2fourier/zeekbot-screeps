@@ -258,7 +258,7 @@ module.exports = function(){
             enumerable: false,
             configurable: true,
             get: function(){
-                return Game.hegemony.roomflags[this.name] || [];
+                return Game.federation.roomflags[this.name] || [];
             }
         });
     }

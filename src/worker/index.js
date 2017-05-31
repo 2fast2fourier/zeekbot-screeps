@@ -162,6 +162,11 @@ class Worker {
             }
             assignments.harvest[keepRoom.name] = Math.ceil(sources.length * harvestFactor);
         }
+        for(let coreRoom of cores){
+            if(coreRoom.memory.harvest){
+                assignments.harvest[coreRoom.name] = 1;
+            }
+        }
 
         quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
 

@@ -4,7 +4,7 @@ var Poly = require('./poly');
 var Startup = require('./startup');
 var Traveller = require('./traveller');
 
-var Hegemony = require('./hegemony');
+var Federation = require('./federation');
 var AutoBuilder = require('./autobuilder');
 var Cluster = require('./cluster');
 var Controller = require('./controller');
@@ -19,7 +19,7 @@ module.exports.loop = function () {
     //// Startup ////
     PathFinder.use(true);
     Poly();
-    Game.hegemony = new Hegemony();
+    Game.federation = new Federation();
     Startup.start();
     
     for(var name in Memory.creeps) {
@@ -31,23 +31,27 @@ module.exports.loop = function () {
     Cluster.init();
     Startup.processActions();
 
-    let production = new Production();
+    const production = new Production();
 
-    let allocated = [];
+    const allocated = [];
+
+    Game.matrix.startup();
     
 
     //// Process ////
 
     let bootstrap = false;
     let bootstrapper = false;
-    if(Game.interval(5) && Memory.bootstrap){
-        bootstrap = Game.clusters[Memory.bootstrap];
-        if(Game.flags.bootstrapper){
+    if(Memory.bootstrap || Game.flags.bootstrap){
+        if(Memory.bootstrap){
+            bootstrap = Game.clusters[Memory.bootstrap];
+        }
+        if(!bootstrap && Game.flags.bootstrap && Game.flags.bootstrap.room){
+            bootstrap = Game.flags.bootstrap.room.cluster;
+        }
+        if(bootstrap && Game.flags.bootstrapper){
             bootstrapper = Game.flags.bootstrapper.room.cluster;
-        }//else{
-        //     let availableClusters = _.filter(Game.clusters, cluster => cluster.structures.spawn.length > 1);
-        //     bootstrapper = _.first(_.sortBy(availableClusters, cluster => Pathing.getMinPathDistance(new RoomPosition(25, 25, _.first(cluster.rooms).name), new RoomPosition(25, 25, _.first(bootstrap.rooms).name))));
-        // }
+        }
     }
 
     let initTime = Game.cpu.getUsed();
@@ -56,58 +60,58 @@ module.exports.loop = function () {
     let ix = 50;
     let autobuildOffset = 1000;
     for(let name in Game.clusters){
-        Game.longtermAdd('s-'+name, 0);
-        Game.longtermAdd('se-'+name, 0);
-        let clusterStart = Game.cpu.getUsed();
-        let cluster = Game.clusters[name];
-        Worker.process(cluster);
-        
-        if(Game.interval(5)){
-            let spawnlist = Spawner.generateSpawnList(cluster, cluster);
-            if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
-                spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
-                Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
+        try{
+            Game.longtermAdd('s-'+name, 0);
+            Game.longtermAdd('se-'+name, 0);
+            let clusterStart = Game.cpu.getUsed();
+            let cluster = Game.clusters[name];
+
+            Game.matrix.process(cluster);
+
+            Worker.process(cluster);
+            
+            if(Game.interval(5)){
+                let spawnlist = Spawner.generateSpawnList(cluster, cluster);
+                if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
+                    spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
+                    Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
+                }
             }
-        }
 
-        Controller.control(cluster, allocated);
-        production.process(cluster);
+            Controller.control(cluster, allocated);
+            production.process(cluster);
 
-        let iy = 1;
-        for(let buildRoom of cluster.roomflags.autobuild){
-            if(Game.intervalOffset(autobuildOffset, ix + iy)){
-                let builder = new AutoBuilder(buildRoom);
-                builder.buildTerrain();
-                builder.autobuild(builder.generateBuildingList());
+            let iy = 1;
+            for(let buildRoom of cluster.roomflags.autobuild){
+                if(Game.intervalOffset(autobuildOffset, ix + iy)){
+                    let builder = new AutoBuilder(buildRoom);
+                    builder.buildTerrain();
+                    builder.autobuild(builder.generateBuildingList());
+                }
+                iy++;
             }
-            iy++;
-        }
 
-        if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
-            cluster.opts.repair += 50000;
-            Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
-            console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
-        }
+            if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
+                cluster.opts.repair += 50000;
+                Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+                console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+            }
 
-        Game.profile(name, Game.cpu.getUsed() - clusterStart);
-        ix+= 100;
+            Game.profile(name, Game.cpu.getUsed() - clusterStart);
+            ix+= 100;
+        }catch(e){
+            console.error(cluster.id + ' - ' + e.toString());
+            Game.notify(cluster.id + ' - ' + e.toString());
+        }
     }
     
     let clusterEndTime = Game.cpu.getUsed();
 
-    Controller.hegemony(allocated);
+    Controller.federation(allocated);
 
-    // if(Game.flags.autobuildDebug){
-    //     let buildRoom = Game.flags.autobuildDebug.room;
-    //     if(buildRoom){
-    //         let start = Game.cpu.getUsed();
-    //         let builder = new AutoBuilder(buildRoom);
-    //         builder.buildTerrain();
-    //         let structs = builder.generateBuildingList();
-    //         Game.profile('builder', Game.cpu.getUsed() - start);
-    //     }
-    // }
     AutoBuilder.processRoadFlags();
+
+
 
     if(Game.interval(4899) && Game.cpu.bucket > 9000){
         var line = _.first(_.keys(Memory.cache.path));

@@ -3,7 +3,7 @@
  * https://gist.github.com/bonzaiferroni/bbbbf8a681f071dc13759da8a1be316e
  */
 // const REPORT_CPU_THRESHOLD = 50;
-const DEFAULT_MAXOPS = 40000;
+const DEFAULT_MAXOPS = 20000;
 const DEFAULT_STUCK_VALUE = 3;
 class Traveler {
     constructor() {}
@@ -182,7 +182,7 @@ class Traveler {
                 if (ret.ops < 2000 && options.useFindRoute === undefined && travelData.stuck < DEFAULT_STUCK_VALUE) {
                     options.useFindRoute = false;
                     ret = this.findTravelPath(creep, destination, options);
-                    console.log(`attempting path without findRoute was ${ret.incomplete ? "not" : ""} successful`);
+                    console.log(`attempting path without findRoute was ${ret.incomplete ? "not" : ""} successful, ${creep.pos.roomName} -> ${destination.pos.roomName}`);
                 }
             }
             travelData.end = _.last(ret.path);

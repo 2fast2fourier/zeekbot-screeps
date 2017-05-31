@@ -2,6 +2,8 @@
 
 // global, but fancier
 
+var DefenseMatrix = require('./defense');
+
 function catalogStorage(resources, storage){
     var stored = storage.getResourceList();
     for(let type in stored){
@@ -16,8 +18,11 @@ function catalogStorage(resources, storage){
     }
 }
 
-class Hegemony {
-    constructor(){}
+class Federation {
+    constructor(){
+        this.matrix = new DefenseMatrix();
+        Game.matrix = this.matrix;
+    }
 
     get structures(){
         if(!this._structures){
@@ -80,6 +85,6 @@ class Hegemony {
 
 }
 
-module.exports = Hegemony;
+module.exports = Federation;
 
-//Game.hegemony.resources.H.terminal.map(terminal=>terminal.send('H', terminal.store.H || 0, 'E28S73'))
+//Game.federation.resources.H.terminal.map(terminal=>terminal.send('H', terminal.store.H || 0, 'E28S73'))
