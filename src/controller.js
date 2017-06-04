@@ -83,7 +83,8 @@ class Controller {
         _.forEach(cluster.structures.tower, tower=>{
             let action = false;
             if(tower.energy >= 10){
-                let hostile = _.first(cluster.find(tower.room, FIND_HOSTILE_CREEPS));
+                let data = Game.matrix.rooms[tower.pos.roomName];
+                let hostile = data.target;
                 if(hostile){
                     action = tower.attack(hostile) == OK;
                 }
@@ -163,6 +164,8 @@ class Controller {
                         let closest = Util.closest(targetTerminal, sourceTerminals);
                         if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, targetTerminal.pos.roomName) == OK){
                             console.log('Transferred', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', destCluster.id);
+                            closest.room.cluster.profileAdd('transfer', -ENERGY_TRANSFER_AMOUNT);
+                            targetTerminal.room.cluster.profileAdd('transfer', ENERGY_TRANSFER_AMOUNT);
                             transferred[closest.id] = true;
                             _.pull(sourceTerminals, closest);
                         }
@@ -173,6 +176,8 @@ class Controller {
                     let closest = Util.closest(target, sourceTerminals);
                     if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, target.pos.roomName) == OK){
                         console.log('Overfilled', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', target.room.memory.cluster);
+                        closest.room.cluster.profileAdd('transfer', -ENERGY_TRANSFER_AMOUNT);
+                        target.room.cluster.profileAdd('transfer', ENERGY_TRANSFER_AMOUNT);
                         transferred[closest.id] = true;
                         _.pull(sourceTerminals, closest);
                     }

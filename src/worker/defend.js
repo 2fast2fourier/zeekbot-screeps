@@ -8,7 +8,13 @@ class DefendWorker extends BaseWorker {
     /// Job ///
 
     defend(cluster, subtype){
-        let hostiles = cluster.findAll(FIND_HOSTILE_CREEPS);
+        let hostiles = _.reduce(cluster.rooms, (result, room)=>{
+            var roomData = Game.matrix.rooms[room.name];
+            if(roomData.hostiles.length > 0){
+                return result.concat(roomData.hostiles);
+            }
+            return result;
+        }, []);
         return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) != 'Source Keeper'));
     }
 

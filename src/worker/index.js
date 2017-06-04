@@ -45,6 +45,10 @@ class Worker {
 
     //hydrate, validate, and end jobs
     static validate(workers, behaviors, cluster, creep){
+        if(creep.memory.cpu === undefined){
+            creep.memory.cpu = 0;
+        }
+        var validateStart = Game.cpu.getUsed();
         if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
             creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
         }else{
@@ -82,11 +86,17 @@ class Worker {
             }else{
                 creep.job = job;
             }
+        }else{
+            creep.job = null;
         }
+        var validateDelta = Game.cpu.getUsed() - validateStart;
+        Game.profileAdd(creep.memory.type, validateDelta);
+        creep.memory.cpu += validateDelta;
     }
 
     //bid and work jobs
     static work(workers, behaviors, cluster, creep){
+        var workStart = Game.cpu.getUsed();
         const workConfig = config[creep.memory.type].work;
         if(!creep.memory.job){
             var lowestBid = Infinity;
@@ -119,7 +129,6 @@ class Worker {
                 creep.job = bidder.job;
             }
         }
-        // Game.perfAdd('bid');
         var behave = _.get(config, [creep.memory.type, 'behavior'], false);
         if(creep.blocked){
             behaviors[creep.blocked.type].blocked(cluster, creep, behave[creep.blocked.type], creep.blocked.data);
@@ -138,8 +147,9 @@ class Worker {
             }
             _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }
-        // Game.perfAdd('process');
-
+        var workDelta = Game.cpu.getUsed() - workStart;
+        Game.profileAdd(creep.memory.type, workDelta);
+        creep.memory.cpu += workDelta;
     }
 
     static generateQuota(workers, cluster){

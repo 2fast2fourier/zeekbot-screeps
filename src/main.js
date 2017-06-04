@@ -29,6 +29,14 @@ module.exports.loop = function () {
     }
     Game.profile('memory', Game.cpu.getUsed());
     Cluster.init();
+    
+    if(Game.interval(100)){
+        _.forEach(Game.clusters, cluster =>cluster.processStats());
+    }
+    if(Game.interval(5000)){
+        _.forEach(Game.clusters, cluster => cluster.processLongterm());
+    }
+
     Startup.processActions();
 
     const production = new Production();
@@ -36,7 +44,6 @@ module.exports.loop = function () {
     const allocated = [];
 
     Game.matrix.startup();
-    
 
     //// Process ////
 
@@ -61,16 +68,17 @@ module.exports.loop = function () {
     let autobuildOffset = 1000;
     for(let name in Game.clusters){
         try{
-            Game.longtermAdd('s-'+name, 0);
-            Game.longtermAdd('se-'+name, 0);
             let clusterStart = Game.cpu.getUsed();
             let cluster = Game.clusters[name];
+            cluster.longtermAdd('spawn', 0);
+            cluster.longtermAdd('spawn-energy', 0);
+            cluster.longtermAdd('transfer', 0);
 
             Game.matrix.process(cluster);
 
             Worker.process(cluster);
             
-            if(Game.interval(5)){
+            if(Game.interval(5) && Spawner.hasFreeSpawn(cluster)){
                 let spawnlist = Spawner.generateSpawnList(cluster, cluster);
                 if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
                     spawnlist = Spawner.generateSpawnList(cluster, bootstrap);
@@ -93,15 +101,17 @@ module.exports.loop = function () {
 
             if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
                 cluster.opts.repair += 50000;
-                Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
+                // Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
                 console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
             }
 
-            Game.profile(name, Game.cpu.getUsed() - clusterStart);
+            // Game.profile(name, Game.cpu.getUsed() - clusterStart);
+            cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
             ix+= 100;
         }catch(e){
-            console.error(cluster.id + ' - ' + e.toString());
-            Game.notify(cluster.id + ' - ' + e.toString());
+            console.log(name, e);
+            Game.notify(name + ' - ' + e.toString());
+            // throw e;
         }
     }
     
@@ -130,7 +140,12 @@ module.exports.loop = function () {
     }
     
     //// Wrapup ////
+    _.forEach(Game.clusters, cluster => cluster.finishProfile());
     Game.finishProfile();
+
+    // var creepTypes = _.groupBy(Game.creeps, 'memory.type');
+    // _.forEach(creepTypes, (list, type) => Game.profile('c-'+type, list.length));
+    
     Game.profile('cpu', Game.cpu.getUsed());
 
     Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);

@@ -182,7 +182,6 @@ class BaseWorker {
         }
         var jobs = cluster._jobs[this.type+'-'+subtype];
         if(!jobs){
-            // Game.profileAdd('jobs-'+this.type, 1);
             jobs = this.generateJobsForSubtype(cluster, subtype);
             cluster._jobs[this.type+'-'+subtype] = jobs;
         }

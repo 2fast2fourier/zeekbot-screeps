@@ -10,17 +10,36 @@ class AvoidAction extends BaseAction {
 
     shouldBlock(cluster, creep, opts){
         var idle = false;
-        if(_.get(creep, 'room.controller.safeMode')){
+        if(creep.memory.gather){
+            var gather = creep.memory.gather;
+            var originalRoom = Game.matrix.rooms[creep.memory.fleeFrom];
+            if(originalRoom && originalRoom.hostiles.length == 0){
+                delete creep.memory.gather;
+                delete creep.memory.gatherRange;
+                delete creep.memory.fleeFrom;
+            }else{
+                let target = new RoomPosition(gather.x, gather.y, gather.roomName);
+                return { type: this.type, data: { gather: true, target, range: creep.memory.gatherRange } };
+            }
+        }
+        var roomData = Game.matrix.rooms[creep.room.name];
+        if(roomData.safemode || (roomData.hostiles.length == 0 && !roomData.keeper)){
             return false;
         }
-        var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
-        if(creep.room.memory.keep){
+        var hostiles = roomData.hostiles;
+        if(roomData.keeper){
             let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
             if(keeps.length > 0){
                 hostiles = hostiles.concat(keeps);
             }
         }
         if(hostiles.length > 0){
+            if(roomData.fleeTo){
+                creep.memory.gather = roomData.fleeTo;
+                creep.memory.gatherRange = roomData.fleeToRange;
+                creep.memory.fleeFrom = creep.room.name;
+                return { type: this.type, data: { gather: true, target: roomData.fleeTo, range: roomData.fleeToRange } };
+            }
             let avoidTargets = [];
             for(var enemy of hostiles){
                 let distance = creep.pos.getRangeTo(enemy);
@@ -40,8 +59,12 @@ class AvoidAction extends BaseAction {
     }
 
     blocked(cluster, creep, opts, block){
-        if(block != 'idle'){
-            var result = PathFinder.search(creep.pos, block, { flee: true });
+        if(block.gather){
+            if(creep.pos.getRangeTo(block.target) > block.range){
+                this.move(creep, { pos: block.target });
+            }
+        }else if(block != 'idle'){
+            var result = PathFinder.search(creep.pos, block, { flee: true, range: this.range });
             creep.moveByPath(result.path);
         }
     }

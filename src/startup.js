@@ -8,6 +8,16 @@ const Cluster = require('./cluster');
 const creeps = require('./creeps');
 const Spawner = require('./spawner');
 
+const creepCPU = function(creep){
+    if(!creep.ticksToLive || creep.ticksToLive > 1300){
+        return 0;
+    }
+    if(creep.getActiveBodyparts(CLAIM) > 0){
+        return creep.memory.cpu / (500 - creep.ticksToLive);
+    }
+    return creep.memory.cpu / (1500 - creep.ticksToLive);
+}
+
 class Startup {
     static start(){
         var ver = _.get(Memory, 'ver', 0);
@@ -18,6 +28,12 @@ class Startup {
         if(Game.interval(STAT_INTERVAL)){
             Startup.longStats();
             Startup.shortStats();
+            var heaviestCreep = _.max(Game.creeps, creepCPU);
+            if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
+                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
+            }else{
+                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
+            }
         }
         if(Game.interval(LONGTERM_STAT_INTERVAL)){
             var msg = 'Statistics: \n';
@@ -244,6 +260,11 @@ class Startup {
                         flag.remove();
                     }
                     break;
+                case 'gather':
+                    _.set(Memory.rooms, [flag.pos.roomName, 'gather'], flag.pos);
+                    console.log('Set gather point:', flag.pos);
+                    flag.remove();
+                    break;
             }
         }
     }
@@ -267,7 +288,6 @@ class Startup {
                     }
                     break;
                 case 'assign':
-                //cluster-assign-Home-harvest
                     let cluster = Game.clusters[target];
                     if(!cluster){
                         console.log('Invalid cluster name!', target);

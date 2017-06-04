@@ -64,6 +64,8 @@ class Cluster {
 
         this._jobs = {};
         this._hydratedJobs = {};
+        this._profile = {};
+        this._longprofile = {};
 
         this.roomflags = {
             defend: [],
@@ -91,6 +93,7 @@ class Cluster {
             let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
             this.update('totalEnergy', _.sum(_.map(energy, 'amount')) + _.sum(_.map(containers, struct => struct.getResource(RESOURCE_ENERGY))));
+            this.profile('energy', this.totalEnergy);
         }
     }
 
@@ -218,7 +221,10 @@ class Cluster {
                 repair: 250000
             },
             boost: {},
-            stats: {}
+            stats: {},
+            statscount: {},
+            longstats: {},
+            longcount: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
@@ -409,6 +415,90 @@ class Cluster {
                 distance
             };
         }
+    }
+
+    findNearestRoomByRole(originRoom, role){
+        if(!originRoom){
+            return undefined;
+        }
+        let closest = false;
+        let distance = Infinity;
+        let origin = originRoom.controller ? originRoom.controller.pos : new RoomPosition(25, 25, originRoom.name);
+        for(let room of this.getRoomsByRole(role)){
+            let target = room.controller ? room.controller.pos : new RoomPosition(25, 25, room.name);
+            let dist = origin.getPathDistance(target)
+            if(dist < distance){
+                distance = dist;
+                closest = room;
+            }
+        }
+        if(closest){
+            return {
+                room: closest,
+                distance
+            };
+        }
+    }
+
+    profile(type, value){
+        var count = this.statscount[type];
+        if(count === undefined){
+            this.stats[type] = value;
+            this.statscount[type] = 1;
+        }else{
+            this.stats[type] = (this.stats[type] * count + value)/(count + 1);
+            this.statscount[type]++;
+        }
+    }
+
+    profileAdd(type, value){
+        this._profile[type] = _.get(this._profile, type, 0) + value;
+    }
+
+    longterm(type, value){
+        var count = this.longcount[type];
+        if(count === undefined){
+            this.longstats[type] = value;
+            this.longcount[type] = 1;
+        }else{
+            this.longstats[type] = (this.longstats[type] * count + value)/(count + 1);
+            this.longcount[type]++;
+        }
+    }
+
+    longtermAdd(type, value){
+        this._longprofile[type] = _.get(this._longprofile, type, 0) + value;
+    }
+
+    finishProfile(){
+        _.forEach(this._profile, (value, type) => this.profile(type, value));
+        _.forEach(this._longprofile, (value, type) => this.longterm(type, value));
+    }
+
+    processStats(){
+        if(!this.longstats){
+            this.update('longstats', {});
+            this.update('longcount', {});
+        }
+        var output = this.id + ':';
+        _.forEach(this.stats, (value, type)=>{
+            output += ' '+type+': ' + value.toFixed(2);
+            this.longterm(type, value);
+        });
+        console.log(output);
+        this.update('stats', {});
+        this.update('statscount', {});
+    }
+
+    processLongterm(){
+        var output = this.id + ':';
+        _.forEach(this.longstats, (value, type)=>{
+            output += ' '+type+': ' + value.toFixed(2);
+        });
+        console.log('LT:', output);
+        Game.notify(output);
+        this.update('longstats', {});
+        this.update('longcount', {});
     }
 
 }

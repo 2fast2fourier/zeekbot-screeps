@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class RepairWorker extends BaseWorker {
-    constructor(){ super('repair', { requiresEnergy: true, quota: true, range: 3, ignoreDistance: true, minEnergy: 750 }); }
+    constructor(){ super('repair', { requiresEnergy: true, quota: true, range: 3, ignoreDistance: true, minEnergy: 750, critical: 'repair' }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -11,7 +11,7 @@ class RepairWorker extends BaseWorker {
     }
 
     repair(cluster, subtype){
-        let targets = _.filter(cluster.findAll(FIND_STRUCTURES), struct => struct.hits < struct.getMaxHits());
+        let targets = _.filter(cluster.findAll(FIND_STRUCTURES), struct =>  struct.getMaxHits() - struct.hits > 500);
         return this.jobsForTargets(cluster, subtype, targets);
     }
 

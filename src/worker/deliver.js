@@ -11,8 +11,9 @@ class DeliverWorker extends BaseWorker {
     }
 
     spawn(cluster, subtype){
-        var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_TOWER]), struct => struct.getAvailableCapacity() > 0);
-        return this.jobsForTargets(cluster, subtype, structures, { resource: RESOURCE_ENERGY });
+        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower)
+        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
+        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
 
     stockpile(cluster, subtype){

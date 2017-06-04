@@ -20,7 +20,7 @@ var template = {
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
         },
-        work: { defend: {}, idle: { subtype: 'tower' } }//observe: { onlyReveal: true }, 
+        work: { defend: {}, idle: { subtype: 'tower' } } 
     },
     spawnhauler: {
         quota: 'spawnhauler',
@@ -33,9 +33,9 @@ var template = {
         work: {
             pickup: { local: true },
             deliver: { subtype: 'spawn', local: true },
-            idle: { subtype: 'extension', local: true }
+            idle: { subtype: 'spawn', local: true }
         },
-        behavior: { avoid: {} },
+        behavior: { },
         variants: {
             fallback: {
                 emergency: false,
@@ -165,7 +165,7 @@ var template = {
         quota: 'repair',
         allocation: 'work',
         allocationMulti: 5000,
-        maxQuota: 500000,
+        maxQuota: 400000,
         critical: true,
         parts: {
             // kilo: { move: 15, carry: 20, work: 10 },
@@ -207,7 +207,7 @@ var template = {
     },
     transferhauler: {
         quota: 'transfer',
-        maxQuota: 12,
+        maxQuota: 4,
         allocation: 2,
         parts: { milli: { carry: 20, move: 10 } },
         work: {

@@ -1,6 +1,10 @@
 "use strict";
 
-var creepsConfig = require('./creeps');
+const creepsConfig = require('./creeps');
+
+const spawnFreeCheck = function(spawn){
+    return spawn.spawning === null;
+};
 
 class Spawner {
 
@@ -26,6 +30,10 @@ class Spawner {
             }
         });
         return spawned;
+    }
+
+    static hasFreeSpawn(cluster){
+        return _.any(cluster.structures.spawn, spawnFreeCheck);
     }
 
     static generateSpawnList(cluster, targetCluster){
@@ -132,8 +140,8 @@ class Spawner {
         Memory.uid++;
         if(spawned){
             console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
-            Game.longtermAdd('s-'+cluster.id, _.size(spawnlist.parts[spawnType]) * 3);
-            Game.longtermAdd('se-'+cluster.id, spawnlist.costs[spawnType]);
+            cluster.longtermAdd('spawn', _.size(spawnlist.parts[spawnType]) * 3);
+            cluster.longtermAdd('spawn-energy', spawnlist.costs[spawnType]);
         }else{
             Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
         }
