@@ -32,11 +32,15 @@ class MineWorker extends BaseWorker {
         return distance / 50;
     }
 
+    start(cluster, creep, opts, job){
+        creep.memory.mining = creep.getActiveBodyparts('work') * 2;
+    }
+
     process(cluster, creep, opts, job, target){
         if(creep.pos.getRangeTo(target) > 1){
             this.move(creep, target);
-        }else{
-            creep.harvest(target);
+        }else if(creep.harvest(target) == OK && job.subtype == 'energy'){
+            cluster.longtermAdd('mine', Math.min(target.energy, creep.memory.mining));
         }
     }
 

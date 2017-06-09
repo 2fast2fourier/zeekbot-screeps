@@ -184,7 +184,7 @@ class Worker {
             quota.harvesthauler = _.sum(assignments.harvest) * 24;
         }
 
-        if(cluster.maxRCL < 5){
+        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
             quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
         }
 

@@ -40,7 +40,7 @@ class DefenseMatrix {
                     let roomData = Memory.rooms[nearest.room.name];
                     if(roomData && roomData.gather){
                         data.fleeTo = new RoomPosition(roomData.gather.x, roomData.gather.y, roomData.gather.roomName);
-                        data.fleeToRange = 5;
+                        data.fleeToRange = 3;
                     }else{
                         data.fleeTo = new RoomPosition(25, 25, nearest.room.name);
                         data.fleeToRange = 15;

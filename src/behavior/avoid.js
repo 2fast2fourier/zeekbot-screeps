@@ -17,6 +17,7 @@ class AvoidAction extends BaseAction {
                 delete creep.memory.gather;
                 delete creep.memory.gatherRange;
                 delete creep.memory.fleeFrom;
+                delete creep.memory.snuggled;
             }else{
                 let target = new RoomPosition(gather.x, gather.y, gather.roomName);
                 return { type: this.type, data: { gather: true, target, range: creep.memory.gatherRange } };
@@ -60,8 +61,12 @@ class AvoidAction extends BaseAction {
 
     blocked(cluster, creep, opts, block){
         if(block.gather){
-            if(creep.pos.getRangeTo(block.target) > block.range){
+            let distance = creep.pos.getRangeTo(block.target);
+            if(distance > block.range){
                 this.move(creep, { pos: block.target });
+            }else if(distance > 2 && !creep.memory.snuggled){
+                this.move(creep, { pos: block.target });
+                creep.memory.snuggled = true;
             }
         }else if(block != 'idle'){
             var result = PathFinder.search(creep.pos, block, { flee: true, range: this.range });

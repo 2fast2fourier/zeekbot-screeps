@@ -26,14 +26,16 @@ class Controller {
         if(_.size(Memory.observe) > 0){
             var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
             for(let roomName in Memory.observe){
-                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
-                if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
-                    _.pull(observers, observer);
-                    if(observer.observeRoom(roomName) == OK){
-                        new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+                if(observers.length > 0){
+                    let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+                    if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+                        _.pull(observers, observer);
+                        if(observer.observeRoom(roomName) == OK){
+                            new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+                        }
+                    }else{
+                        console.log('No observer for', roomName);
                     }
-                }else{
-                    console.log('No observer for', roomName);
                 }
             }
         }
@@ -88,10 +90,9 @@ class Controller {
                 if(hostile){
                     action = tower.attack(hostile) == OK;
                 }
-                if(!action && Game.interval(5)){
-                    let hurtCreep = _.first(_.filter(cluster.find(tower.room, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax));
-                    if(hurtCreep){
-                        tower.heal(hurtCreep);
+                if(!action){
+                    if(data.damaged.length > 0){
+                        tower.heal(_.first(data.damaged));
                     }else if(Game.interval(20)){
                         let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
                         if(critStruct){

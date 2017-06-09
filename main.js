@@ -120,6 +120,8 @@ module.exports =
 	            cluster.longtermAdd('spawn', 0);
 	            cluster.longtermAdd('spawn-energy', 0);
 	            cluster.longtermAdd('transfer', 0);
+	            cluster.longtermAdd('upgrade', 0);
+	            cluster.longtermAdd('mine', 0);
 
 	            Game.matrix.process(cluster);
 
@@ -1674,7 +1676,7 @@ module.exports =
 	                work: { 
 	                    pickup: {},
 	                    deliver: { subtype: 'stockpile' },
-	                    idle: { subtype: 'extractor' }
+	                    idle: { subtype: 'spawn' }
 	                },
 	                assignRoom: false
 	            },
@@ -1685,7 +1687,8 @@ module.exports =
 	                parts: { milli: { carry: 16, move: 8 } },
 	                work: {
 	                    pickup: { subtype: 'mineral' },
-	                    deliver: { subtype: 'terminal' }
+	                    deliver: { subtype: 'terminal' },
+	                    idle: { subtype: 'extractor' }
 	                },
 	                assignRoom: false
 	            }
@@ -2540,7 +2543,7 @@ module.exports =
 	                    let roomData = Memory.rooms[nearest.room.name];
 	                    if(roomData && roomData.gather){
 	                        data.fleeTo = new RoomPosition(roomData.gather.x, roomData.gather.y, roomData.gather.roomName);
-	                        data.fleeToRange = 5;
+	                        data.fleeToRange = 3;
 	                    }else{
 	                        data.fleeTo = new RoomPosition(25, 25, nearest.room.name);
 	                        data.fleeToRange = 15;
@@ -3164,14 +3167,16 @@ module.exports =
 	        if(_.size(Memory.observe) > 0){
 	            var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
 	            for(let roomName in Memory.observe){
-	                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
-	                if(observer && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
-	                    _.pull(observers, observer);
-	                    if(observer.observeRoom(roomName) == OK){
-	                        new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+	                if(observers.length > 0){
+	                    let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+	                    if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+	                        _.pull(observers, observer);
+	                        if(observer.observeRoom(roomName) == OK){
+	                            new RoomVisual(roomName).text('Observed by '+observer.pos.roomName, 25, 25);
+	                        }
+	                    }else{
+	                        console.log('No observer for', roomName);
 	                    }
-	                }else{
-	                    console.log('No observer for', roomName);
 	                }
 	            }
 	        }
@@ -3226,10 +3231,9 @@ module.exports =
 	                if(hostile){
 	                    action = tower.attack(hostile) == OK;
 	                }
-	                if(!action && Game.interval(5)){
-	                    let hurtCreep = _.first(_.filter(cluster.find(tower.room, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax));
-	                    if(hurtCreep){
-	                        tower.heal(hurtCreep);
+	                if(!action){
+	                    if(data.damaged.length > 0){
+	                        tower.heal(_.first(data.damaged));
 	                    }else if(Game.interval(20)){
 	                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
 	                        if(critStruct){
@@ -3588,7 +3592,7 @@ module.exports =
 	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
 	        }
 
-	        if(cluster.maxRCL < 5){
+	        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
 	            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
 	        }
 
@@ -4459,11 +4463,15 @@ module.exports =
 	        return distance / 50;
 	    }
 
+	    start(cluster, creep, opts, job){
+	        creep.memory.mining = creep.getActiveBodyparts('work') * 2;
+	    }
+
 	    process(cluster, creep, opts, job, target){
 	        if(creep.pos.getRangeTo(target) > 1){
 	            this.move(creep, target);
-	        }else{
-	            creep.harvest(target);
+	        }else if(creep.harvest(target) == OK && job.subtype == 'energy'){
+	            cluster.longtermAdd('mine', Math.min(target.energy, creep.memory.mining));
 	        }
 	    }
 
@@ -5067,31 +5075,25 @@ module.exports =
 	        if(cluster.totalEnergy < 2000 && target.ticksToDowngrade > 5000){
 	            return 5;
 	        }
+	        if(target.level >= 8){
+	            return 15;
+	        }
 	        if(cluster.maxRCL <= 2){
 	            return 5;
 	        }
-	        if(target.level < 4 && target.room.memory.powerlevel){
-	            return 20;
-	        }
 	        if(cluster.maxRCL < 4){
-	            return 10;
-	        }
-	        if(target.level == 8){
 	            return 15;
 	        }
-	        if(target.level < 5 && target.room.memory.powerlevel){
+	        if(target.level < 4){
 	            return 30;
 	        }
 	        let energy = _.get(target, 'room.storage.store.energy', 0);
-	        if(target.level < 7 && energy > 100000 && target.room.memory.powerlevel){
-	            return Math.max(2, Math.floor(energy / 100000)) * 15;
-	        }
-	        return Math.max(1, Math.floor(energy / 150000)) * 15;
+	        return Math.max(1, Math.floor(energy / 100000)) * 15;
 	    }
 
 	    upgrade(cluster, subtype){
 	        let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, controller => controller.level < 8 || cluster.totalEnergy > 5000 || controller.ticksToDowngrade < 10000));
+	        return this.jobsForTargets(cluster, subtype, controllers);
 	    }
 
 	    /// Creep ///
@@ -5105,7 +5107,10 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        this.orMove(creep, target, creep.upgradeController(target));
+	        var result = this.orMove(creep, target, creep.upgradeController(target));
+	        if(result == OK){
+	            cluster.longtermAdd('upgrade', creep.memory.jobAllocation);
+	        }
 	    }
 
 	}
@@ -5161,6 +5166,7 @@ module.exports =
 	                delete creep.memory.gather;
 	                delete creep.memory.gatherRange;
 	                delete creep.memory.fleeFrom;
+	                delete creep.memory.snuggled;
 	            }else{
 	                let target = new RoomPosition(gather.x, gather.y, gather.roomName);
 	                return { type: this.type, data: { gather: true, target, range: creep.memory.gatherRange } };
@@ -5204,8 +5210,12 @@ module.exports =
 
 	    blocked(cluster, creep, opts, block){
 	        if(block.gather){
-	            if(creep.pos.getRangeTo(block.target) > block.range){
+	            let distance = creep.pos.getRangeTo(block.target);
+	            if(distance > block.range){
 	                this.move(creep, { pos: block.target });
+	            }else if(distance > 2 && !creep.memory.snuggled){
+	                this.move(creep, { pos: block.target });
+	                creep.memory.snuggled = true;
 	            }
 	        }else if(block != 'idle'){
 	            var result = PathFinder.search(creep.pos, block, { flee: true, range: this.range });

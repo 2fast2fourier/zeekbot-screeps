@@ -73,6 +73,8 @@ module.exports.loop = function () {
             cluster.longtermAdd('spawn', 0);
             cluster.longtermAdd('spawn-energy', 0);
             cluster.longtermAdd('transfer', 0);
+            cluster.longtermAdd('upgrade', 0);
+            cluster.longtermAdd('mine', 0);
 
             Game.matrix.process(cluster);
 

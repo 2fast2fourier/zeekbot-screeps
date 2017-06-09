@@ -79,7 +79,7 @@ var template = {
                 work: { 
                     pickup: {},
                     deliver: { subtype: 'stockpile' },
-                    idle: { subtype: 'extractor' }
+                    idle: { subtype: 'spawn' }
                 },
                 assignRoom: false
             },
@@ -90,7 +90,8 @@ var template = {
                 parts: { milli: { carry: 16, move: 8 } },
                 work: {
                     pickup: { subtype: 'mineral' },
-                    deliver: { subtype: 'terminal' }
+                    deliver: { subtype: 'terminal' },
+                    idle: { subtype: 'extractor' }
                 },
                 assignRoom: false
             }
