@@ -4,6 +4,7 @@ const Pathing = require('../pathing');
 
 class BaseWorker {
     constructor(type, opts){
+        this.minCPU = 5000;
         this.minEnergy = 1000;
         this.range = 1;
         this.priority = 0;
@@ -16,6 +17,7 @@ class BaseWorker {
 
     pretick(cluster){
         if(this.profile){
+            Game.profileAdd('valid-'+this.type, 0);
             Game.profileAdd('bid-'+this.type, 0);
             Game.profileAdd('gen-'+this.type, 0);
             Game.profileAdd('work-'+this.type, 0);
@@ -177,7 +179,7 @@ class BaseWorker {
         if(this.requiresEnergy && cluster.totalEnergy < this.minEnergy && this.critical != subtype && !cluster.bootstrap){
             return [];
         }
-        if(Game.cpu.bucket < 5000 && this.critical != subtype){
+        if(Game.cpu.bucket < this.minCPU && this.critical != subtype){
             return [];
         }
         var jobs = cluster._jobs[this.type+'-'+subtype];

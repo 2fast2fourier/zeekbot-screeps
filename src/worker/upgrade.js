@@ -19,6 +19,9 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.maxRCL < 4){
             return 15;
         }
+        if(Memory.siegemode && !_.get(target, 'room.memory.powerlevel', false)){
+            return 15;
+        }
         if(target.level < 4){
             return 30;
         }
@@ -42,10 +45,11 @@ class UpgradeWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        var result = this.orMove(creep, target, creep.upgradeController(target));
-        if(result == OK){
-            cluster.longtermAdd('upgrade', creep.memory.jobAllocation);
-        }
+        // var result = 
+        this.orMove(creep, target, creep.upgradeController(target));
+        // if(result == OK){
+        //     cluster.longtermAdd('upgrade', creep.memory.jobAllocation);
+        // }
     }
 
 }

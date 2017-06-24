@@ -60,11 +60,11 @@ class Spawner {
                 maxCost = cost;
                 version = config.emergency;
                 partSet = config.parts[config.emergency];
-                // Game.notify('EMERGENCY! Spawning ' + version + ' - ' + type + ' in ' + targetCluster.id);
             }else{
                 _.forEach(config.parts, (parts, ver) => {
                     let cost = Spawner.calculateCost(parts);
-                    if(cost > maxCost && cost <= cluster.maxSpawn){
+                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver) > 0;
+                    if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
                         maxCost = cost;
                         version = ver;
                         partSet = parts;
@@ -72,7 +72,7 @@ class Spawner {
                 });
             }
             if(version){
-                const limit = Spawner.calculateSpawnLimit(cluster, type, config, version);
+                const limit = Spawner.calculateBoostCapacity(cluster, config, version);
                 const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
@@ -124,9 +124,16 @@ class Spawner {
     static calculateSpawnLimit(cluster, type, config, version){
         var limit = Infinity;
         if(config.boost && config.boost[version]){
-            limit = _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+            limit = Spawner.calculateBoostCapacity(cluster, config, version);
         }
         return limit;
+    }
+
+    static calculateBoostCapacity(cluster, config, version){
+        if(config.boost && config.boost[version]){
+            return _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+        }
+        return Infinity;
     }
 
     static spawnCreep(cluster, spawn, spawnlist, spawnType){
@@ -141,7 +148,7 @@ class Spawner {
         if(spawned){
             console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
             cluster.longtermAdd('spawn', _.size(spawnlist.parts[spawnType]) * 3);
-            cluster.longtermAdd('spawn-energy', spawnlist.costs[spawnType]);
+            // cluster.longtermAdd('spawn-energy', spawnlist.costs[spawnType]);
         }else{
             Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
         }

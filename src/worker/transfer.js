@@ -4,7 +4,7 @@ const BaseWorker = require('./base');
 const Util = require('../util');
 
 class TransferWorker extends BaseWorker {
-    constructor(){ super('transfer', { args: ['id', 'action', 'resource', 'amount'], quota: true }); }
+    constructor(){ super('transfer', { args: ['id', 'action', 'resource', 'amount'], quota: true, minCPU: 7500 }); }
 
     generateEnergyTransfers(cluster, type, need){
         return cluster.structures[type].reduce((result, struct) => {
@@ -108,16 +108,14 @@ class TransferWorker extends BaseWorker {
         if(!super.jobValid(cluster, job)){
             return false;
         }
-        var resourceData = cluster.getResources();
         var resource = job.args.resource;
-        var data = resourceData[resource];
         var targetResources = job.target.getResource(resource);
         if(job.args.action == 'store' || job.args.action == 'offload'){
             return targetResources > job.args.amount;
         }else if(job.args.action == 'deliver'){
-            return targetResources < job.args.amount && data.stored > 0;
+            return targetResources < job.args.amount && cluster.resources[resource].stored > 0;
         }else if(job.args.action == 'terminal'){
-            return data.totals.terminal < job.args.amount && data.totals.storage > 0;
+            return cluster.resources[resource].totals.terminal < job.args.amount && cluster.resources[resource].totals.storage > 0;
         }
     }
 
@@ -125,11 +123,6 @@ class TransferWorker extends BaseWorker {
         var resource = job.args.resource;
         var currentResources = creep.getResource(resource);
         var targetResources = job.target.getResource(resource);
-        var resourceData = cluster.getResources();
-        var data = resourceData[resource];
-        var allStored = data.stored;
-        var stored = data.totals.storage;
-        var terminalStored = data.totals.terminal;
         if(job.args.action == 'store' || job.args.action == 'offload'){
             if(currentResources > 0){
                 return true;
@@ -140,13 +133,13 @@ class TransferWorker extends BaseWorker {
             if(currentResources > 0){
                 return targetResources < job.amount;
             }else{
-                return targetResources < job.amount && allStored > 0;
+                return targetResources < job.amount && cluster.resources[resource].stored > 0;
             }
         }else if(job.args.action == 'terminal'){
             if(currentResources > 0){
-                return terminalStored < job.amount;
+                return cluster.resources[resource].totals.terminal < job.amount;
             }else{
-                return terminalStored < job.amount && stored > 0;
+                return cluster.resources[resource].totals.terminal < job.amount && cluster.resources[resource].totals.stored > 0;
             }
         }
         console.log('invalid type', job.id, creep, job.args.action);

@@ -139,9 +139,8 @@ class Controller {
     //// Links ////
 
     static linkTransfer(cluster){
-        let tags = cluster.getTaggedStructures();
-        let linkInput = _.groupBy(tags.input, 'pos.roomName');
-        _.forEach(tags.output, target => {
+        let linkInput = _.groupBy(cluster.tagged.input, 'pos.roomName');
+        _.forEach(_.without(cluster.structures.link, cluster.tagged.input), target => {
             if(target.energy < target.energyCapacity - 50){
                 let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0);
                 if(sources.length > 0){
@@ -154,8 +153,8 @@ class Controller {
 
     //// Terminals ////
     static terminalEnergy(transferred){
-        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('overfill') && terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 0) < 325000);
-        let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('overfill') && terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000);
+        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < 250000);
+        let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000);
         let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
         if(sourceTerminals.length > 0){
             if(targetClusters.length > 0){

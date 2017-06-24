@@ -13,7 +13,7 @@ var Worker = require('./worker');
 var Production = require('./production');
 var Pathing = require('./pathing');
 
-var REPAIR_CAP = 5000000;
+var REPAIR_CAP = 10000000;
 
 module.exports.loop = function () {
     //// Startup ////
@@ -63,7 +63,6 @@ module.exports.loop = function () {
 
     let initTime = Game.cpu.getUsed();
 
-    // let autobuildOffset = _.size(Game.clusters) * 100;
     let ix = 50;
     let autobuildOffset = 1000;
     for(let name in Game.clusters){
@@ -71,15 +70,14 @@ module.exports.loop = function () {
             let clusterStart = Game.cpu.getUsed();
             let cluster = Game.clusters[name];
             cluster.longtermAdd('spawn', 0);
-            cluster.longtermAdd('spawn-energy', 0);
             cluster.longtermAdd('transfer', 0);
-            cluster.longtermAdd('upgrade', 0);
-            cluster.longtermAdd('mine', 0);
 
             Game.matrix.process(cluster);
 
             Worker.process(cluster);
+
             
+            let spawnStart = Game.cpu.getUsed();
             if(Game.interval(5) && Spawner.hasFreeSpawn(cluster)){
                 let spawnlist = Spawner.generateSpawnList(cluster, cluster);
                 if(!Spawner.processSpawnlist(cluster, spawnlist, cluster) && bootstrap && bootstrapper && bootstrapper.id == cluster.id && cluster.totalEnergy > 5000){
@@ -87,6 +85,7 @@ module.exports.loop = function () {
                     Spawner.processSpawnlist(cluster, spawnlist, bootstrap);
                 }
             }
+            Game.profileAdd('spawncpu', Game.cpu.getUsed() - spawnStart);
 
             Controller.control(cluster, allocated);
             production.process(cluster);
@@ -101,7 +100,7 @@ module.exports.loop = function () {
                 iy++;
             }
 
-            if(Game.interval(100) && cluster.quota.repair > 1 && cluster.quota.repair < 750000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
+            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
                 cluster.opts.repair += 50000;
                 // Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
                 console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
@@ -119,7 +118,11 @@ module.exports.loop = function () {
     
     let clusterEndTime = Game.cpu.getUsed();
 
-    Controller.federation(allocated);
+    try{
+        Controller.federation(allocated);
+    }catch(e){
+        Game.notify('federation: ' + e.toString());
+    }
 
     AutoBuilder.processRoadFlags();
 

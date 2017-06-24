@@ -73,6 +73,10 @@ class Worker {
         if(id && type){
             const opts = _.get(config, [creep.memory.type, 'work', type], false);
             let work = workers[type];
+            var profStart;
+            if(work.profile){
+                profStart = Game.cpu.getUsed();
+            }
             let job = work.hydrateJob(cluster, creep.memory.jobSubType, id, creep.memory.jobAllocation);
             let endJob = (job.killed && !work.keepDeadJob(cluster, creep, opts, job)) || !work.continueJob(cluster, creep, opts, job);
             if(endJob){
@@ -85,6 +89,9 @@ class Worker {
                 creep.job = null;
             }else{
                 creep.job = job;
+            }
+            if(work.profile){
+                Game.profileAdd('valid-'+type, Game.cpu.getUsed() - profStart);
             }
         }else{
             creep.job = null;
@@ -150,6 +157,11 @@ class Worker {
         var workDelta = Game.cpu.getUsed() - workStart;
         Game.profileAdd(creep.memory.type, workDelta);
         creep.memory.cpu += workDelta;
+        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler'){
+            console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+            Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+            creep.suicide();
+        }
     }
 
     static generateQuota(workers, cluster){

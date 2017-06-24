@@ -1,15 +1,15 @@
 "use strict";
 
-function catalogGlobal(resources, struct){
-    if(struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_TERMINAL){
-        var stored = struct.getResourceList();
-        for(let type in stored){
-            let amount = stored[type];
-            resources[type].global += amount;
-            resources[type].globals[struct.structureType] += amount;
-        }
-    }
-}
+// function catalogGlobal(resources, struct){
+//     if(struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_TERMINAL){
+//         var stored = struct.getResourceList();
+//         for(let type in stored){
+//             let amount = stored[type];
+//             resources[type].global += amount;
+//             resources[type].globals[struct.structureType] += amount;
+//         }
+//     }
+// }
 
 function catalogStorage(storage, resources){
     var stored = storage.getResourceList();
@@ -345,7 +345,6 @@ class Cluster {
         this._resources = _.zipObject(RESOURCES_ALL, _.map(RESOURCES_ALL, resource => {
             return {
                 total: 0,
-                global: 0,
                 stored: 0,
                 sources: [],
                 storage: [],
@@ -355,10 +354,6 @@ class Cluster {
                     storage: 0,
                     terminal: 0,
                     lab: 0
-                },
-                globals: {
-                    storage: 0,
-                    terminal: 0
                 }
             };
         }));
@@ -372,7 +367,6 @@ class Cluster {
         for(let storage of this.structures.lab){
             catalogStorage(storage, this._resources);
         }
-        _.forEach(Game.structures, catalogGlobal.bind(this, this._resources));
     }
 
     getResources(){
@@ -391,6 +385,51 @@ class Cluster {
             }, {});
         }
         return this._boostMinerals;
+    }
+
+    get damaged(){
+        if(!this._damaged){
+            if(!this.work.repair || this.work.repair.update <= Game.time){
+                let totals = {
+                    heavy: 0,
+                    moderate: 0,
+                    light: 0,
+                    total: 0
+                }
+                let targets = _.groupBy(this.findAll(FIND_STRUCTURES), struct => {
+                    var damage = struct.getMaxHits() - struct.hits;
+                    if(damage > 30000){
+                        totals.heavy += damage;
+                        return 'heavy';
+                    }
+                    if(damage > 500){
+                        totals.moderate += damage;
+                        return 'moderate';
+                    }
+                    if(damage > 0){
+                        totals.light += damage;
+                        return 'light';
+                    }
+                    return 'ignore';
+                });
+                totals.total = totals.heavy + totals.moderate + totals.light;
+                let repairData = {
+                    // light: _.map(_.slice(_.sortBy(targets.light, struct => -struct.getDamage()), 0, 20), 'id'),
+                    heavy: _.map(_.slice(_.sortBy(targets.heavy, struct => struct.hits / struct.getMaxHits()), 0, 20), 'id'),
+                    moderate: _.map(_.slice(_.sortBy(targets.moderate, struct => struct.hits / struct.getMaxHits()), 0, 20), 'id'),
+                    damage: totals,
+                    update: Game.time + 100
+                };
+                Memory.clusters[this.id].work.repair = repairData;
+                this.work.repair = repairData;
+            }
+            this._damaged = {
+                // light: _.filter(Game.getObjects(this.work.repair.light), target => target && target.getDamage() > 0),
+                moderate: _.filter(Game.getObjects(this.work.repair.moderate), target => target && target.getDamage() > 0),
+                heavy: _.filter(Game.getObjects(this.work.repair.heavy), target => target && target.getDamage() > 0)
+            };
+        }
+        return this._damaged;
     }
 
     findClosestCore(dest){
@@ -481,6 +520,7 @@ class Cluster {
             this.update('longcount', {});
         }
         var output = this.id + ':';
+        output += ' damage: ' + _.get(this, 'work.repair.damage.heavy', 0) + ' / ' + _.get(this, 'work.repair.damage.moderate', 0) + '\n';
         _.forEach(this.stats, (value, type)=>{
             output += ' '+type+': ' + value.toFixed(2);
             this.longterm(type, value);
@@ -491,9 +531,17 @@ class Cluster {
     }
 
     processLongterm(){
-        var output = this.id + ':';
+        var output = this.id + ':\n';
+        _.forEach(this.getRoomsByRole('core'), room =>{
+            var level = _.get(room, 'controller.level', Infinity);
+            if(level < 8){
+                var percent = (_.get(room, 'controller.progress', 0) / _.get(room, 'controller.progressTotal', 1));
+                output += ' ' + room.name + ': ' + level + ' - ' + percent.toFixed(2) + '\n';
+            }
+        });
+        output += ' damage: ' + _.get(this, 'work.repair.damage.heavy', 0) + ' / ' + _.get(this, 'work.repair.damage.moderate', 0) + '\n';
         _.forEach(this.longstats, (value, type)=>{
-            output += ' '+type+': ' + value.toFixed(2);
+            output += ' '+type+': ' + value.toFixed(2)+'\n';
         });
         console.log('LT:', output);
         Game.notify(output);

@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class IdleWorker extends BaseWorker {
-    constructor(){ super('idle', { priority: 99 }); }
+    constructor(){ super('idle', { priority: 99, critical: true }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){

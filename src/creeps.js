@@ -145,7 +145,7 @@ var template = {
             nano: { move: 4, carry: 2, work: 2 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: {}, build: {}, repair: { priority: 99 } },
+        work: { pickup: { priority: 5 }, build: {}, repair: { priority: 99 } },
         behavior: { avoid: {} }
     },
     upgradeworker: {
@@ -163,21 +163,39 @@ var template = {
         behavior: { energy: {}, avoid: {} }
     },
     repairworker: {
-        quota: 'repair',
-        allocation: 'work',
-        allocationMulti: 5000,
-        maxQuota: 400000,
+        quota: 'repair-repair',
+        allocation: 5,
+        maxQuota: 20,
         critical: true,
         parts: {
-            // kilo: { move: 15, carry: 20, work: 10 },
             kilo: { move: 10, carry: 10, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150
             micro: { move: 7, carry: 5, work: 2 },//800
             nano: { move: 5, carry: 4, work: 1 },//550
             pico: { move: 2, carry: 1, work: 1 }//300
         },
-        work: { pickup: { priority: 1 }, repair: {}, idle: { subtype: 'controller' } },
-        behavior: { avoid: {}, repair: {} }
+        work: { pickup: { priority: 1 }, repair: { subtype: 'repair' }, idle: { subtype: 'spawn' } },
+        behavior: { avoid: {}, repair: {} },
+        variants: {
+            heavy: {
+                quota: 'heavy-repair',
+                allocation: 3,
+                maxQuota: 20,
+                critical: false,
+                // boost: {
+                //     milli: { fatigue: 10, capacity: 10, repair: 30 }
+                // },
+                parts: {
+                    // milli: { move: 10, carry: 10, work: 30 },
+                    micro: { move: 16, carry: 12, work: 20 },
+                    nano: { move: 10, carry: 10, work: 10 },
+                    pico: { move: 6, carry: 7, work: 5 },
+                    femto: { move: 2, carry: 1, work: 1 }
+                },
+                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
+                behavior: { avoid: {}, boost: {} }
+            }
+        }
     },
     observer: {
         quota: 'observe',

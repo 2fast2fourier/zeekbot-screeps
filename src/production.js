@@ -22,6 +22,11 @@ class Production {
         var resourceList = _.values(REACTIONS.X);
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
         quota.G = targetAmount;
+        quota.XUH2O = targetAmount * 2;
+        quota.XKHO2 = targetAmount * 2;
+        quota.XLHO2 = targetAmount * 2;
+        quota.XZHO2 = targetAmount * 2;
+        quota.XGHO2 = targetAmount * 2;
 
         var reactions = {};
         _.forEach(quota, (amount, type) => {

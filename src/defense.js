@@ -1,6 +1,10 @@
 
 const Util = require('./util');
 
+const whitelist = [
+    'likeafox'
+];
+
 class DefenseMatrix {
     constructor(){
         this.rooms = {};
@@ -8,7 +12,7 @@ class DefenseMatrix {
 
     startup(){
         _.forEach(Game.rooms, room => {
-            var hostiles = room.find(FIND_HOSTILE_CREEPS);
+            var hostiles = _.filter(room.find(FIND_HOSTILE_CREEPS), creep => !creep.owner || creep.owner.username != 'likeafox');
             this.rooms[room.name] = {
                 room,
                 hostiles,

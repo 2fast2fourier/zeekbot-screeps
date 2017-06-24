@@ -3,16 +3,16 @@
 const BaseWorker = require('./base');
 
 class RepairWorker extends BaseWorker {
-    constructor(){ super('repair', { requiresEnergy: true, quota: true, range: 3, ignoreDistance: true, minEnergy: 750, critical: 'repair' }); }
+    constructor(){ super('repair', { requiresEnergy: true, quota: ['repair', 'heavy'], range: 3, ignoreDistance: true, minEnergy: 750, minCPU: 2500 }); }
 
     /// Job ///
-    calculateCapacity(cluster, subtype, id, target, args){
-        return target.getDamage();
-    }
 
     repair(cluster, subtype){
-        let targets = _.filter(cluster.findAll(FIND_STRUCTURES), struct =>  struct.getMaxHits() - struct.hits > 500);
-        return this.jobsForTargets(cluster, subtype, targets);
+        return this.jobsForTargets(cluster, subtype, cluster.damaged.moderate);
+    }
+
+    heavy(cluster, subtype){
+        return this.jobsForTargets(cluster, subtype, cluster.damaged.heavy);
     }
 
     jobValid(cluster, job){
