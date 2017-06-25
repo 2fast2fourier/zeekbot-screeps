@@ -480,6 +480,16 @@ module.exports =
 	        });
 	    }
 
+	    if(!Room.prototype.hasOwnProperty('matrix')){
+	        Object.defineProperty(Room.prototype, 'matrix', {
+	            enumerable: false,
+	            configurable: true,
+	            get: function(){
+	                return Game.matrix.rooms[this.name];
+	            }
+	        });
+	    }
+
 	    Room.prototype.getFlagsByPrefix = function(prefix){
 	        return _.filter(this.flags, flag => flag.name.startsWith(prefix));
 	    }
@@ -730,7 +740,7 @@ module.exports =
 	    }
 
 	    static attackMove(creep, target){
-	        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, routeCallback: route });
+	        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true });
 	    }
 	}
 
@@ -1659,7 +1669,7 @@ module.exports =
 
 	var template = {
 	    defender: {
-	        quota: 'defend',
+	        quota: 'defend-defend',
 	        critical: true,
 	        parts: {
 	            milli: { tough: 5, move: 25, ranged_attack: 20 },
@@ -1668,7 +1678,16 @@ module.exports =
 	            pico: { tough: 5, move: 7, ranged_attack: 2 },
 	            femto: { tough: 2, move: 4, ranged_attack: 2 }
 	        },
-	        work: { defend: {}, idle: { subtype: 'tower' } } 
+	        work: { defend: {}, idle: { subtype: 'tower' } },
+	        variants: {
+	            rampart: {
+	                quota: 'rampart-defend',
+	                parts: {
+	                    milli: { attack: 40, move: 10 },
+	                },
+	                work: { defend: { subtype: 'rampart' } },
+	            }
+	        }
 	    },
 	    spawnhauler: {
 	        quota: 'spawnhauler',
@@ -1689,6 +1708,17 @@ module.exports =
 	                emergency: false,
 	                allocationMulti: 100,
 	                parts: { pico: {carry: 4, move: 2 } }
+	            },
+	            tower: {
+	                emergency: false,
+	                allocationMulti: 50,
+	                quota: 'tower-deliver',
+	                assignRoom: 'tower',
+	                work: {
+	                    pickup: { local: true },
+	                    deliver: { subtype: 'tower', local: true },
+	                    idle: { subtype: 'tower', local: true }
+	                },
 	            }
 	        }
 	    },
@@ -1903,15 +1933,15 @@ module.exports =
 	    attacker: {
 	        quota: 'attack',
 	        maxQuota: 6,
+	        critical: true,
 	        boost: {
 	            milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
 	        },
 	        parts: {
-	            milli: { tough: 10, move: 10, attack: 10, heal: 20 },
-	            micro: { tough: 5, move: 25, attack: 15, heal: 5 }
+	            milli: { tough: 10, move: 10, attack: 10, heal: 20 }
 	        },
 	        work: { attack: {} },
-	        behavior: { selfheal: { block: 500 }, defend: {}, boost: {} }
+	        behavior: { selfheal: { block: 100 }, defend: {}, boost: {} }
 	    }
 	}
 
@@ -2584,23 +2614,98 @@ module.exports =
 	    'likeafox'
 	];
 
+	const partValues = {
+	    heal: HEAL_POWER,
+	    attack: ATTACK_POWER,
+	    rangedAttack: RANGED_ATTACK_POWER,
+	    work: DISMANTLE_POWER
+	};
+
+	const boostTypes = {
+	    heal: 'heal',
+	    attack: 'attack',
+	    ranged_attack: 'rangedAttack',
+	    work: 'dismantle'
+	}
+
 	class DefenseMatrix {
 	    constructor(){
 	        this.rooms = {};
 	    }
 
+	    static getOwnerType(creep){
+	        if(creep.my){
+	            return 'mine';
+	        }
+	        if(!creep.owner){
+	            Game.notify('Invalid owner: '+creep);
+	            return 'friendly';
+	        }
+	        var owner = creep.owner.username;
+	        if(owner == 'likeafox'){
+	            return 'friendly';
+	        }
+	        // hostiles.push(creep);
+	        if(owner == 'Source Keeper'){
+	            return 'keeper';
+	        }
+	        if(owner == 'Invader'){
+	            return 'invader';
+	        }
+	        return 'player';
+	    }
+
+	    static characterize(creep){
+	        var ownerType = DefenseMatrix.getOwnerType(creep);
+	        var details = {
+	            attack: 0,
+	            heal: 0,
+	            ranged_attack: 0,
+	            work: 0,
+	            ownerType,
+	            hostile: !creep.my && ownerType != 'friendly'
+	        };
+	        for(let part in creep.body){
+	            if(part.hits > 0){
+	                if(part.type == 'attack' || part.type == 'heal' || part.type == 'ranged_attack' || part.type == 'work'){
+	                    var multi = 1;
+	                    if(part.boost){
+	                        multi = _.get(BOOSTS, [part.type, part.boost, boostTypes[part.type]], 1);
+	                    }
+	                    details[part.type] += partValues[part.type] * multi;
+	                }
+	            }
+	        }
+	        creep.details = details;
+	        return ownerType;
+	    }
+
+	    static isSiegeMode(creeps){
+	        return true;
+	    }
+
 	    startup(){
 	        _.forEach(Game.rooms, room => {
-	            var hostiles = _.filter(room.find(FIND_HOSTILE_CREEPS), creep => !creep.owner || creep.owner.username != 'likeafox');
+	            var hostiles = room.find(FIND_HOSTILE_CREEPS);
+	            var threats = {};
+	            var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
+	            var enemy = _.filter(hostiles, 'details.hostile');
 	            this.rooms[room.name] = {
 	                room,
-	                hostiles,
+	                hostiles: enemy,
 	                damaged: [],
 	                safemode: _.get(room, 'controller.safeMode', false),
 	                keeper: false,
-	                target: _.first(hostiles),
-	                towers: []
+	                target: _.first(enemy),
+	                towers: [],
+	                creeps,
+	                siege: DefenseMatrix.isSiegeMode(creeps),
+	                threat: threats,
+	                targetted: false
 	            };
+	            if(creeps.player && room.defend){
+	                Game.note('playerWarn', 'Warning: Player creeps detected in our territory: ' + room.name);
+	            }
 	        });
 	        _.forEach(Game.creeps, creep => {
 	            if(creep.hits < creep.hitsMax){
@@ -3244,8 +3349,32 @@ module.exports =
 	            Controller.terminalEnergy(transferred);
 	            Controller.emptyTerminals();
 	        }
+
+	        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
+	        if(Game.flags.PortalWatch && observers.length > 0){
+	            var roomName = Game.flags.PortalWatch.pos.roomName;
+	            let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+	            if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+	                _.pull(observers, observer);
+	                if(observer.observeRoom(roomName) == OK){
+	                    new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
+	                    if(Memory.observe[roomName]){
+	                        delete Memory.observe[roomName];
+	                    }
+	                }
+	            }else{
+	                console.log('PW No observer for', roomName);
+	            }
+	            if(Game.flags.PortalWatch.room){
+	                let room = Game.flags.PortalWatch.room;
+	                let matrix = room.matrix;
+	                if(matrix.creeps.player){
+	                    Game.note('portalWarn', 'Warning: Player creeps detected: ' + room.name);
+	                }
+	            }
+	        }
+
 	        if(_.size(Memory.observe) > 0){
-	            var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
 	            for(let roomName in Memory.observe){
 	                if(observers.length > 0){
 	                    let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
@@ -3305,9 +3434,18 @@ module.exports =
 
 	        _.forEach(cluster.structures.tower, tower=>{
 	            let action = false;
+	            if(tower.room.memory.halt){
+	                return;
+	            }
 	            if(tower.energy >= 10){
 	                let data = Game.matrix.rooms[tower.pos.roomName];
 	                let hostile = data.target;
+	                if(data.targetted){
+	                    let best = Game.getObjectById(_.max(data.targetted, 'value').id);
+	                    if(best){
+	                        hostile = best;
+	                    }
+	                }
 	                if(hostile){
 	                    action = tower.attack(hostile) == OK;
 	                }
@@ -3318,6 +3456,12 @@ module.exports =
 	                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
 	                        if(critStruct){
 	                            tower.repair(critStruct);
+	                        }
+	                    }else if(Game.cpu.bucket > 9750 && tower.energy > tower.energyCapacity * 0.75 && _.get(tower, 'room.storage.store.energy', 0) > 300000){
+	                        var ramparts = _.filter(cluster.structures.rampart, rampart => rampart.pos.roomName == tower.pos.roomName && rampart.getDamage() > 0);
+	                        var target = Util.closest(tower, ramparts);
+	                        if(target && target.pos.getRangeTo(tower) < 10){
+	                            tower.repair(target);
 	                        }
 	                    }
 	                }
@@ -3474,6 +3618,10 @@ module.exports =
 	        }
 	        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
 	            return;
+	        }
+	        if(targetLab.hasTag('boost')){
+	            console.log('attempting to manu with boost lab', targetLab);
+	            return false;
 	        }
 	        targetLab.runReaction(labA, labB);
 	    }
@@ -3644,7 +3792,7 @@ module.exports =
 	        var workDelta = Game.cpu.getUsed() - workStart;
 	        Game.profileAdd(creep.memory.type, workDelta);
 	        creep.memory.cpu += workDelta;
-	        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler'){
+	        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler' && creep.memory.type != 'attacker'){
 	            console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
 	            Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
 	            creep.suicide();
@@ -3661,6 +3809,7 @@ module.exports =
 	        _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
 	        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
+	        assignments.tower = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
 	        assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
 	        for(let keepRoom of keeper){
 	            let sources = cluster.find(keepRoom, FIND_SOURCES);
@@ -3758,6 +3907,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, flag){
+	        var matrix = Game.matrix.rooms[creep.room.name];
 	        var action = false;
 	        var target = false;
 	        var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
@@ -3778,11 +3928,12 @@ module.exports =
 	        }
 	        if(!target && inTargetRoom){
 	            var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
-	            let hostiles = _.filter(cluster.find(creep.room, FIND_HOSTILE_CREEPS), target => _.get(target, 'owner.username', false) != 'Source Keeper');
+	            let hostiles = matrix.hostiles;
 	            let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
 	            target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
 	        }
 	        if(target){
+	            // console.log(creep, target);
 	            let attack = creep.getActiveBodyparts('attack');
 	            let ranged = creep.getActiveBodyparts('ranged_attack');
 	            let dist = creep.pos.getRangeTo(target);
@@ -3805,6 +3956,18 @@ module.exports =
 	            this.attackMove(creep, flag);
 	        }else if(!flag.name.includes('stage')){
 	           flag.remove();
+	        }
+	        if(action && target){
+	            if(!matrix.targetted){
+	                matrix.targetted = {};
+	            }
+	            if(!matrix.targetted[target.id]){
+	                matrix.targetted[target.id] = {
+	                    id: target.id,
+	                    value: 0
+	                };
+	            }
+	            matrix.targetted[target.id].value++;
 	        }
 	        return action;
 	    }
@@ -4118,7 +4281,23 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class DefendWorker extends BaseWorker {
-	    constructor(){ super('defend', { quota: true }); }
+	    constructor(){ super('defend', { quota: [ 'defend', 'rampart' ], critical: 'rampart' }); }
+
+	    genTarget(cluster, subtype, id, args){
+	        if(subtype == 'rampart'){
+	            return Game.flags[id];
+	        }else{
+	            return super.genTarget(cluster, subtype, id, args);
+	        }
+	    }
+
+	    createId(cluster, subtype, target, args){
+	        if(subtype == 'rampart'){
+	            return target.name;
+	        }else{
+	            return super.createId(cluster, subtype, target, args);
+	        }
+	    }
 
 	    /// Job ///
 
@@ -4130,10 +4309,23 @@ module.exports =
 	            }
 	            return result;
 	        }, []);
-	        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) != 'Source Keeper'));
+	        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) == 'Invader'));
+	    }
+	    
+	    rampart(cluster, subtype){
+	        var ramparts = [];
+	        for(var flag of Flag.getByPrefix('Rampart')){
+	            if(flag.room && flag.room.cluster && flag.room.cluster.id == cluster.id){
+	                ramparts.push(this.createJob(cluster, subtype, flag));
+	            }
+	        }
+	        return ramparts;
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
+	        if(subtype == 'rampart'){
+	            return 1;
+	        }
 	        var value = target.getActiveBodyparts(ATTACK) * 5;
 	        value += target.getActiveBodyparts(RANGED_ATTACK) * 3;
 	        value += target.getActiveBodyparts(WORK) * 2;
@@ -4147,7 +4339,38 @@ module.exports =
 	        return distance / 50;
 	    }
 
+	    processRampart(cluster, creep, opts, job, flag){
+	        var flagRange = creep.pos.getRangeTo(flag);
+	        if(flagRange > 1){
+	            this.move(creep, flag);
+	        }else if(flagRange == 1){
+	            creep.moveTo(flag);
+	        }else{
+	            var data = creep.room.matrix;
+	            if(data.hostiles.length > 0){
+	                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= 1);
+	                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) + (target.hits / target.hitsMax)));
+	                if(target){
+	                    creep.attack(target);
+	                    if(!data.targetted){
+	                        data.targetted = {};
+	                    }
+	                    if(!data.targetted[target.id]){
+	                        data.targetted[target.id] = {
+	                            id: target.id,
+	                            value: 0
+	                        };
+	                    }
+	                    data.targetted[target.id].value++;
+	                }
+	            }
+	        }
+	    }
+
 	    process(cluster, creep, opts, job, target){
+	        if(job.subtype == 'rampart'){
+	            return this.processRampart(cluster, creep, opts, job, target);
+	        }
 	        let attack = creep.getActiveBodyparts('attack');
 	        let ranged = creep.getActiveBodyparts('ranged_attack');
 	        let dist = creep.pos.getRangeTo(target);
@@ -4179,7 +4402,7 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class DeliverWorker extends BaseWorker {
-	    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile'], critical: 'spawn' }); }
+	    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile', 'tower'], critical: 'spawn' }); }
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -4187,7 +4410,7 @@ module.exports =
 	    }
 
 	    spawn(cluster, subtype){
-	        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower)
+	        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower);
 	        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
 	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
 	    }
@@ -4201,6 +4424,12 @@ module.exports =
 	        var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.9 && storage.getResource(RESOURCE_ENERGY) < storage.getCapacity() * 0.6);
 	        var tagged = cluster.getTaggedStructures();
 	        return this.jobsForTargets(cluster, subtype, structures.concat(tagged.stockpile || []), { resource: RESOURCE_ENERGY });
+	    }
+
+	    tower(cluster, subtype){
+	        var structures = cluster.structures.tower;
+	        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
+	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
 	    }
 
 	    terminal(cluster, subtype){
@@ -4662,7 +4891,7 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class PickupWorker extends BaseWorker {
-	    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'] }); }
+	    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'], minCPU: 4500 }); }
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -4753,6 +4982,9 @@ module.exports =
 	    /// Job ///
 
 	    repair(cluster, subtype){
+	        if(Memory.lockdown && Game.cpu.bucket < 7500){
+	            return [];
+	        }
 	        return this.jobsForTargets(cluster, subtype, cluster.damaged.moderate);
 	    }
 
@@ -5005,7 +5237,7 @@ module.exports =
 	    /// Creep ///
 
 	    // continueJob(cluster, creep, opts, job){
-	    //     return super.continueJob(cluster, creep, opts, job);
+	    //     return super.continueJob(cluster, creep, opts, job) && this.validate(cluster, creep, opts, job.target, job);
 	    // }
 
 	    canBid(cluster, creep, opts){
@@ -5054,7 +5286,10 @@ module.exports =
 	        if(target && creep.pos.getRangeTo(target) > 1){
 	            this.move(creep, target);
 	        }else if(deliver){
-	            creep.transfer(deliver.target, type, deliver.amount);
+	            if(creep.transfer(deliver.target, type, deliver.amount) == OK){
+	                creep.memory.job = false;
+	                creep.memory.jobType = false;
+	            }
 	        }else if(pickup){
 	            creep.withdraw(pickup.target, type, Math.min(creep.getCapacity() - creep.getStored(), pickup.amount));
 	        }
@@ -5357,6 +5592,17 @@ module.exports =
 	        return result;
 	    }
 
+	    attackMove(creep, target){
+	        return Pathing.attackMove(creep, target, 1, false);
+	    }
+
+	    orAttackMove(creep, target, result){
+	        if(result == ERR_NOT_IN_RANGE){
+	            this.attackMove(creep, target);
+	        }
+	        return result;
+	    }
+
 	}
 
 	module.exports = BaseAction;
@@ -5456,19 +5702,19 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
-	        var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
-	        if(hostiles.length > 0){
-	            var targets = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < range && (hostile.getActiveBodyparts(ATTACK) > 0 || hostile.getActiveBodyparts(RANGED_ATTACK) > 0))
-	            var target = _.first(Util.sort.closest(creep, targets));
-	            if(target){
-	                return { type: this.type, data: target };
-	            }
-	        }
+	        // var hostiles = cluster.find(creep.room, FIND_HOSTILE_CREEPS);
+	        // if(hostiles.length > 0){
+	        //     var targets = _.filter(hostiles, hostile => creep.pos.getRangeTo(hostile) < range && (hostile.getActiveBodyparts(ATTACK) > 0 || hostile.getActiveBodyparts(RANGED_ATTACK) > 0))
+	        //     var target = _.first(Util.sort.closest(creep, targets));
+	        //     if(target){
+	        //         return { type: this.type, data: target };
+	        //     }
+	        // }
 	        return false;
 	    }
 
 	    blocked(cluster, creep, opts, block){
-	        this.orMove(creep, block, creep.attack(block));
+	        this.orAttackMove(creep, block, creep.attack(block));
 	        if(creep.pos.getRangeTo(block) <= 3 && creep.getActiveBodyparts(RANGED_ATTACK) > 0){
 	            creep.rangedAttack(block);
 	        }
@@ -5598,6 +5844,13 @@ module.exports =
 	    }
 
 	    postWork(cluster, creep, opts, action){
+	        if(Memory.lockdown && Game.cpu.bucket < 7500){
+	            console.log('locking down', creep);
+	            creep.suicide();
+	        }
+	        if(Game.cpu.bucket < 9500){
+	            return;
+	        }
 	        if(!action && creep.carry.energy > creep.carryCapacity / 8){
 	            var structures = creep.room.lookForRadius(creep.pos, LOOK_STRUCTURES, 3);
 	            var targets = _.filter(structures, structure => structure.hits < structure.getMaxHits() && structure.mine());

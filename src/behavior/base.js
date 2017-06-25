@@ -30,6 +30,17 @@ class BaseAction {
         return result;
     }
 
+    attackMove(creep, target){
+        return Pathing.attackMove(creep, target, 1, false);
+    }
+
+    orAttackMove(creep, target, result){
+        if(result == ERR_NOT_IN_RANGE){
+            this.attackMove(creep, target);
+        }
+        return result;
+    }
+
 }
 
 module.exports = BaseAction;

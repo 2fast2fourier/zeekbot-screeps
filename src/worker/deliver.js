@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class DeliverWorker extends BaseWorker {
-    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile'], critical: 'spawn' }); }
+    constructor(){ super('deliver', { args: ['id', 'resource'], quota: ['stockpile', 'tower'], critical: 'spawn' }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -11,7 +11,7 @@ class DeliverWorker extends BaseWorker {
     }
 
     spawn(cluster, subtype){
-        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower)
+        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower);
         var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
         return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
@@ -25,6 +25,12 @@ class DeliverWorker extends BaseWorker {
         var structures = _.filter(cluster.getAllMyStructures([STRUCTURE_STORAGE]), storage => storage.getStored() < storage.getCapacity() * 0.9 && storage.getResource(RESOURCE_ENERGY) < storage.getCapacity() * 0.6);
         var tagged = cluster.getTaggedStructures();
         return this.jobsForTargets(cluster, subtype, structures.concat(tagged.stockpile || []), { resource: RESOURCE_ENERGY });
+    }
+
+    tower(cluster, subtype){
+        var structures = cluster.structures.tower;
+        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
+        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
 
     terminal(cluster, subtype){

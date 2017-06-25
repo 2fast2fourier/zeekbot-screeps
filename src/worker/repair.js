@@ -8,6 +8,9 @@ class RepairWorker extends BaseWorker {
     /// Job ///
 
     repair(cluster, subtype){
+        if(Memory.lockdown && Game.cpu.bucket < 7500){
+            return [];
+        }
         return this.jobsForTargets(cluster, subtype, cluster.damaged.moderate);
     }
 

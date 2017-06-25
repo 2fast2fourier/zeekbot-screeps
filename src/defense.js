@@ -5,23 +5,98 @@ const whitelist = [
     'likeafox'
 ];
 
+const partValues = {
+    heal: HEAL_POWER,
+    attack: ATTACK_POWER,
+    rangedAttack: RANGED_ATTACK_POWER,
+    work: DISMANTLE_POWER
+};
+
+const boostTypes = {
+    heal: 'heal',
+    attack: 'attack',
+    ranged_attack: 'rangedAttack',
+    work: 'dismantle'
+}
+
 class DefenseMatrix {
     constructor(){
         this.rooms = {};
     }
 
+    static getOwnerType(creep){
+        if(creep.my){
+            return 'mine';
+        }
+        if(!creep.owner){
+            Game.notify('Invalid owner: '+creep);
+            return 'friendly';
+        }
+        var owner = creep.owner.username;
+        if(owner == 'likeafox'){
+            return 'friendly';
+        }
+        // hostiles.push(creep);
+        if(owner == 'Source Keeper'){
+            return 'keeper';
+        }
+        if(owner == 'Invader'){
+            return 'invader';
+        }
+        return 'player';
+    }
+
+    static characterize(creep){
+        var ownerType = DefenseMatrix.getOwnerType(creep);
+        var details = {
+            attack: 0,
+            heal: 0,
+            ranged_attack: 0,
+            work: 0,
+            ownerType,
+            hostile: !creep.my && ownerType != 'friendly'
+        };
+        for(let part in creep.body){
+            if(part.hits > 0){
+                if(part.type == 'attack' || part.type == 'heal' || part.type == 'ranged_attack' || part.type == 'work'){
+                    var multi = 1;
+                    if(part.boost){
+                        multi = _.get(BOOSTS, [part.type, part.boost, boostTypes[part.type]], 1);
+                    }
+                    details[part.type] += partValues[part.type] * multi;
+                }
+            }
+        }
+        creep.details = details;
+        return ownerType;
+    }
+
+    static isSiegeMode(creeps){
+        return true;
+    }
+
     startup(){
         _.forEach(Game.rooms, room => {
-            var hostiles = _.filter(room.find(FIND_HOSTILE_CREEPS), creep => !creep.owner || creep.owner.username != 'likeafox');
+            var hostiles = room.find(FIND_HOSTILE_CREEPS);
+            var threats = {};
+            var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
+            var enemy = _.filter(hostiles, 'details.hostile');
             this.rooms[room.name] = {
                 room,
-                hostiles,
+                hostiles: enemy,
                 damaged: [],
                 safemode: _.get(room, 'controller.safeMode', false),
                 keeper: false,
-                target: _.first(hostiles),
-                towers: []
+                target: _.first(enemy),
+                towers: [],
+                creeps,
+                siege: DefenseMatrix.isSiegeMode(creeps),
+                threat: threats,
+                targetted: false
             };
+            if(creeps.player && room.defend){
+                Game.note('playerWarn', 'Warning: Player creeps detected in our territory: ' + room.name);
+            }
         });
         _.forEach(Game.creeps, creep => {
             if(creep.hits < creep.hitsMax){

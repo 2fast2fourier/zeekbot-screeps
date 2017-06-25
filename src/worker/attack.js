@@ -50,6 +50,7 @@ class AttackWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, flag){
+        var matrix = Game.matrix.rooms[creep.room.name];
         var action = false;
         var target = false;
         var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
@@ -70,11 +71,12 @@ class AttackWorker extends BaseWorker {
         }
         if(!target && inTargetRoom){
             var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
-            let hostiles = _.filter(cluster.find(creep.room, FIND_HOSTILE_CREEPS), target => _.get(target, 'owner.username', false) != 'Source Keeper');
+            let hostiles = matrix.hostiles;
             let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
             target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
         }
         if(target){
+            // console.log(creep, target);
             let attack = creep.getActiveBodyparts('attack');
             let ranged = creep.getActiveBodyparts('ranged_attack');
             let dist = creep.pos.getRangeTo(target);
@@ -97,6 +99,18 @@ class AttackWorker extends BaseWorker {
             this.attackMove(creep, flag);
         }else if(!flag.name.includes('stage')){
            flag.remove();
+        }
+        if(action && target){
+            if(!matrix.targetted){
+                matrix.targetted = {};
+            }
+            if(!matrix.targetted[target.id]){
+                matrix.targetted[target.id] = {
+                    id: target.id,
+                    value: 0
+                };
+            }
+            matrix.targetted[target.id].value++;
         }
         return action;
     }

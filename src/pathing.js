@@ -95,7 +95,7 @@ class Pathing {
     }
 
     static attackMove(creep, target){
-        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, routeCallback: route });
+        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true });
     }
 }
 

@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class PickupWorker extends BaseWorker {
-    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'] }); }
+    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'], minCPU: 4500 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){

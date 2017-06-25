@@ -263,6 +263,16 @@ module.exports = function(){
         });
     }
 
+    if(!Room.prototype.hasOwnProperty('matrix')){
+        Object.defineProperty(Room.prototype, 'matrix', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                return Game.matrix.rooms[this.name];
+            }
+        });
+    }
+
     Room.prototype.getFlagsByPrefix = function(prefix){
         return _.filter(this.flags, flag => flag.name.startsWith(prefix));
     }

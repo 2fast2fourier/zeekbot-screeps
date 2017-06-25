@@ -23,8 +23,32 @@ class Controller {
             Controller.terminalEnergy(transferred);
             Controller.emptyTerminals();
         }
+
+        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
+        if(Game.flags.PortalWatch && observers.length > 0){
+            var roomName = Game.flags.PortalWatch.pos.roomName;
+            let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+            if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+                _.pull(observers, observer);
+                if(observer.observeRoom(roomName) == OK){
+                    new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
+                    if(Memory.observe[roomName]){
+                        delete Memory.observe[roomName];
+                    }
+                }
+            }else{
+                console.log('PW No observer for', roomName);
+            }
+            if(Game.flags.PortalWatch.room){
+                let room = Game.flags.PortalWatch.room;
+                let matrix = room.matrix;
+                if(matrix.creeps.player){
+                    Game.note('portalWarn', 'Warning: Player creeps detected: ' + room.name);
+                }
+            }
+        }
+
         if(_.size(Memory.observe) > 0){
-            var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
             for(let roomName in Memory.observe){
                 if(observers.length > 0){
                     let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
@@ -84,9 +108,18 @@ class Controller {
 
         _.forEach(cluster.structures.tower, tower=>{
             let action = false;
+            if(tower.room.memory.halt){
+                return;
+            }
             if(tower.energy >= 10){
                 let data = Game.matrix.rooms[tower.pos.roomName];
                 let hostile = data.target;
+                if(data.targetted){
+                    let best = Game.getObjectById(_.max(data.targetted, 'value').id);
+                    if(best){
+                        hostile = best;
+                    }
+                }
                 if(hostile){
                     action = tower.attack(hostile) == OK;
                 }
@@ -97,6 +130,12 @@ class Controller {
                         let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
                         if(critStruct){
                             tower.repair(critStruct);
+                        }
+                    }else if(Game.cpu.bucket > 9750 && tower.energy > tower.energyCapacity * 0.75 && _.get(tower, 'room.storage.store.energy', 0) > 300000){
+                        var ramparts = _.filter(cluster.structures.rampart, rampart => rampart.pos.roomName == tower.pos.roomName && rampart.getDamage() > 0);
+                        var target = Util.closest(tower, ramparts);
+                        if(target && target.pos.getRangeTo(tower) < 10){
+                            tower.repair(target);
                         }
                     }
                 }
@@ -253,6 +292,10 @@ class Controller {
         }
         if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
             return;
+        }
+        if(targetLab.hasTag('boost')){
+            console.log('attempting to manu with boost lab', targetLab);
+            return false;
         }
         targetLab.runReaction(labA, labB);
     }

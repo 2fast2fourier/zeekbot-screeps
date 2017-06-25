@@ -11,7 +11,7 @@ var haulerParts = {
 
 var template = {
     defender: {
-        quota: 'defend',
+        quota: 'defend-defend',
         critical: true,
         parts: {
             milli: { tough: 5, move: 25, ranged_attack: 20 },
@@ -20,7 +20,16 @@ var template = {
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
         },
-        work: { defend: {}, idle: { subtype: 'tower' } } 
+        work: { defend: {}, idle: { subtype: 'tower' } },
+        variants: {
+            rampart: {
+                quota: 'rampart-defend',
+                parts: {
+                    milli: { attack: 40, move: 10 },
+                },
+                work: { defend: { subtype: 'rampart' } },
+            }
+        }
     },
     spawnhauler: {
         quota: 'spawnhauler',
@@ -41,6 +50,17 @@ var template = {
                 emergency: false,
                 allocationMulti: 100,
                 parts: { pico: {carry: 4, move: 2 } }
+            },
+            tower: {
+                emergency: false,
+                allocationMulti: 50,
+                quota: 'tower-deliver',
+                assignRoom: 'tower',
+                work: {
+                    pickup: { local: true },
+                    deliver: { subtype: 'tower', local: true },
+                    idle: { subtype: 'tower', local: true }
+                },
             }
         }
     },
@@ -255,15 +275,15 @@ var template = {
     attacker: {
         quota: 'attack',
         maxQuota: 6,
+        critical: true,
         boost: {
             milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
         },
         parts: {
-            milli: { tough: 10, move: 10, attack: 10, heal: 20 },
-            micro: { tough: 5, move: 25, attack: 15, heal: 5 }
+            milli: { tough: 10, move: 10, attack: 10, heal: 20 }
         },
         work: { attack: {} },
-        behavior: { selfheal: { block: 500 }, defend: {}, boost: {} }
+        behavior: { selfheal: { block: 100 }, defend: {}, boost: {} }
     }
 }
 

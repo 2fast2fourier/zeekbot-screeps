@@ -149,7 +149,7 @@ class TransferWorker extends BaseWorker {
     /// Creep ///
 
     // continueJob(cluster, creep, opts, job){
-    //     return super.continueJob(cluster, creep, opts, job);
+    //     return super.continueJob(cluster, creep, opts, job) && this.validate(cluster, creep, opts, job.target, job);
     // }
 
     canBid(cluster, creep, opts){
@@ -198,7 +198,10 @@ class TransferWorker extends BaseWorker {
         if(target && creep.pos.getRangeTo(target) > 1){
             this.move(creep, target);
         }else if(deliver){
-            creep.transfer(deliver.target, type, deliver.amount);
+            if(creep.transfer(deliver.target, type, deliver.amount) == OK){
+                creep.memory.job = false;
+                creep.memory.jobType = false;
+            }
         }else if(pickup){
             creep.withdraw(pickup.target, type, Math.min(creep.getCapacity() - creep.getStored(), pickup.amount));
         }

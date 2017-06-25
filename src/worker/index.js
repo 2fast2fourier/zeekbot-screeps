@@ -157,7 +157,7 @@ class Worker {
         var workDelta = Game.cpu.getUsed() - workStart;
         Game.profileAdd(creep.memory.type, workDelta);
         creep.memory.cpu += workDelta;
-        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler'){
+        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler' && creep.memory.type != 'attacker'){
             console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
             Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
             creep.suicide();
@@ -174,6 +174,7 @@ class Worker {
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
 
         assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
+        assignments.tower = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
         assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
         for(let keepRoom of keeper){
             let sources = cluster.find(keepRoom, FIND_SOURCES);
