@@ -61,6 +61,7 @@ class Cluster {
             keep: [],
             reserve: []
         };
+        this.roles = this._roleRooms;
 
         this._jobs = {};
         this._hydratedJobs = {};

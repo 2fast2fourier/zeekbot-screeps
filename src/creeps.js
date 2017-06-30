@@ -31,6 +31,19 @@ var template = {
             }
         }
     },
+    longbow: {
+        quota: 'longbow-defend',
+        critical: true,
+        // boost: {
+        //     milli: { rangedAttack: 40, fatigue: 10 }
+        // },
+        parts: {
+            // milli: { ranged_attack: 40, move: 10 },
+            micro: { ranged_attack: 40, move: 10 }
+        },
+        work: { defend: { subtype: 'longbow', range: 3 } },
+        behavior: { boost: {} }
+    },
     spawnhauler: {
         quota: 'spawnhauler',
         allocation: 'carry',
@@ -70,8 +83,8 @@ var template = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
-            kilo: { move: 8, carry: 2, work: 8 },
-            milli: { move: 4, carry: 2, work: 8 },//standard 1100
+            kilo: { move: 6, carry: 4, work: 6 },
+            milli: { move: 4, carry: 2, work: 6 },//standard 1100
             micro: { move: 3, carry: 1, work: 6 },//800
             nano: { move: 2, carry: 2, work: 3 },//550
             pico: { move: 1, carry: 1, work: 2 }//300
@@ -121,7 +134,7 @@ var template = {
         quota: 'reserve',
         allocation: 'claim',
         allocationMax: 2,
-        critical: true,
+        critical: false,
         parts: {
             micro: { claim: 4, move: 4 },
             nano: { claim: 2, move: 2 },
@@ -186,7 +199,6 @@ var template = {
         quota: 'repair-repair',
         allocation: 5,
         maxQuota: 20,
-        critical: true,
         parts: {
             kilo: { move: 10, carry: 10, work: 10 },
             milli: { move: 6, carry: 7, work: 5 },//1150
@@ -201,18 +213,30 @@ var template = {
                 quota: 'heavy-repair',
                 allocation: 3,
                 maxQuota: 20,
-                critical: false,
-                // boost: {
-                //     milli: { fatigue: 10, capacity: 10, repair: 30 }
-                // },
                 parts: {
-                    // milli: { move: 10, carry: 10, work: 30 },
                     micro: { move: 16, carry: 12, work: 20 },
                     nano: { move: 10, carry: 10, work: 10 },
                     pico: { move: 6, carry: 7, work: 5 },
                     femto: { move: 2, carry: 1, work: 1 }
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
+                behavior: { avoid: {}, boost: {} }
+            },
+            bunker: {
+                quota: 'bunker-repair',
+                allocation: 1,
+                maxQuota: 4,
+                boost: {
+                    milli: { repair: 20 }
+                },
+                parts: {
+                    milli: { move: 16, carry: 12, work: 20 },
+                    micro: { move: 16, carry: 12, work: 20 },
+                    nano: { move: 10, carry: 10, work: 10 },
+                    pico: { move: 6, carry: 7, work: 5 },
+                    femto: { move: 2, carry: 1, work: 1 }
+                },
+                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'storage' } },
                 behavior: { avoid: {}, boost: {} }
             }
         }
@@ -222,7 +246,13 @@ var template = {
         critical: true,
         parts: { pico: { move: 1 } },
         work: { observe: {} },
-        behavior: { avoid: {} }
+        behavior: { avoid: {} },
+        variants: {
+            poker: {
+                quota: 'poke-observe',
+                work: { observe: { subtype: 'poke' } }
+            }
+        }
     },
     healer: {
         quota: 'heal',
@@ -239,13 +269,16 @@ var template = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
-            pico: { move: 6, carry: 4, work: 8 }
+            milli: { move: 12, carry: 4, work: 24 },
+            nano: { move: 8, carry: 4, work: 16 },
+            pico: { move: 4, carry: 4, work: 8 }
         },
         work: { mine: { subtype: 'mineral' } },
         behavior: { avoid: {}, minecart: {} }
     },
     transferhauler: {
         quota: 'transfer',
+        critical: true,
         maxQuota: 4,
         allocation: 2,
         parts: { milli: { carry: 20, move: 10 } },

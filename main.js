@@ -147,13 +147,12 @@ module.exports =
 	                iy++;
 	            }
 
-	            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
+	            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 * cluster.structures.storage.length && cluster.opts.repair < REPAIR_CAP){
 	                cluster.opts.repair += 50000;
 	                // Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
 	                console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
 	            }
 
-	            // Game.profile(name, Game.cpu.getUsed() - clusterStart);
 	            cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
 	            ix+= 100;
 	        }catch(e){
@@ -195,10 +194,7 @@ module.exports =
 	    _.forEach(Game.clusters, cluster => cluster.finishProfile());
 	    Game.finishProfile();
 
-	    // var creepTypes = _.groupBy(Game.creeps, 'memory.type');
-	    // _.forEach(creepTypes, (list, type) => Game.profile('c-'+type, list.length));
 	    
-	    Game.profile('cpu', Game.cpu.getUsed());
 
 	    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
 	    Game.profile('clusters', clusterEndTime - initTime);
@@ -209,6 +205,18 @@ module.exports =
 	    if(Game.cpu.bucket < 600){
 	        Game.note('cpubucketcrit', 'CPU bucket critical! '+Game.cpu.bucket);
 	    }
+	    Memory.stats.bucket = Game.cpu.bucket;
+	    Memory.stats.clusters = {};
+	    _.forEach(Game.clusters, cluster => {
+	        Memory.stats.clusters[cluster.id] = _.assign({}, cluster.longstats, cluster.stats);
+	    });
+	    Memory.stats.tick = Game.time;
+	    Memory.stats.tickmod = Game.time % 100;
+	    // Memory.stats.types = _.mapValues(_.groupBy(Game.creeps, 'memory.type'), list => list.length);
+	    Memory.stats.gcl = Game.gcl.level + Game.gcl.progress / Game.gcl.progressTotal;
+	    var cpu = Game.cpu.getUsed();
+	    Game.profile('cpu', cpu);
+	    Memory.stats.cpu = cpu;
 	}
 
 /***/ },
@@ -307,8 +315,8 @@ module.exports =
 	    };
 
 	    Game.note = function note(type, message){
-	        console.log(message);
 	        if(_.get(Memory, ['notify', type], 0) < Game.time){
+	            console.log(message);
 	            Game.notify(message);
 	            _.set(Memory, ['notify', type], Game.time + 2000);
 	        }
@@ -800,6 +808,20 @@ module.exports =
 	            }
 	            Game.notify(msg);
 	        }
+
+	        var closest = 0;
+	        Memory.levelroom = false;
+	        Memory.stats.rooms = {};
+	        _.forEach(Game.rooms, room => {
+	            if(room.controller && room.controller.my && room.controller.level < 8){
+	                var percent = room.controller.progress / room.controller.progressTotal;
+	                Memory.stats.rooms[room.name] = room.controller.level + percent;
+	                if(percent > closest && room.controller.level >= 6){
+	                    closest = percent;
+	                    Memory.levelroom = room.name;
+	                }
+	            }
+	        })
 	    }
 
 	    static convert(){
@@ -985,6 +1007,25 @@ module.exports =
 	                    console.log(JSON.stringify(Memory.rooms[roomName]));
 	                    flag.remove();
 	                    break;
+	                case 'towers':
+	                    if(flag.room){
+	                        var towers = _.filter(flag.room.find(FIND_MY_STRUCTURES), tower => tower.structureType == STRUCTURE_TOWER);
+	                        for(var tower of towers){
+	                            flag.room.visual.rect(tower.pos.x - 5.5, tower.pos.y - 5.5, 11, 11, {
+	                                fill: '#ff0000',
+	                                opacity: 0.1
+	                            });
+	                            flag.room.visual.rect(tower.pos.x - 10.5, tower.pos.y - 10.5, 21, 21, {
+	                                fill: '#ff0000',
+	                                opacity: 0.1
+	                            });
+	                            flag.room.visual.rect(tower.pos.x - 20.5, tower.pos.y - 20.5, 41, 41, {
+	                                fill: '#ff0000',
+	                                opacity: 0.1
+	                            });
+	                        }
+	                    }
+	                    break;
 	                case 'set':
 	                    let value = parts[3];
 	                    if(value == 'true'){
@@ -1160,6 +1201,7 @@ module.exports =
 	            keep: [],
 	            reserve: []
 	        };
+	        this.roles = this._roleRooms;
 
 	        this._jobs = {};
 	        this._hydratedJobs = {};
@@ -1689,6 +1731,19 @@ module.exports =
 	            }
 	        }
 	    },
+	    longbow: {
+	        quota: 'longbow-defend',
+	        critical: true,
+	        // boost: {
+	        //     milli: { rangedAttack: 40, fatigue: 10 }
+	        // },
+	        parts: {
+	            // milli: { ranged_attack: 40, move: 10 },
+	            micro: { ranged_attack: 40, move: 10 }
+	        },
+	        work: { defend: { subtype: 'longbow', range: 3 } },
+	        behavior: { boost: {} }
+	    },
 	    spawnhauler: {
 	        quota: 'spawnhauler',
 	        allocation: 'carry',
@@ -1728,8 +1783,8 @@ module.exports =
 	        allocation: 'work',
 	        allocationMax: 6,
 	        parts: {
-	            kilo: { move: 8, carry: 2, work: 8 },
-	            milli: { move: 4, carry: 2, work: 8 },//standard 1100
+	            kilo: { move: 6, carry: 4, work: 6 },
+	            milli: { move: 4, carry: 2, work: 6 },//standard 1100
 	            micro: { move: 3, carry: 1, work: 6 },//800
 	            nano: { move: 2, carry: 2, work: 3 },//550
 	            pico: { move: 1, carry: 1, work: 2 }//300
@@ -1779,7 +1834,7 @@ module.exports =
 	        quota: 'reserve',
 	        allocation: 'claim',
 	        allocationMax: 2,
-	        critical: true,
+	        critical: false,
 	        parts: {
 	            micro: { claim: 4, move: 4 },
 	            nano: { claim: 2, move: 2 },
@@ -1844,7 +1899,6 @@ module.exports =
 	        quota: 'repair-repair',
 	        allocation: 5,
 	        maxQuota: 20,
-	        critical: true,
 	        parts: {
 	            kilo: { move: 10, carry: 10, work: 10 },
 	            milli: { move: 6, carry: 7, work: 5 },//1150
@@ -1859,18 +1913,30 @@ module.exports =
 	                quota: 'heavy-repair',
 	                allocation: 3,
 	                maxQuota: 20,
-	                critical: false,
-	                // boost: {
-	                //     milli: { fatigue: 10, capacity: 10, repair: 30 }
-	                // },
 	                parts: {
-	                    // milli: { move: 10, carry: 10, work: 30 },
 	                    micro: { move: 16, carry: 12, work: 20 },
 	                    nano: { move: 10, carry: 10, work: 10 },
 	                    pico: { move: 6, carry: 7, work: 5 },
 	                    femto: { move: 2, carry: 1, work: 1 }
 	                },
 	                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
+	                behavior: { avoid: {}, boost: {} }
+	            },
+	            bunker: {
+	                quota: 'bunker-repair',
+	                allocation: 1,
+	                maxQuota: 4,
+	                boost: {
+	                    milli: { repair: 20 }
+	                },
+	                parts: {
+	                    milli: { move: 16, carry: 12, work: 20 },
+	                    micro: { move: 16, carry: 12, work: 20 },
+	                    nano: { move: 10, carry: 10, work: 10 },
+	                    pico: { move: 6, carry: 7, work: 5 },
+	                    femto: { move: 2, carry: 1, work: 1 }
+	                },
+	                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'storage' } },
 	                behavior: { avoid: {}, boost: {} }
 	            }
 	        }
@@ -1880,7 +1946,13 @@ module.exports =
 	        critical: true,
 	        parts: { pico: { move: 1 } },
 	        work: { observe: {} },
-	        behavior: { avoid: {} }
+	        behavior: { avoid: {} },
+	        variants: {
+	            poker: {
+	                quota: 'poke-observe',
+	                work: { observe: { subtype: 'poke' } }
+	            }
+	        }
 	    },
 	    healer: {
 	        quota: 'heal',
@@ -1897,13 +1969,16 @@ module.exports =
 	        allocation: 'work',
 	        allocationMax: 6,
 	        parts: {
-	            pico: { move: 6, carry: 4, work: 8 }
+	            milli: { move: 12, carry: 4, work: 24 },
+	            nano: { move: 8, carry: 4, work: 16 },
+	            pico: { move: 4, carry: 4, work: 8 }
 	        },
 	        work: { mine: { subtype: 'mineral' } },
 	        behavior: { avoid: {}, minecart: {} }
 	    },
 	    transferhauler: {
 	        quota: 'transfer',
+	        critical: true,
 	        maxQuota: 4,
 	        allocation: 2,
 	        parts: { milli: { carry: 20, move: 10 } },
@@ -2642,10 +2717,9 @@ module.exports =
 	            return 'friendly';
 	        }
 	        var owner = creep.owner.username;
-	        if(owner == 'likeafox'){
+	        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare'){
 	            return 'friendly';
 	        }
-	        // hostiles.push(creep);
 	        if(owner == 'Source Keeper'){
 	            return 'keeper';
 	        }
@@ -2681,16 +2755,17 @@ module.exports =
 	    }
 
 	    static isSiegeMode(creeps){
-	        return true;
+	        return creeps.player && creeps.player.length > 0;
 	    }
 
 	    startup(){
+	        Game.perf();
 	        _.forEach(Game.rooms, room => {
 	            var hostiles = room.find(FIND_HOSTILE_CREEPS);
 	            var threats = {};
 	            var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
 	            var enemy = _.filter(hostiles, 'details.hostile');
-	            this.rooms[room.name] = {
+	            var data = {
 	                room,
 	                hostiles: enemy,
 	                damaged: [],
@@ -2699,19 +2774,21 @@ module.exports =
 	                target: _.first(enemy),
 	                towers: [],
 	                creeps,
-	                siege: DefenseMatrix.isSiegeMode(creeps),
+	                underSiege: DefenseMatrix.isSiegeMode(creeps),
 	                threat: threats,
 	                targetted: false
 	            };
-	            if(creeps.player && room.defend){
+	            if(data.underSiege && room.memory.defend){
 	                Game.note('playerWarn', 'Warning: Player creeps detected in our territory: ' + room.name);
 	            }
+	            this.rooms[room.name] = data;
 	        });
 	        _.forEach(Game.creeps, creep => {
 	            if(creep.hits < creep.hitsMax){
 	                this.rooms[creep.room.name].damaged.push(creep);
 	            }
 	        });
+	        Game.perf('matrix');
 	    }
 
 	    process(cluster){
@@ -3351,25 +3428,28 @@ module.exports =
 	        }
 
 	        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
-	        if(Game.flags.PortalWatch && observers.length > 0){
-	            var roomName = Game.flags.PortalWatch.pos.roomName;
-	            let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
-	            if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
-	                _.pull(observers, observer);
-	                if(observer.observeRoom(roomName) == OK){
-	                    new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
-	                    if(Memory.observe[roomName]){
-	                        delete Memory.observe[roomName];
+	        var portalWatch = Flag.getByPrefix('PortalWatch');
+	        if(portalWatch.length && observers.length > 0){
+	            for(var flag of portalWatch){
+	                var roomName = flag.pos.roomName;
+	                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+	                if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+	                    _.pull(observers, observer);
+	                    if(observer.observeRoom(roomName) == OK){
+	                        new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
+	                        if(Memory.observe[roomName]){
+	                            delete Memory.observe[roomName];
+	                        }
 	                    }
+	                }else{
+	                    console.log('PW No observer for', roomName);
 	                }
-	            }else{
-	                console.log('PW No observer for', roomName);
-	            }
-	            if(Game.flags.PortalWatch.room){
-	                let room = Game.flags.PortalWatch.room;
-	                let matrix = room.matrix;
-	                if(matrix.creeps.player){
-	                    Game.note('portalWarn', 'Warning: Player creeps detected: ' + room.name);
+	                if(flag.room){
+	                    let room = flag.room;
+	                    let matrix = room.matrix;
+	                    if(matrix.creeps.player){
+	                        Game.note('portalWarn'+room.name, 'Warning: Player creeps detected: ' + room.name);
+	                    }
 	                }
 	            }
 	        }
@@ -3446,7 +3526,10 @@ module.exports =
 	                        hostile = best;
 	                    }
 	                }
-	                if(hostile){
+	                if(data.damaged.length > 0){
+	                    action = tower.heal(_.first(data.damaged)) == OK;
+	                }
+	                if(!action && hostile){
 	                    action = tower.attack(hostile) == OK;
 	                }
 	                if(!action){
@@ -3472,6 +3555,9 @@ module.exports =
 	            Controller.linkTransfer(cluster);
 
 	            _.forEach(cluster.reaction, (data, type) => Controller.runReaction(cluster, type, data));
+	        }
+	        if(Game.interval(500)){
+	            Controller.scanForNukes(cluster);
 	        }
 	    }
 
@@ -3518,7 +3604,7 @@ module.exports =
 
 	    //// Terminals ////
 	    static terminalEnergy(transferred){
-	        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < 250000);
+	        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < (terminal.pos.roomName == Memory.levelroom ? 425000 : 250000));
 	        let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000);
 	        let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
 	        if(sourceTerminals.length > 0){
@@ -3552,9 +3638,9 @@ module.exports =
 	    }
 
 	    static emptyTerminals(){
-	        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+	        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.room.matrix.underSiege && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
 	        if(terminals.length){
-	            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
+	            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.room.matrix.underSiege && terminal.getStored() < terminal.getCapacity() * 0.8);
 	            terminals.forEach(terminal => {
 	                let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
 	                let sending = _.first(_.keys(resources));
@@ -3624,6 +3710,41 @@ module.exports =
 	            return false;
 	        }
 	        targetLab.runReaction(labA, labB);
+	    }
+
+	    static scanForNukes(cluster){
+	        var targets = false;
+	        var repair = false;
+	        for(var room of cluster.roles.core){
+	            var nukes = room.find(FIND_NUKES);
+	            if(nukes.length > 0){
+	                Game.note('nuke', 'NUKE DETECTED: '+room.name);
+	                if(!targets){
+	                    targets = {};
+	                    repair = {};
+	                }
+	                var structures = room.find(FIND_STRUCTURES);
+	                var ramparts = _.filter(structures, struct => struct.structureType == STRUCTURE_RAMPART || struct.structureType == STRUCTURE_WALL);
+	                targets[room.name] = _.map(nukes, nuke => {
+	                    var inRange = _.filter(ramparts, struct => struct.pos.getRangeTo(nuke) <= 3);
+	                    var epicenter = _.first(_.filter(inRange, rampart => rampart.pos.getRangeTo(nuke) == 0));
+	                    for(var rampart of inRange){
+	                        _.set(repair, rampart.id, _.get(repair, rampart.id, cluster.opts.repair) + 5500000);
+	                    }
+	                    if(epicenter){
+	                        _.set(repair, epicenter.id, _.get(repair, epicenter.id, cluster.opts.repair) + 5500000);
+	                    }
+	                    return {
+	                        landingTick: Game.time + nuke.timeToLand,
+	                        pos: nuke.pos,
+	                        ramparts: _.map(inRange, 'id'),
+	                        epicenter: _.get(epicenter, 'id', false)
+	                    };
+	                });
+	            }
+	        }
+	        cluster.update('nukes', targets);
+	        cluster.update('repair', repair);
 	    }
 	}
 
@@ -3792,9 +3913,11 @@ module.exports =
 	        var workDelta = Game.cpu.getUsed() - workStart;
 	        Game.profileAdd(creep.memory.type, workDelta);
 	        creep.memory.cpu += workDelta;
-	        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler' && creep.memory.type != 'attacker'){
-	            console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-	            Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+	        if(creep.memory.cpu > 1200 && !creep.memory.critical){
+	            if(creep.ticksToLive > 100){
+	                console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+	                Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+	            }
 	            creep.suicide();
 	        }
 	    }
@@ -4281,10 +4404,10 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class DefendWorker extends BaseWorker {
-	    constructor(){ super('defend', { quota: [ 'defend', 'rampart' ], critical: 'rampart' }); }
+	    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow' ], critical: true }); }
 
 	    genTarget(cluster, subtype, id, args){
-	        if(subtype == 'rampart'){
+	        if(subtype == 'rampart' || subtype == 'longbow'){
 	            return Game.flags[id];
 	        }else{
 	            return super.genTarget(cluster, subtype, id, args);
@@ -4292,7 +4415,7 @@ module.exports =
 	    }
 
 	    createId(cluster, subtype, target, args){
-	        if(subtype == 'rampart'){
+	        if(subtype == 'rampart' || subtype == 'longbow'){
 	            return target.name;
 	        }else{
 	            return super.createId(cluster, subtype, target, args);
@@ -4321,9 +4444,19 @@ module.exports =
 	        }
 	        return ramparts;
 	    }
+	    
+	    longbow(cluster, subtype){
+	        var ramparts = [];
+	        for(var flag of Flag.getByPrefix('Longbow')){
+	            if(flag.room && flag.room.cluster && flag.room.cluster.id == cluster.id){
+	                ramparts.push(this.createJob(cluster, subtype, flag));
+	            }
+	        }
+	        return ramparts;
+	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
-	        if(subtype == 'rampart'){
+	        if(subtype == 'rampart' || subtype == 'longbow'){
 	            return 1;
 	        }
 	        var value = target.getActiveBodyparts(ATTACK) * 5;
@@ -4341,6 +4474,7 @@ module.exports =
 
 	    processRampart(cluster, creep, opts, job, flag){
 	        var flagRange = creep.pos.getRangeTo(flag);
+	        var range = opts.range || 1;
 	        if(flagRange > 1){
 	            this.move(creep, flag);
 	        }else if(flagRange == 1){
@@ -4348,10 +4482,18 @@ module.exports =
 	        }else{
 	            var data = creep.room.matrix;
 	            if(data.hostiles.length > 0){
-	                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= 1);
-	                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) + (target.hits / target.hitsMax)));
+	                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= range);
+	                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) - (target.hits / target.hitsMax)));
 	                if(target){
-	                    creep.attack(target);
+	                    if(range > 1){
+	                        if(creep.pos.getRangeTo(target) == 1){
+	                            creep.rangedMassAttack(target);
+	                        }else{
+	                            creep.rangedAttack(target);
+	                        }
+	                    }else{
+	                        creep.attack(target);
+	                    }
 	                    if(!data.targetted){
 	                        data.targetted = {};
 	                    }
@@ -4368,7 +4510,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(job.subtype == 'rampart'){
+	        if(job.subtype == 'rampart' || job.subtype == 'longbow'){
 	            return this.processRampart(cluster, creep, opts, job, target);
 	        }
 	        let attack = creep.getActiveBodyparts('attack');
@@ -4410,7 +4552,7 @@ module.exports =
 	    }
 
 	    spawn(cluster, subtype){
-	        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower);
+	        var structures = cluster.structures.spawn.concat(cluster.structures.extension);
 	        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
 	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
 	    }
@@ -4428,7 +4570,7 @@ module.exports =
 
 	    tower(cluster, subtype){
 	        var structures = cluster.structures.tower;
-	        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
+	        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity - 50);
 	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
 	    }
 
@@ -4452,6 +4594,9 @@ module.exports =
 	    }
 
 	    jobValid(cluster, job){
+	        if(job.target && job.target.structureType == 'tower'){
+	            return super.jobValid(cluster, job) && job.target.getAvailableCapacity() > 50;
+	        }
 	        return super.jobValid(cluster, job) && job.target.getAvailableCapacity() > 0;
 	    }
 
@@ -4977,14 +5122,11 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class RepairWorker extends BaseWorker {
-	    constructor(){ super('repair', { requiresEnergy: true, quota: ['repair', 'heavy'], range: 3, ignoreDistance: true, minEnergy: 750, minCPU: 2500 }); }
+	    constructor(){ super('repair', { requiresEnergy: true, quota: ['repair', 'heavy', 'bunker'], range: 3, ignoreDistance: true, minEnergy: 750, minCPU: 2500 }); }
 
 	    /// Job ///
 
 	    repair(cluster, subtype){
-	        if(Memory.lockdown && Game.cpu.bucket < 7500){
-	            return [];
-	        }
 	        return this.jobsForTargets(cluster, subtype, cluster.damaged.moderate);
 	    }
 
@@ -4992,15 +5134,33 @@ module.exports =
 	        return this.jobsForTargets(cluster, subtype, cluster.damaged.heavy);
 	    }
 
+	    bunker(cluster, subtype){
+	        if(cluster.repair){
+	            return _.reduce(cluster.repair, (jobs, repairTarget, repairId) => {
+	                var target = Game.getObjectById(repairId);
+	                if(target && target.hits < repairTarget){
+	                    jobs.push(this.createJob(cluster, subtype, target));
+	                }
+	                return jobs;
+	            }, []);
+	        }else{
+	            return [];
+	        }
+	    }
+
 	    jobValid(cluster, job){
+	        if(job.subtype == 'bunker' && job.target){
+	            var targetHits = _.get(cluster.repair, job.target.id, cluster.opts.repair);
+	            return super.jobValid(cluster, job) && job.target.hits < targetHits;
+	        }
 	        return super.jobValid(cluster, job) && job.target.getDamage() > 0;
 	    }
 
 	    /// Creep ///
 
-	    allocate(cluster, creep, opts){
-	        return creep.getResource(RESOURCE_ENERGY) * 100;
-	    }
+	    // allocate(cluster, creep, opts){
+	    //     return creep.getResource(RESOURCE_ENERGY) * 100;
+	    // }
 
 	    calculateBid(cluster, creep, opts, job, distance){
 	        return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);
@@ -5142,8 +5302,8 @@ module.exports =
 	    }
 
 	    generateLabTransfers(cluster){
-	        var min = 1500;
-	        var max = 2500;
+	        var min = 2000;
+	        var max = 2750;
 	        return _.reduce(cluster.transfer, (result, resource, labId) => {
 	            var target = Game.structures[labId];
 	            if(!target){
@@ -5166,10 +5326,10 @@ module.exports =
 	            if(resource){
 	                var amount = target.getResource(resource);
 	                if(amount < min && cluster.resources[resource].stored > 0){
-	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 2000 }));
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'deliver', resource, amount: 2500 }));
 	                }
 	                if(amount > max){
-	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 2000 }));
+	                    result.push(this.createJob(cluster, 'transfer', target, { action: 'store', resource, amount: 2500 }));
 	                }
 	            }
 	            return result;
@@ -5408,10 +5568,13 @@ module.exports =
 	        if(cluster.maxRCL < 4){
 	            return 15;
 	        }
-	        if(Memory.siegemode && !_.get(target, 'room.memory.powerlevel', false)){
+	        if(target.level < 4){
+	            return 30;
+	        }
+	        if(Memory.levelroom != target.pos.roomName){
 	            return 15;
 	        }
-	        if(target.level < 4){
+	        if(Memory.siegemode){
 	            return 30;
 	        }
 	        let energy = _.get(target, 'room.storage.store.energy', 0);
@@ -5645,7 +5808,7 @@ module.exports =
 	            }
 	            if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
 	                console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
-	                this.remove(cluster, creep, resource);
+	                this.remove(cluster, creep, type);
 	            }
 	        }
 
@@ -5799,12 +5962,19 @@ module.exports =
 	    postWork(cluster, creep, opts, action){
 	        if(_.sum(creep.carry) >= creep.carryCapacity * 0.7){
 	            var target = false;
+	            if(!creep.memory.containers){
+	                var structures = cluster.find(creep.room, FIND_STRUCTURES);
+	                var containerList = _.filter(structures, struct => struct.structureType == STRUCTURE_CONTAINER
+	                                                                || struct.structureType == STRUCTURE_STORAGE
+	                                                                || struct.structureType == STRUCTURE_LINK);
+	                creep.memory.containers = _.map(containerList, 'id');
+	            }
 	            if(creep.memory.cart){
 	                target = Game.getObjectById(creep.memory.cart);
 	            }
 	            if(!target || target.getAvailableCapacity() == 0 || creep.pos.getRangeTo(target) > 2){
-	                var containers = creep.room.lookForRadius(creep.pos, LOOK_STRUCTURES, 2);
-	                var targets = _.filter(containers, struct => (struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_LINK || struct.structureType == STRUCTURE_TOWER) && struct.getAvailableCapacity() > 0);
+	                var containers = Game.getObjects(creep.memory.containers);
+	                var targets = _.filter(containers, struct => struct && struct.getAvailableCapacity() > 0 && creep.pos.getRangeTo(struct) <= 2);
 	                var nearby = _.sortBy(targets, target => offsets[target.structureType] + Math.max(1, creep.pos.getRangeTo(target)));
 	                if(nearby.length > 0){
 	                    target = _.first(nearby);
@@ -5814,7 +5984,7 @@ module.exports =
 
 	            if(target){
 	                if(creep.pos.getRangeTo(target) > 1){
-	                    creep.moveTo(target);
+	                    this.move(creep, target);
 	                }else{
 	                    _.forEach(creep.carry, (amount, type)=>{
 	                        if(amount > 0){
@@ -5844,11 +6014,7 @@ module.exports =
 	    }
 
 	    postWork(cluster, creep, opts, action){
-	        if(Memory.lockdown && Game.cpu.bucket < 7500){
-	            console.log('locking down', creep);
-	            creep.suicide();
-	        }
-	        if(Game.cpu.bucket < 9500){
+	        if(Game.cpu.bucket < 7500){
 	            return;
 	        }
 	        if(!action && creep.carry.energy > creep.carryCapacity / 8){

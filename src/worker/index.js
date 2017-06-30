@@ -157,9 +157,11 @@ class Worker {
         var workDelta = Game.cpu.getUsed() - workStart;
         Game.profileAdd(creep.memory.type, workDelta);
         creep.memory.cpu += workDelta;
-        if(creep.memory.cpu > 1200 && creep.memory.quota != 'transfer' && creep.memory.quota != 'spawnhauler' && creep.memory.type != 'attacker'){
-            console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-            Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+        if(creep.memory.cpu > 1200 && !creep.memory.critical){
+            if(creep.ticksToLive > 100){
+                console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+                Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+            }
             creep.suicide();
         }
     }

@@ -11,7 +11,7 @@ class DeliverWorker extends BaseWorker {
     }
 
     spawn(cluster, subtype){
-        var structures = cluster.structures.spawn.concat(cluster.structures.extension).concat(cluster.structures.tower);
+        var structures = cluster.structures.spawn.concat(cluster.structures.extension);
         var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
         return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
@@ -29,7 +29,7 @@ class DeliverWorker extends BaseWorker {
 
     tower(cluster, subtype){
         var structures = cluster.structures.tower;
-        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity);
+        var targets = _.filter(structures, struct => struct.energy < struct.energyCapacity - 50);
         return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
     }
 
@@ -53,6 +53,9 @@ class DeliverWorker extends BaseWorker {
     }
 
     jobValid(cluster, job){
+        if(job.target && job.target.structureType == 'tower'){
+            return super.jobValid(cluster, job) && job.target.getAvailableCapacity() > 50;
+        }
         return super.jobValid(cluster, job) && job.target.getAvailableCapacity() > 0;
     }
 

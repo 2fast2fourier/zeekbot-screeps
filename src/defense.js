@@ -33,10 +33,9 @@ class DefenseMatrix {
             return 'friendly';
         }
         var owner = creep.owner.username;
-        if(owner == 'likeafox'){
+        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare'){
             return 'friendly';
         }
-        // hostiles.push(creep);
         if(owner == 'Source Keeper'){
             return 'keeper';
         }
@@ -72,16 +71,17 @@ class DefenseMatrix {
     }
 
     static isSiegeMode(creeps){
-        return true;
+        return creeps.player && creeps.player.length > 0;
     }
 
     startup(){
+        Game.perf();
         _.forEach(Game.rooms, room => {
             var hostiles = room.find(FIND_HOSTILE_CREEPS);
             var threats = {};
             var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
             var enemy = _.filter(hostiles, 'details.hostile');
-            this.rooms[room.name] = {
+            var data = {
                 room,
                 hostiles: enemy,
                 damaged: [],
@@ -90,19 +90,21 @@ class DefenseMatrix {
                 target: _.first(enemy),
                 towers: [],
                 creeps,
-                siege: DefenseMatrix.isSiegeMode(creeps),
+                underSiege: DefenseMatrix.isSiegeMode(creeps),
                 threat: threats,
                 targetted: false
             };
-            if(creeps.player && room.defend){
+            if(data.underSiege && room.memory.defend){
                 Game.note('playerWarn', 'Warning: Player creeps detected in our territory: ' + room.name);
             }
+            this.rooms[room.name] = data;
         });
         _.forEach(Game.creeps, creep => {
             if(creep.hits < creep.hitsMax){
                 this.rooms[creep.room.name].damaged.push(creep);
             }
         });
+        Game.perf('matrix');
     }
 
     process(cluster){

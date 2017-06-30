@@ -100,13 +100,12 @@ module.exports.loop = function () {
                 iy++;
             }
 
-            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 && cluster.opts.repair < REPAIR_CAP){
+            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 * cluster.structures.storage.length && cluster.opts.repair < REPAIR_CAP){
                 cluster.opts.repair += 50000;
                 // Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
                 console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
             }
 
-            // Game.profile(name, Game.cpu.getUsed() - clusterStart);
             cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
             ix+= 100;
         }catch(e){
@@ -148,10 +147,7 @@ module.exports.loop = function () {
     _.forEach(Game.clusters, cluster => cluster.finishProfile());
     Game.finishProfile();
 
-    // var creepTypes = _.groupBy(Game.creeps, 'memory.type');
-    // _.forEach(creepTypes, (list, type) => Game.profile('c-'+type, list.length));
     
-    Game.profile('cpu', Game.cpu.getUsed());
 
     Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
     Game.profile('clusters', clusterEndTime - initTime);
@@ -162,4 +158,16 @@ module.exports.loop = function () {
     if(Game.cpu.bucket < 600){
         Game.note('cpubucketcrit', 'CPU bucket critical! '+Game.cpu.bucket);
     }
+    Memory.stats.bucket = Game.cpu.bucket;
+    Memory.stats.clusters = {};
+    _.forEach(Game.clusters, cluster => {
+        Memory.stats.clusters[cluster.id] = _.assign({}, cluster.longstats, cluster.stats);
+    });
+    Memory.stats.tick = Game.time;
+    Memory.stats.tickmod = Game.time % 100;
+    // Memory.stats.types = _.mapValues(_.groupBy(Game.creeps, 'memory.type'), list => list.length);
+    Memory.stats.gcl = Game.gcl.level + Game.gcl.progress / Game.gcl.progressTotal;
+    var cpu = Game.cpu.getUsed();
+    Game.profile('cpu', cpu);
+    Memory.stats.cpu = cpu;
 }

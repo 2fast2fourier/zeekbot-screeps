@@ -8,11 +8,7 @@ class RepairAction extends BaseAction {
     }
 
     postWork(cluster, creep, opts, action){
-        if(Memory.lockdown && Game.cpu.bucket < 7500){
-            console.log('locking down', creep);
-            creep.suicide();
-        }
-        if(Game.cpu.bucket < 9500){
+        if(Game.cpu.bucket < 7500){
             return;
         }
         if(!action && creep.carry.energy > creep.carryCapacity / 8){

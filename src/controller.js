@@ -25,25 +25,28 @@ class Controller {
         }
 
         var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
-        if(Game.flags.PortalWatch && observers.length > 0){
-            var roomName = Game.flags.PortalWatch.pos.roomName;
-            let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
-            if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
-                _.pull(observers, observer);
-                if(observer.observeRoom(roomName) == OK){
-                    new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
-                    if(Memory.observe[roomName]){
-                        delete Memory.observe[roomName];
+        var portalWatch = Flag.getByPrefix('PortalWatch');
+        if(portalWatch.length && observers.length > 0){
+            for(var flag of portalWatch){
+                var roomName = flag.pos.roomName;
+                let observer = _.min(observers, ob => Game.map.getRoomLinearDistance(roomName, ob.pos.roomName));
+                if(observer && observer.pos && Game.map.getRoomLinearDistance(roomName, observer.pos.roomName) < 10){
+                    _.pull(observers, observer);
+                    if(observer.observeRoom(roomName) == OK){
+                        new RoomVisual(roomName).text('PortalWatch Observed by '+observer.pos.roomName, 25, 25);
+                        if(Memory.observe[roomName]){
+                            delete Memory.observe[roomName];
+                        }
                     }
+                }else{
+                    console.log('PW No observer for', roomName);
                 }
-            }else{
-                console.log('PW No observer for', roomName);
-            }
-            if(Game.flags.PortalWatch.room){
-                let room = Game.flags.PortalWatch.room;
-                let matrix = room.matrix;
-                if(matrix.creeps.player){
-                    Game.note('portalWarn', 'Warning: Player creeps detected: ' + room.name);
+                if(flag.room){
+                    let room = flag.room;
+                    let matrix = room.matrix;
+                    if(matrix.creeps.player){
+                        Game.note('portalWarn'+room.name, 'Warning: Player creeps detected: ' + room.name);
+                    }
                 }
             }
         }
@@ -120,7 +123,10 @@ class Controller {
                         hostile = best;
                     }
                 }
-                if(hostile){
+                if(data.damaged.length > 0){
+                    action = tower.heal(_.first(data.damaged)) == OK;
+                }
+                if(!action && hostile){
                     action = tower.attack(hostile) == OK;
                 }
                 if(!action){
@@ -146,6 +152,9 @@ class Controller {
             Controller.linkTransfer(cluster);
 
             _.forEach(cluster.reaction, (data, type) => Controller.runReaction(cluster, type, data));
+        }
+        if(Game.interval(500)){
+            Controller.scanForNukes(cluster);
         }
     }
 
@@ -192,7 +201,7 @@ class Controller {
 
     //// Terminals ////
     static terminalEnergy(transferred){
-        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < 250000);
+        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < (terminal.pos.roomName == Memory.levelroom ? 425000 : 250000));
         let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000);
         let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
         if(sourceTerminals.length > 0){
@@ -226,9 +235,9 @@ class Controller {
     }
 
     static emptyTerminals(){
-        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.room.matrix.underSiege && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
         if(terminals.length){
-            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
+            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.room.matrix.underSiege && terminal.getStored() < terminal.getCapacity() * 0.8);
             terminals.forEach(terminal => {
                 let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
                 let sending = _.first(_.keys(resources));
@@ -298,6 +307,41 @@ class Controller {
             return false;
         }
         targetLab.runReaction(labA, labB);
+    }
+
+    static scanForNukes(cluster){
+        var targets = false;
+        var repair = false;
+        for(var room of cluster.roles.core){
+            var nukes = room.find(FIND_NUKES);
+            if(nukes.length > 0){
+                Game.note('nuke', 'NUKE DETECTED: '+room.name);
+                if(!targets){
+                    targets = {};
+                    repair = {};
+                }
+                var structures = room.find(FIND_STRUCTURES);
+                var ramparts = _.filter(structures, struct => struct.structureType == STRUCTURE_RAMPART || struct.structureType == STRUCTURE_WALL);
+                targets[room.name] = _.map(nukes, nuke => {
+                    var inRange = _.filter(ramparts, struct => struct.pos.getRangeTo(nuke) <= 3);
+                    var epicenter = _.first(_.filter(inRange, rampart => rampart.pos.getRangeTo(nuke) == 0));
+                    for(var rampart of inRange){
+                        _.set(repair, rampart.id, _.get(repair, rampart.id, cluster.opts.repair) + 5500000);
+                    }
+                    if(epicenter){
+                        _.set(repair, epicenter.id, _.get(repair, epicenter.id, cluster.opts.repair) + 5500000);
+                    }
+                    return {
+                        landingTick: Game.time + nuke.timeToLand,
+                        pos: nuke.pos,
+                        ramparts: _.map(inRange, 'id'),
+                        epicenter: _.get(epicenter, 'id', false)
+                    };
+                });
+            }
+        }
+        cluster.update('nukes', targets);
+        cluster.update('repair', repair);
     }
 }
 

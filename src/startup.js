@@ -48,6 +48,20 @@ class Startup {
             }
             Game.notify(msg);
         }
+
+        var closest = 0;
+        Memory.levelroom = false;
+        Memory.stats.rooms = {};
+        _.forEach(Game.rooms, room => {
+            if(room.controller && room.controller.my && room.controller.level < 8){
+                var percent = room.controller.progress / room.controller.progressTotal;
+                Memory.stats.rooms[room.name] = room.controller.level + percent;
+                if(percent > closest && room.controller.level >= 6){
+                    closest = percent;
+                    Memory.levelroom = room.name;
+                }
+            }
+        })
     }
 
     static convert(){
@@ -232,6 +246,25 @@ class Startup {
                 case 'debugroom':
                     console.log(JSON.stringify(Memory.rooms[roomName]));
                     flag.remove();
+                    break;
+                case 'towers':
+                    if(flag.room){
+                        var towers = _.filter(flag.room.find(FIND_MY_STRUCTURES), tower => tower.structureType == STRUCTURE_TOWER);
+                        for(var tower of towers){
+                            flag.room.visual.rect(tower.pos.x - 5.5, tower.pos.y - 5.5, 11, 11, {
+                                fill: '#ff0000',
+                                opacity: 0.1
+                            });
+                            flag.room.visual.rect(tower.pos.x - 10.5, tower.pos.y - 10.5, 21, 21, {
+                                fill: '#ff0000',
+                                opacity: 0.1
+                            });
+                            flag.room.visual.rect(tower.pos.x - 20.5, tower.pos.y - 20.5, 41, 41, {
+                                fill: '#ff0000',
+                                opacity: 0.1
+                            });
+                        }
+                    }
                     break;
                 case 'set':
                     let value = parts[3];

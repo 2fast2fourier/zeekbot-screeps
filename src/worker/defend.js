@@ -3,10 +3,10 @@
 const BaseWorker = require('./base');
 
 class DefendWorker extends BaseWorker {
-    constructor(){ super('defend', { quota: [ 'defend', 'rampart' ], critical: 'rampart' }); }
+    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow' ], critical: true }); }
 
     genTarget(cluster, subtype, id, args){
-        if(subtype == 'rampart'){
+        if(subtype == 'rampart' || subtype == 'longbow'){
             return Game.flags[id];
         }else{
             return super.genTarget(cluster, subtype, id, args);
@@ -14,7 +14,7 @@ class DefendWorker extends BaseWorker {
     }
 
     createId(cluster, subtype, target, args){
-        if(subtype == 'rampart'){
+        if(subtype == 'rampart' || subtype == 'longbow'){
             return target.name;
         }else{
             return super.createId(cluster, subtype, target, args);
@@ -43,9 +43,19 @@ class DefendWorker extends BaseWorker {
         }
         return ramparts;
     }
+    
+    longbow(cluster, subtype){
+        var ramparts = [];
+        for(var flag of Flag.getByPrefix('Longbow')){
+            if(flag.room && flag.room.cluster && flag.room.cluster.id == cluster.id){
+                ramparts.push(this.createJob(cluster, subtype, flag));
+            }
+        }
+        return ramparts;
+    }
 
     calculateCapacity(cluster, subtype, id, target, args){
-        if(subtype == 'rampart'){
+        if(subtype == 'rampart' || subtype == 'longbow'){
             return 1;
         }
         var value = target.getActiveBodyparts(ATTACK) * 5;
@@ -63,6 +73,7 @@ class DefendWorker extends BaseWorker {
 
     processRampart(cluster, creep, opts, job, flag){
         var flagRange = creep.pos.getRangeTo(flag);
+        var range = opts.range || 1;
         if(flagRange > 1){
             this.move(creep, flag);
         }else if(flagRange == 1){
@@ -70,10 +81,18 @@ class DefendWorker extends BaseWorker {
         }else{
             var data = creep.room.matrix;
             if(data.hostiles.length > 0){
-                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= 1);
-                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) + (target.hits / target.hitsMax)));
+                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= range);
+                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) - (target.hits / target.hitsMax)));
                 if(target){
-                    creep.attack(target);
+                    if(range > 1){
+                        if(creep.pos.getRangeTo(target) == 1){
+                            creep.rangedMassAttack(target);
+                        }else{
+                            creep.rangedAttack(target);
+                        }
+                    }else{
+                        creep.attack(target);
+                    }
                     if(!data.targetted){
                         data.targetted = {};
                     }
@@ -90,7 +109,7 @@ class DefendWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(job.subtype == 'rampart'){
+        if(job.subtype == 'rampart' || job.subtype == 'longbow'){
             return this.processRampart(cluster, creep, opts, job, target);
         }
         let attack = creep.getActiveBodyparts('attack');
