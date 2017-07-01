@@ -122,9 +122,10 @@ class Cluster {
                 Cluster.cleanupTags(cluster);
             }
             if(Game.interval(200)){
-                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !lab.hasTag('boost')));
+                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !cluster.boost[lab.id]));
                 let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
                 cluster.update('labs', _.values(labs));
+                cluster.update('production', labs);
             }
         });
     }
@@ -188,13 +189,15 @@ class Cluster {
             let parts = flag.name.split('-');
             let type = parts[1];
             let target = Cluster.getFlagTarget(flag);
-            if(target && target.room.hasCluster() && Game.boosts[type]){
+            if(target && target.room.hasCluster() && (type == 'remove' || Game.boosts[type])){
                 let cluster = target.room.getCluster();
-                cluster.boost[target.id] = type;
-                if(target.hasTag('production')){
-                    cluster.removeTag('production', target.id);
+                if(type == 'remove'){
+                    delete cluster.boost[target.id];
+                    console.log("Removing boost from", target);
+                }else{
+                    cluster.boost[target.id] = type;
+                    console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
                 }
-                console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
             }
             flag.remove();
         }

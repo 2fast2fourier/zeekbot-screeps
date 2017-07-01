@@ -1,7 +1,8 @@
 "use strict";
 
-var BaseAction = require('./base');
-var Util = require('../util');
+const BaseAction = require('./base');
+const Util = require('../util');
+const creepsConfig = require('../creeps');
 
 class BoostAction extends BaseAction {
     constructor(){
@@ -9,6 +10,10 @@ class BoostAction extends BaseAction {
     }
 
     shouldBlock(cluster, creep, opts){
+        if(creep.memory.reboost){
+            creep.memory.boost = _.get(creepsConfig, [creep.memory.type, 'boost', creep.memory.version], false);
+            delete creep.memory.reboost;
+        }
         if(creep.memory.calculateBoost){
             creep.memory.boosted = _.countBy(_.filter(creep.body, 'boost'), 'boost');
             delete creep.memory.calculateBoost;

@@ -73,38 +73,10 @@ class DefendWorker extends BaseWorker {
 
     processRampart(cluster, creep, opts, job, flag){
         var flagRange = creep.pos.getRangeTo(flag);
-        var range = opts.range || 1;
         if(flagRange > 1){
             this.move(creep, flag);
         }else if(flagRange == 1){
             creep.moveTo(flag);
-        }else{
-            var data = creep.room.matrix;
-            if(data.hostiles.length > 0){
-                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= range);
-                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) - (target.hits / target.hitsMax)));
-                if(target){
-                    if(range > 1){
-                        if(creep.pos.getRangeTo(target) == 1){
-                            creep.rangedMassAttack(target);
-                        }else{
-                            creep.rangedAttack(target);
-                        }
-                    }else{
-                        creep.attack(target);
-                    }
-                    if(!data.targetted){
-                        data.targetted = {};
-                    }
-                    if(!data.targetted[target.id]){
-                        data.targetted[target.id] = {
-                            id: target.id,
-                            value: 0
-                        };
-                    }
-                    data.targetted[target.id].value++;
-                }
-            }
         }
     }
 

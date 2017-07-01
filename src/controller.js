@@ -4,6 +4,13 @@ const Util = require('./util');
 const roomRegex = /([WE])(\d+)([NS])(\d+)/;
 const ENERGY_TRANSFER_AMOUNT = 20000;
 
+const autobuyPriceLimit = {
+    H: 0.3,
+    O: 0.25,
+    XKHO2: 1.5,
+    XZHO2: 1.5
+};
+
 class Controller {
 
     static federation(allocated){
@@ -65,6 +72,10 @@ class Controller {
                     }
                 }
             }
+        }
+
+        if(Game.intervalOffset(50, 11)){
+            Controller.autobuyResources();
         }
     }
 
@@ -284,11 +295,11 @@ class Controller {
         var labSet = data.lab;
         var labs = Game.getObjects(cluster.labs[data.lab]);
         for(var ix=2;ix<labs.length;ix++){
-            Controller.react(type, labs[ix], labs[0], labs[1], data.components);
+            Controller.react(cluster, type, labs[ix], labs[0], labs[1], data.components);
         }
     }
 
-    static react(type, targetLab, labA, labB, components){
+    static react(cluster, type, targetLab, labA, labB, components){
         if(!targetLab || !labA || !labB){
             Game.note('labnotify', 'invalid lab for reaction: ' + type);
             return false;
@@ -302,7 +313,7 @@ class Controller {
         if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
             return;
         }
-        if(targetLab.hasTag('boost')){
+        if(cluster.boost[targetLab.id]){
             console.log('attempting to manu with boost lab', targetLab);
             return false;
         }
@@ -342,6 +353,53 @@ class Controller {
         }
         cluster.update('nukes', targets);
         cluster.update('repair', repair);
+    }
+
+    static autobuyResources(){
+        if(Game.market.credits < 500000 || Game.cpu.bucket < 7500){
+            return;
+        }
+        Game.perfAdd();
+        var terminals = Game.federation.structures.terminal;
+        var requests = {};
+        for(var terminal of terminals){
+            for(var resource in autobuyPriceLimit){
+                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+                    if(!requests[resource]){
+                        requests[resource] = [];
+                    }
+                    requests[resource].push(terminal);
+                }
+            }
+        }
+
+        if(_.size(requests) > 0){
+            let orders = Game.market.getAllOrders({ type: ORDER_SELL });
+            let count = 0;
+            for(let resource in requests){
+                if(count < 10 && Game.market.credits > 500000){
+                    let availableOrders = _.filter(orders, order => order.resourceType == resource
+                                                                    && order.price < autobuyPriceLimit[resource]
+                                                                    && order.amount >= 500);
+                    for(let terminal of requests[resource]){
+                        if(count < 10 && Game.market.credits > 500000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+                            if(availableOrders.length > 0){
+                                var order = _.first(_.sortBy(availableOrders, 'price'));
+                                if(order && order.amount >= 500){
+                                    let amount = Math.min(2000, order.amount);
+                                    if(Game.market.deal(order.id, amount, terminal.pos.roomName) == OK){
+                                        count++;
+                                        order.amount -= amount;
+                                        console.log('Autobuy', resource, 'for room', terminal.pos.roomName, amount);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Game.perfAdd('autobuy');
     }
 }
 

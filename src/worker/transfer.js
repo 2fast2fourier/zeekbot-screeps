@@ -6,11 +6,11 @@ const Util = require('../util');
 class TransferWorker extends BaseWorker {
     constructor(){ super('transfer', { args: ['id', 'action', 'resource', 'amount'], quota: true, minCPU: 7500 }); }
 
-    generateEnergyTransfers(cluster, type, need){
+    generateResourceTransfers(cluster, type, resource, need, exact){
         return cluster.structures[type].reduce((result, struct) => {
-            let energy = struct.getResource(RESOURCE_ENERGY);
-            if(energy < need - 200){
-                result.push(this.createJob(cluster, 'transfer', struct, { action: 'deliver', resource: RESOURCE_ENERGY, amount: need }));
+            let amount = struct.getResource(resource);
+            if(exact ? amount < need : amount < need - 200){
+                result.push(this.createJob(cluster, 'transfer', struct, { action: 'deliver', resource: resource, amount: need }));
             }
             return result;
         }, []);
@@ -59,7 +59,7 @@ class TransferWorker extends BaseWorker {
         return _.reduce(cluster.transfer, (result, resource, labId) => {
             var target = Game.structures[labId];
             if(!target){
-                console.log('invalid lab', labId);
+                console.log('invalid lab', labId, cluster.id);
                 delete cluster.transfer[labId];
                 return result;
             }
@@ -92,14 +92,17 @@ class TransferWorker extends BaseWorker {
 
     transfer(cluster, subtype){
         let jobLists = [];
-        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_LAB, 2000));
-        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_TERMINAL, 50000));
-        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_NUKER, 300000));
+        jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_LAB, RESOURCE_ENERGY, 2000));
+        jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_TERMINAL, RESOURCE_ENERGY, 50000));
         jobLists.push(this.generateLabTransfers(cluster));
         if(cluster.structures.terminal.length > 0){
             jobLists.push(this.generateTerminalTransfers(cluster));
             jobLists.push(this.generateTerminalEnergyTransfers(cluster));
             jobLists.push(this.generateOffloadTransfers(cluster));
+        }
+        if(cluster.structures.nuker.length > 0){
+            jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_NUKER, RESOURCE_ENERGY, 300000, true));
+            jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_NUKER, RESOURCE_GHODIUM, 5000, true));
         }
         return _.flatten(jobLists);
     }

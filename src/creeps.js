@@ -28,21 +28,22 @@ var template = {
                     milli: { attack: 40, move: 10 },
                 },
                 work: { defend: { subtype: 'rampart' } },
+                behavior: { rampart: { range: 1 } }
             }
         }
     },
     longbow: {
         quota: 'longbow-defend',
         critical: true,
-        // boost: {
-        //     milli: { rangedAttack: 40, fatigue: 10 }
-        // },
-        parts: {
-            // milli: { ranged_attack: 40, move: 10 },
-            micro: { ranged_attack: 40, move: 10 }
+        boost: {
+            milli: { rangedAttack: 40, fatigue: 10 }
         },
-        work: { defend: { subtype: 'longbow', range: 3 } },
-        behavior: { boost: {} }
+        parts: {
+            milli: { ranged_attack: 40, move: 10 }//,
+            // micro: { ranged_attack: 40, move: 10 }
+        },
+        work: { defend: { subtype: 'longbow' } },
+        behavior: { boost: {}, rampart: { range: 3 } }
     },
     spawnhauler: {
         quota: 'spawnhauler',
@@ -74,6 +75,7 @@ var template = {
                     deliver: { subtype: 'tower', local: true },
                     idle: { subtype: 'tower', local: true }
                 },
+                behavior: { avoid: {} }
             }
         }
     },

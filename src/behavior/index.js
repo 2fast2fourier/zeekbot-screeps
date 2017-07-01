@@ -5,6 +5,7 @@ var Boost = require('./boost');
 var Defend = require('./defend');
 var Energy = require('./energy');
 var MinecartAction = require('./minecart');
+var Rampart = require('./rampart');
 var Repair = require('./repair');
 var SelfHeal = require('./selfheal');
 
@@ -15,6 +16,7 @@ module.exports = function(){
         defend: new Defend(),
         energy: new Energy(),
         minecart: new MinecartAction(),
+        rampart: new Rampart(),
         repair: new Repair(),
         selfheal: new SelfHeal()
     };

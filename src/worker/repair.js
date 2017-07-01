@@ -32,16 +32,12 @@ class RepairWorker extends BaseWorker {
     jobValid(cluster, job){
         if(job.subtype == 'bunker' && job.target){
             var targetHits = _.get(cluster.repair, job.target.id, cluster.opts.repair);
-            return super.jobValid(cluster, job) && job.target.hits < targetHits;
+            return super.jobValid(cluster, job) && job.target.hits < targetHits + 100000;
         }
         return super.jobValid(cluster, job) && job.target.getDamage() > 0;
     }
 
     /// Creep ///
-
-    // allocate(cluster, creep, opts){
-    //     return creep.getResource(RESOURCE_ENERGY) * 100;
-    // }
 
     calculateBid(cluster, creep, opts, job, distance){
         return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);

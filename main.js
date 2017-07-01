@@ -57,7 +57,7 @@ module.exports =
 	var Controller = __webpack_require__(12);
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(13);
-	var Production = __webpack_require__(40);
+	var Production = __webpack_require__(41);
 	var Pathing = __webpack_require__(2);
 
 	var REPAIR_CAP = 10000000;
@@ -109,6 +109,7 @@ module.exports =
 	    }
 
 	    let initTime = Game.cpu.getUsed();
+	    Game.profileAdd('autobuy', 0);
 
 	    let ix = 50;
 	    let autobuildOffset = 1000;
@@ -167,6 +168,7 @@ module.exports =
 	    try{
 	        Controller.federation(allocated);
 	    }catch(e){
+	        console.log('federation', e);
 	        Game.notify('federation: ' + e.toString());
 	    }
 
@@ -1262,9 +1264,10 @@ module.exports =
 	                Cluster.cleanupTags(cluster);
 	            }
 	            if(Game.interval(200)){
-	                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !lab.hasTag('boost')));
+	                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !cluster.boost[lab.id]));
 	                let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
 	                cluster.update('labs', _.values(labs));
+	                cluster.update('production', labs);
 	            }
 	        });
 	    }
@@ -1328,13 +1331,15 @@ module.exports =
 	            let parts = flag.name.split('-');
 	            let type = parts[1];
 	            let target = Cluster.getFlagTarget(flag);
-	            if(target && target.room.hasCluster() && Game.boosts[type]){
+	            if(target && target.room.hasCluster() && (type == 'remove' || Game.boosts[type])){
 	                let cluster = target.room.getCluster();
-	                cluster.boost[target.id] = type;
-	                if(target.hasTag('production')){
-	                    cluster.removeTag('production', target.id);
+	                if(type == 'remove'){
+	                    delete cluster.boost[target.id];
+	                    console.log("Removing boost from", target);
+	                }else{
+	                    cluster.boost[target.id] = type;
+	                    console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
 	                }
-	                console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
 	            }
 	            flag.remove();
 	        }
@@ -1728,21 +1733,22 @@ module.exports =
 	                    milli: { attack: 40, move: 10 },
 	                },
 	                work: { defend: { subtype: 'rampart' } },
+	                behavior: { rampart: { range: 1 } }
 	            }
 	        }
 	    },
 	    longbow: {
 	        quota: 'longbow-defend',
 	        critical: true,
-	        // boost: {
-	        //     milli: { rangedAttack: 40, fatigue: 10 }
-	        // },
-	        parts: {
-	            // milli: { ranged_attack: 40, move: 10 },
-	            micro: { ranged_attack: 40, move: 10 }
+	        boost: {
+	            milli: { rangedAttack: 40, fatigue: 10 }
 	        },
-	        work: { defend: { subtype: 'longbow', range: 3 } },
-	        behavior: { boost: {} }
+	        parts: {
+	            milli: { ranged_attack: 40, move: 10 }//,
+	            // micro: { ranged_attack: 40, move: 10 }
+	        },
+	        work: { defend: { subtype: 'longbow' } },
+	        behavior: { boost: {}, rampart: { range: 3 } }
 	    },
 	    spawnhauler: {
 	        quota: 'spawnhauler',
@@ -1774,6 +1780,7 @@ module.exports =
 	                    deliver: { subtype: 'tower', local: true },
 	                    idle: { subtype: 'tower', local: true }
 	                },
+	                behavior: { avoid: {} }
 	            }
 	        }
 	    },
@@ -3407,6 +3414,13 @@ module.exports =
 	const roomRegex = /([WE])(\d+)([NS])(\d+)/;
 	const ENERGY_TRANSFER_AMOUNT = 20000;
 
+	const autobuyPriceLimit = {
+	    H: 0.3,
+	    O: 0.25,
+	    XKHO2: 1.5,
+	    XZHO2: 1.5
+	};
+
 	class Controller {
 
 	    static federation(allocated){
@@ -3468,6 +3482,10 @@ module.exports =
 	                    }
 	                }
 	            }
+	        }
+
+	        if(Game.intervalOffset(50, 11)){
+	            Controller.autobuyResources();
 	        }
 	    }
 
@@ -3687,11 +3705,11 @@ module.exports =
 	        var labSet = data.lab;
 	        var labs = Game.getObjects(cluster.labs[data.lab]);
 	        for(var ix=2;ix<labs.length;ix++){
-	            Controller.react(type, labs[ix], labs[0], labs[1], data.components);
+	            Controller.react(cluster, type, labs[ix], labs[0], labs[1], data.components);
 	        }
 	    }
 
-	    static react(type, targetLab, labA, labB, components){
+	    static react(cluster, type, targetLab, labA, labB, components){
 	        if(!targetLab || !labA || !labB){
 	            Game.note('labnotify', 'invalid lab for reaction: ' + type);
 	            return false;
@@ -3705,7 +3723,7 @@ module.exports =
 	        if(labA.mineralAmount == 0 || labB.mineralAmount == 0){
 	            return;
 	        }
-	        if(targetLab.hasTag('boost')){
+	        if(cluster.boost[targetLab.id]){
 	            console.log('attempting to manu with boost lab', targetLab);
 	            return false;
 	        }
@@ -3745,6 +3763,53 @@ module.exports =
 	        }
 	        cluster.update('nukes', targets);
 	        cluster.update('repair', repair);
+	    }
+
+	    static autobuyResources(){
+	        if(Game.market.credits < 500000 || Game.cpu.bucket < 7500){
+	            return;
+	        }
+	        Game.perfAdd();
+	        var terminals = Game.federation.structures.terminal;
+	        var requests = {};
+	        for(var terminal of terminals){
+	            for(var resource in autobuyPriceLimit){
+	                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+	                    if(!requests[resource]){
+	                        requests[resource] = [];
+	                    }
+	                    requests[resource].push(terminal);
+	                }
+	            }
+	        }
+
+	        if(_.size(requests) > 0){
+	            let orders = Game.market.getAllOrders({ type: ORDER_SELL });
+	            let count = 0;
+	            for(let resource in requests){
+	                if(count < 10 && Game.market.credits > 500000){
+	                    let availableOrders = _.filter(orders, order => order.resourceType == resource
+	                                                                    && order.price < autobuyPriceLimit[resource]
+	                                                                    && order.amount >= 500);
+	                    for(let terminal of requests[resource]){
+	                        if(count < 10 && Game.market.credits > 500000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+	                            if(availableOrders.length > 0){
+	                                var order = _.first(_.sortBy(availableOrders, 'price'));
+	                                if(order && order.amount >= 500){
+	                                    let amount = Math.min(2000, order.amount);
+	                                    if(Game.market.deal(order.id, amount, terminal.pos.roomName) == OK){
+	                                        count++;
+	                                        order.amount -= amount;
+	                                        console.log('Autobuy', resource, 'for room', terminal.pos.roomName, amount);
+	                                    }
+	                                }
+	                            }
+	                        }
+	                    }
+	                }
+	            }
+	        }
+	        Game.perfAdd('autobuy');
 	    }
 	}
 
@@ -4474,38 +4539,10 @@ module.exports =
 
 	    processRampart(cluster, creep, opts, job, flag){
 	        var flagRange = creep.pos.getRangeTo(flag);
-	        var range = opts.range || 1;
 	        if(flagRange > 1){
 	            this.move(creep, flag);
 	        }else if(flagRange == 1){
 	            creep.moveTo(flag);
-	        }else{
-	            var data = creep.room.matrix;
-	            if(data.hostiles.length > 0){
-	                var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= range);
-	                var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) - (target.hits / target.hitsMax)));
-	                if(target){
-	                    if(range > 1){
-	                        if(creep.pos.getRangeTo(target) == 1){
-	                            creep.rangedMassAttack(target);
-	                        }else{
-	                            creep.rangedAttack(target);
-	                        }
-	                    }else{
-	                        creep.attack(target);
-	                    }
-	                    if(!data.targetted){
-	                        data.targetted = {};
-	                    }
-	                    if(!data.targetted[target.id]){
-	                        data.targetted[target.id] = {
-	                            id: target.id,
-	                            value: 0
-	                        };
-	                    }
-	                    data.targetted[target.id].value++;
-	                }
-	            }
 	        }
 	    }
 
@@ -5151,16 +5188,12 @@ module.exports =
 	    jobValid(cluster, job){
 	        if(job.subtype == 'bunker' && job.target){
 	            var targetHits = _.get(cluster.repair, job.target.id, cluster.opts.repair);
-	            return super.jobValid(cluster, job) && job.target.hits < targetHits;
+	            return super.jobValid(cluster, job) && job.target.hits < targetHits + 100000;
 	        }
 	        return super.jobValid(cluster, job) && job.target.getDamage() > 0;
 	    }
 
 	    /// Creep ///
-
-	    // allocate(cluster, creep, opts){
-	    //     return creep.getResource(RESOURCE_ENERGY) * 100;
-	    // }
 
 	    calculateBid(cluster, creep, opts, job, distance){
 	        return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);
@@ -5254,11 +5287,11 @@ module.exports =
 	class TransferWorker extends BaseWorker {
 	    constructor(){ super('transfer', { args: ['id', 'action', 'resource', 'amount'], quota: true, minCPU: 7500 }); }
 
-	    generateEnergyTransfers(cluster, type, need){
+	    generateResourceTransfers(cluster, type, resource, need, exact){
 	        return cluster.structures[type].reduce((result, struct) => {
-	            let energy = struct.getResource(RESOURCE_ENERGY);
-	            if(energy < need - 200){
-	                result.push(this.createJob(cluster, 'transfer', struct, { action: 'deliver', resource: RESOURCE_ENERGY, amount: need }));
+	            let amount = struct.getResource(resource);
+	            if(exact ? amount < need : amount < need - 200){
+	                result.push(this.createJob(cluster, 'transfer', struct, { action: 'deliver', resource: resource, amount: need }));
 	            }
 	            return result;
 	        }, []);
@@ -5307,7 +5340,7 @@ module.exports =
 	        return _.reduce(cluster.transfer, (result, resource, labId) => {
 	            var target = Game.structures[labId];
 	            if(!target){
-	                console.log('invalid lab', labId);
+	                console.log('invalid lab', labId, cluster.id);
 	                delete cluster.transfer[labId];
 	                return result;
 	            }
@@ -5340,14 +5373,17 @@ module.exports =
 
 	    transfer(cluster, subtype){
 	        let jobLists = [];
-	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_LAB, 2000));
-	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_TERMINAL, 50000));
-	        jobLists.push(this.generateEnergyTransfers(cluster, STRUCTURE_NUKER, 300000));
+	        jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_LAB, RESOURCE_ENERGY, 2000));
+	        jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_TERMINAL, RESOURCE_ENERGY, 50000));
 	        jobLists.push(this.generateLabTransfers(cluster));
 	        if(cluster.structures.terminal.length > 0){
 	            jobLists.push(this.generateTerminalTransfers(cluster));
 	            jobLists.push(this.generateTerminalEnergyTransfers(cluster));
 	            jobLists.push(this.generateOffloadTransfers(cluster));
+	        }
+	        if(cluster.structures.nuker.length > 0){
+	            jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_NUKER, RESOURCE_ENERGY, 300000, true));
+	            jobLists.push(this.generateResourceTransfers(cluster, STRUCTURE_NUKER, RESOURCE_GHODIUM, 5000, true));
 	        }
 	        return _.flatten(jobLists);
 	    }
@@ -5619,8 +5655,9 @@ module.exports =
 	var Defend = __webpack_require__(35);
 	var Energy = __webpack_require__(36);
 	var MinecartAction = __webpack_require__(37);
-	var Repair = __webpack_require__(38);
-	var SelfHeal = __webpack_require__(39);
+	var Rampart = __webpack_require__(38);
+	var Repair = __webpack_require__(39);
+	var SelfHeal = __webpack_require__(40);
 
 	module.exports = function(){
 	    return {
@@ -5629,6 +5666,7 @@ module.exports =
 	        defend: new Defend(),
 	        energy: new Energy(),
 	        minecart: new MinecartAction(),
+	        rampart: new Rampart(),
 	        repair: new Repair(),
 	        selfheal: new SelfHeal()
 	    };
@@ -5776,8 +5814,9 @@ module.exports =
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
-	var Util = __webpack_require__(10);
+	const BaseAction = __webpack_require__(33);
+	const Util = __webpack_require__(10);
+	const creepsConfig = __webpack_require__(5);
 
 	class BoostAction extends BaseAction {
 	    constructor(){
@@ -5785,6 +5824,10 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
+	        if(creep.memory.reboost){
+	            creep.memory.boost = _.get(creepsConfig, [creep.memory.type, 'boost', creep.memory.version], false);
+	            delete creep.memory.reboost;
+	        }
 	        if(creep.memory.calculateBoost){
 	            creep.memory.boosted = _.countBy(_.filter(creep.body, 'boost'), 'boost');
 	            delete creep.memory.calculateBoost;
@@ -6007,6 +6050,56 @@ module.exports =
 	"use strict";
 
 	var BaseAction = __webpack_require__(33);
+	var Util = __webpack_require__(10);
+
+	class RampartAction extends BaseAction {
+	    constructor(){
+	        super('rampart');
+	    }
+
+	    preWork(cluster, creep, opts){
+	        var data = creep.room.matrix;
+	        if(data.hostiles.length > 0){
+	            var range = opts.range || 1;
+	            var targets = _.filter(data.hostiles, hostile => creep.pos.getRangeTo(hostile) <= range);
+	            var useMass = range > 1 && _.some(targets, hostile => creep.pos.getRangeTo(hostile) <= 1);
+	            var target = _.last(_.sortBy(targets, target => _.get(data, ['targetted', target.id, 'value'], 0) - (target.hits / target.hitsMax)));
+	            if(target){
+	                if(range > 1){
+	                    if(creep.pos.getRangeTo(target) == 1 || useMass){
+	                        creep.rangedMassAttack(target);
+	                    }else{
+	                        creep.rangedAttack(target);
+	                    }
+	                }else{
+	                    creep.attack(target);
+	                }
+	                if(!data.targetted){
+	                    data.targetted = {};
+	                }
+	                if(!data.targetted[target.id]){
+	                    data.targetted[target.id] = {
+	                        id: target.id,
+	                        value: 0
+	                    };
+	                }
+	                data.targetted[target.id].value++;
+	            }
+	        }
+	    }
+
+	}
+
+
+	module.exports = RampartAction;
+
+/***/ },
+/* 39 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(33);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -6031,7 +6124,7 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 39 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6068,7 +6161,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 40 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6083,10 +6176,6 @@ module.exports =
 	    constructor(){}
 
 	    process(cluster){
-	        if(Game.interval(500)){
-	            cluster.structures.lab.filter(lab => !lab.hasTag('production') && !lab.hasTag('boost'))
-	                                  .forEach(lab => lab.addTag('production'));
-	        }
 	        if(!Game.interval(25)){
 	            return;
 	        }
@@ -6155,7 +6244,13 @@ module.exports =
 	            });
 	        });
 	        _.forEach(cluster.boost, (boost, labId)=>{
-	            cluster.transfer[labId] = Game.boosts[boost];
+	            if(Game.getObjectById(labId)){
+	                cluster.transfer[labId] = Game.boosts[boost];
+	            }else{
+	                console.log('Deleting boost ' + boost + ' for lab', labId, cluster.id);
+	                Game.notify('Deleting boost ' + boost + ' for lab ' + labId + ' ' + cluster.id);
+	                delete cluster.boost[labId];
+	            }
 	        });
 	    }
 

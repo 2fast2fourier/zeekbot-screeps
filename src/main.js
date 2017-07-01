@@ -62,6 +62,7 @@ module.exports.loop = function () {
     }
 
     let initTime = Game.cpu.getUsed();
+    Game.profileAdd('autobuy', 0);
 
     let ix = 50;
     let autobuildOffset = 1000;
@@ -120,6 +121,7 @@ module.exports.loop = function () {
     try{
         Controller.federation(allocated);
     }catch(e){
+        console.log('federation', e);
         Game.notify('federation: ' + e.toString());
     }
 

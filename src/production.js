@@ -10,10 +10,6 @@ class Production {
     constructor(){}
 
     process(cluster){
-        if(Game.interval(500)){
-            cluster.structures.lab.filter(lab => !lab.hasTag('production') && !lab.hasTag('boost'))
-                                  .forEach(lab => lab.addTag('production'));
-        }
         if(!Game.interval(25)){
             return;
         }
@@ -82,7 +78,13 @@ class Production {
             });
         });
         _.forEach(cluster.boost, (boost, labId)=>{
-            cluster.transfer[labId] = Game.boosts[boost];
+            if(Game.getObjectById(labId)){
+                cluster.transfer[labId] = Game.boosts[boost];
+            }else{
+                console.log('Deleting boost ' + boost + ' for lab', labId, cluster.id);
+                Game.notify('Deleting boost ' + boost + ' for lab ' + labId + ' ' + cluster.id);
+                delete cluster.boost[labId];
+            }
         });
     }
 
