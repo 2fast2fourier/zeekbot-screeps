@@ -112,7 +112,7 @@ module.exports.loop = function () {
         }catch(e){
             console.log(name, e);
             Game.notify(name + ' - ' + e.toString());
-            // throw e;
+            throw e;
         }
     }
     
@@ -147,9 +147,7 @@ module.exports.loop = function () {
     
     //// Wrapup ////
     _.forEach(Game.clusters, cluster => cluster.finishProfile());
-    Game.finishProfile();
-
-    
+    Game.finishProfile();    
 
     Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
     Game.profile('clusters', clusterEndTime - initTime);

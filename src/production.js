@@ -34,7 +34,8 @@ class Production {
         for(let type in cluster.reaction){
             let deficit = _.get(reactions, [type, 'deficit'], 0);
             let capacity = _.get(reactions, [type, 'capacity'], 0);
-            if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN){
+            let labset = _.get(reactions, [type, 'lab'], false);
+            if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN || labset !== false && !cluster.labs[labset]){
                 console.log(cluster.id, 'Ending reaction:', type, '-', deficit, 'of', capacity);
                 delete cluster.reaction[type];
             }else{

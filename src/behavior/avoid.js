@@ -24,10 +24,10 @@ class AvoidAction extends BaseAction {
             }
         }
         var roomData = Game.matrix.rooms[creep.room.name];
-        if(roomData.safemode || (roomData.hostiles.length == 0 && !roomData.keeper)){
+        if(roomData.safemode || (roomData.armed.length == 0 && !roomData.keeper)){
             return false;
         }
-        var hostiles = roomData.hostiles;
+        var hostiles = roomData.armed;
         if(roomData.keeper){
             let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
             if(keeps.length > 0){

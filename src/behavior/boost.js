@@ -25,6 +25,9 @@ class BoostAction extends BaseAction {
     }
 
     blocked(cluster, creep, opts, block){
+        if(creep.memory.boostCluster){
+            cluster = Game.clusters[creep.memory.boostCluster];
+        }
         var type = _.first(_.keys(creep.memory.boost));
         var resource = Game.boosts[type];
         var needed = creep.memory.boost[type];
@@ -32,8 +35,14 @@ class BoostAction extends BaseAction {
         if(!creep.memory.boostlab){
             var available = cluster.boostMinerals[resource];
             if(available > 30 * needed){
-                var boostLabs = _.invert(cluster.boost);
-                creep.memory.boostlab = boostLabs[type];
+                var boostLabs = _.invert(cluster.boost, true);
+                creep.memory.boostlab = _.last(_.sortBy(boostLabs[type], labId => {
+                    var lab = Game.getObjectById(labId);
+                    if(!lab || lab.mineralType != resource){
+                        return 0;
+                    }
+                    return lab.mineralAmount;
+                }));
             }
             if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
                 console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
@@ -69,6 +78,7 @@ class BoostAction extends BaseAction {
             delete creep.memory.boost[type];
         }else{
             delete creep.memory.boost;
+            delete creep.memory.boostCluster;
         }
         creep.memory.calculateBoost = true;
     }

@@ -159,7 +159,7 @@ module.exports =
 	        }catch(e){
 	            console.log(name, e);
 	            Game.notify(name + ' - ' + e.toString());
-	            // throw e;
+	            throw e;
 	        }
 	    }
 	    
@@ -194,9 +194,7 @@ module.exports =
 	    
 	    //// Wrapup ////
 	    _.forEach(Game.clusters, cluster => cluster.finishProfile());
-	    Game.finishProfile();
-
-	    
+	    Game.finishProfile();    
 
 	    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
 	    Game.profile('clusters', clusterEndTime - initTime);
@@ -248,6 +246,7 @@ module.exports =
 	}
 
 	module.exports = function(){
+	    var flagData = {};
 	    ///
 	    /// Game Helpers
 	    ///
@@ -500,6 +499,16 @@ module.exports =
 	        });
 	    }
 
+	    if(!Room.prototype.hasOwnProperty('hostile')){
+	        Object.defineProperty(Room.prototype, 'hostile', {
+	            enumerable: false,
+	            configurable: true,
+	            get: function(){
+	                return this.controller && this.controller.owner && !this.controller.my;
+	            }
+	        });
+	    }
+
 	    Room.prototype.getFlagsByPrefix = function(prefix){
 	        return _.filter(this.flags, flag => flag.name.startsWith(prefix));
 	    }
@@ -624,7 +633,12 @@ module.exports =
 	    }
 
 	    Flag.getByPrefix = function getByPrefix(prefix){
-	        return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+	        var data = flagData[prefix];
+	        if(!data){
+	            data = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+	            flagData[prefix] = data;
+	        }
+	        return data;
 	    }
 
 	    Flag.prototype.getStructure = function(){
@@ -1719,8 +1733,7 @@ module.exports =
 	        quota: 'defend-defend',
 	        critical: true,
 	        parts: {
-	            milli: { tough: 5, move: 25, ranged_attack: 20 },
-	            micro: { tough: 5, move: 25, ranged_attack: 15 },
+	            micro: { tough: 5, move: 15, ranged_attack: 10 },
 	            nano: { tough: 5, move: 10, ranged_attack: 5 },
 	            pico: { tough: 5, move: 7, ranged_attack: 2 },
 	            femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -1741,7 +1754,7 @@ module.exports =
 	        quota: 'longbow-defend',
 	        critical: true,
 	        boost: {
-	            milli: { rangedAttack: 40, fatigue: 10 }
+	            milli: { fatigue: 10, rangedAttack: 40 }
 	        },
 	        parts: {
 	            milli: { ranged_attack: 40, move: 10 }//,
@@ -1827,7 +1840,10 @@ module.exports =
 	                quota: 'mineral-pickup',
 	                allocationMulti: 50,
 	                allocationMax: Infinity,
-	                parts: { milli: { carry: 16, move: 8 } },
+	                parts: { 
+	                    milli: { carry: 24, move: 12 },
+	                    micro: { carry: 16, move: 8 }
+	                },
 	                work: {
 	                    pickup: { subtype: 'mineral' },
 	                    deliver: { subtype: 'terminal' },
@@ -2017,13 +2033,13 @@ module.exports =
 	        maxQuota: 6,
 	        critical: true,
 	        boost: {
-	            milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
+	            milli: { fatigue: 10, damage: 5, rangedAttack: 25, heal: 10 }
 	        },
 	        parts: {
-	            milli: { tough: 10, move: 10, attack: 10, heal: 20 }
+	            milli: { tough: 5, ranged_attack: 25, move: 10, heal: 10 }
 	        },
 	        work: { attack: {} },
-	        behavior: { selfheal: { block: 100 }, defend: {}, boost: {} }
+	        behavior: { selfheal: { auto: true }, rampart: { range: 3 }, boost: {} }
 	    }
 	}
 
@@ -2075,7 +2091,7 @@ module.exports =
 	        var spawned = false;
 	        _.find(cluster.structures.spawn, spawn =>{
 	            if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-	                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type);
+	                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type, cluster);
 	            }
 	        });
 	        return spawned;
@@ -2112,7 +2128,7 @@ module.exports =
 	            }else{
 	                _.forEach(config.parts, (parts, ver) => {
 	                    let cost = Spawner.calculateCost(parts);
-	                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver) > 0;
+	                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
 	                    if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
 	                        maxCost = cost;
 	                        version = ver;
@@ -2121,7 +2137,7 @@ module.exports =
 	                });
 	            }
 	            if(version){
-	                const limit = Spawner.calculateBoostCapacity(cluster, config, version);
+	                const limit = Spawner.calculateBoostCapacity(targetCluster, config, version, cluster);
 	                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
 	                const need = Math.min(limit, quota);
 	                if(need > 0){
@@ -2178,17 +2194,17 @@ module.exports =
 	        return limit;
 	    }
 
-	    static calculateBoostCapacity(cluster, config, version){
+	    static calculateBoostCapacity(cluster, config, version, originCluster){
 	        if(config.boost && config.boost[version]){
-	            return _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+	            return _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(originCluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
 	        }
 	        return Infinity;
 	    }
 
-	    static spawnCreep(cluster, spawn, spawnlist, spawnType){
+	    static spawnCreep(cluster, spawn, spawnlist, spawnType, originCluster){
 	        var versionName = spawnlist.version[spawnType];
 	        var config = creepsConfig[spawnType];
-	        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName);
+	        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName, originCluster);
 	        if(spawn.room.memory.cluster != cluster.id){
 	            mem.bootstrap = true;
 	        }
@@ -2208,7 +2224,7 @@ module.exports =
 	        return spawn.room.energyAvailable >= cost && spawn.canCreateCreep(parts) == OK;
 	    }
 
-	    static prepareSpawnMemory(cluster, config, type, version){
+	    static prepareSpawnMemory(cluster, config, type, version, originCluster){
 	        var memory = {
 	            type,
 	            version,
@@ -2227,6 +2243,10 @@ module.exports =
 
 	        if(config.boost && config.boost[version]){
 	            memory.boost = _.clone(config.boost[version]);
+	            if(originCluster.id != cluster.id){
+	                memory.boostCluster = originCluster.id;
+	                console.log('Cross-spawn boost', type, cluster.id, originCluster.id);
+	            }
 	        }
 
 	        if(config.assignRoom){
@@ -2699,7 +2719,7 @@ module.exports =
 	const partValues = {
 	    heal: HEAL_POWER,
 	    attack: ATTACK_POWER,
-	    rangedAttack: RANGED_ATTACK_POWER,
+	    ranged_attack: RANGED_ATTACK_POWER,
 	    work: DISMANTLE_POWER
 	};
 
@@ -2720,7 +2740,8 @@ module.exports =
 	            return 'mine';
 	        }
 	        if(!creep.owner){
-	            Game.notify('Invalid owner: '+creep);
+	            Game.notify('Invalid owner: ' + JSON.stringify(creep));
+	            console.log('Invalid owner: ' + JSON.stringify(creep));
 	            return 'friendly';
 	        }
 	        var owner = creep.owner.username;
@@ -2736,7 +2757,7 @@ module.exports =
 	        return 'player';
 	    }
 
-	    static characterize(creep){
+	    static characterize(totals, armed, creep){
 	        var ownerType = DefenseMatrix.getOwnerType(creep);
 	        var details = {
 	            attack: 0,
@@ -2746,7 +2767,7 @@ module.exports =
 	            ownerType,
 	            hostile: !creep.my && ownerType != 'friendly'
 	        };
-	        for(let part in creep.body){
+	        for(let part of creep.body){
 	            if(part.hits > 0){
 	                if(part.type == 'attack' || part.type == 'heal' || part.type == 'ranged_attack' || part.type == 'work'){
 	                    var multi = 1;
@@ -2757,7 +2778,32 @@ module.exports =
 	                }
 	            }
 	        }
+	        if(details.attack > 0 || details.ranged_attack > 0){
+	            armed.push(creep);
+	        }
 	        creep.details = details;
+	        var typeData = totals[ownerType];
+	        if(!typeData){
+	            typeData = {
+	                attack: 0,
+	                heal: 0,
+	                ranged_attack: 0,
+	                work: 0,
+	                count: 0
+	            };
+	            totals[ownerType] = typeData;
+	        }
+	        typeData.attack += details.attack;
+	        typeData.heal += details.heal;
+	        typeData.ranged_attack += details.ranged_attack;
+	        typeData.work += details.work;
+	        typeData.count++;
+
+	        totals.attack += details.attack;
+	        totals.heal += details.heal;
+	        totals.ranged_attack += details.ranged_attack;
+	        totals.work += details.work;
+	        totals.count++;
 	        return ownerType;
 	    }
 
@@ -2769,11 +2815,26 @@ module.exports =
 	        Game.perf();
 	        _.forEach(Game.rooms, room => {
 	            var hostiles = room.find(FIND_HOSTILE_CREEPS);
-	            var threats = {};
-	            var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
-	            var enemy = _.filter(hostiles, 'details.hostile');
+	            var totals = {
+	                attack: 0,
+	                heal: 0,
+	                ranged_attack: 0,
+	                work: 0,
+	                count: 0
+	            };
+	            var creeps;
+	            var enemy;
+	            var armed = [];
+	            if(hostiles.length > 0){
+	                creeps = _.groupBy(hostiles, DefenseMatrix.characterize.bind(null, totals, armed));
+	                enemy = _.filter(hostiles, 'details.hostile');
+	            }else{
+	                enemy = [];
+	                creeps = {};
+	            }
 	            var data = {
 	                room,
+	                armed,
 	                hostiles: enemy,
 	                damaged: [],
 	                safemode: _.get(room, 'controller.safeMode', false),
@@ -2782,7 +2843,7 @@ module.exports =
 	                towers: [],
 	                creeps,
 	                underSiege: DefenseMatrix.isSiegeMode(creeps),
-	                threat: threats,
+	                total: totals,
 	                targetted: false
 	            };
 	            if(data.underSiege && room.memory.defend){
@@ -3418,7 +3479,8 @@ module.exports =
 	    H: 0.3,
 	    O: 0.25,
 	    XKHO2: 1.5,
-	    XZHO2: 1.5
+	    XZHO2: 1.5,
+	    XGHO2: 1.5
 	};
 
 	class Controller {
@@ -3438,7 +3500,7 @@ module.exports =
 
 	            var transferred = Controller.levelTerminals();
 	            Controller.terminalEnergy(transferred);
-	            Controller.emptyTerminals();
+	            // Controller.emptyTerminals();
 	        }
 
 	        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
@@ -3532,6 +3594,7 @@ module.exports =
 
 	        _.forEach(cluster.structures.tower, tower=>{
 	            let action = false;
+	            let hardTarget = false;
 	            if(tower.room.memory.halt){
 	                return;
 	            }
@@ -3542,18 +3605,18 @@ module.exports =
 	                    let best = Game.getObjectById(_.max(data.targetted, 'value').id);
 	                    if(best){
 	                        hostile = best;
+	                        hardTarget = true;
 	                    }
 	                }
 	                if(data.damaged.length > 0){
 	                    action = tower.heal(_.first(data.damaged)) == OK;
 	                }
-	                if(!action && hostile){
+	                var energySaver = cluster.totalEnergy < 250000 && (data.armed.length == 0 && data.total.work == 0);
+	                if(!action && hostile && (tower.energy > 500 || hardTarget || hostile.hits < hostile.maxHits * 0.5) && !energySaver){
 	                    action = tower.attack(hostile) == OK;
 	                }
-	                if(!action){
-	                    if(data.damaged.length > 0){
-	                        tower.heal(_.first(data.damaged));
-	                    }else if(Game.interval(20)){
+	                if(!action && !hostile){
+	                    if(Game.interval(20)){
 	                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
 	                        if(critStruct){
 	                            tower.repair(critStruct);
@@ -3703,6 +3766,10 @@ module.exports =
 
 	    static runReaction(cluster, type, data){
 	        var labSet = data.lab;
+	        if(!cluster.labs[data.lab]){
+	            console.log('invalid reaction/lab!', cluster.id, type, data.lab);
+	            return;
+	        }
 	        var labs = Game.getObjects(cluster.labs[data.lab]);
 	        for(var ix=2;ix<labs.length;ix++){
 	            Controller.react(cluster, type, labs[ix], labs[0], labs[1], data.components);
@@ -3774,7 +3841,7 @@ module.exports =
 	        var requests = {};
 	        for(var terminal of terminals){
 	            for(var resource in autobuyPriceLimit){
-	                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+	                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){// && !terminal.room.matrix.underSiege){
 	                    if(!requests[resource]){
 	                        requests[resource] = [];
 	                    }
@@ -4045,13 +4112,6 @@ module.exports =
 
 	"use strict";
 
-	const priorities = {
-	    tower: 0.01,
-	    spawn: 0.1,
-	    storage: 2,
-	    rampart: 10
-	};
-
 	const BaseWorker = __webpack_require__(15);
 
 	const Util = __webpack_require__(10);
@@ -4062,10 +4122,14 @@ module.exports =
 	    /// Job ///
 
 	    attack(cluster, subtype){
-	        if(cluster.attackSource){
-	            return this.jobsForTargets(cluster, subtype, Flag.getByPrefix('attack'));
+	        var targets = [];
+	        for(var flag of Flag.getByPrefix('attack')){
+	            //TODO fix name ambiguities
+	            if(flag.name.includes(cluster.id)){
+	                targets.push(flag);
+	            }
 	        }
-	        return [];
+	        return this.jobsForTargets(cluster, subtype, targets);
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -4090,74 +4154,27 @@ module.exports =
 	        return distance / 50;
 	    }
 
-	    calculatePriority(creep, target){
-	        return creep.pos.getRangeTo(target) * _.get(priorities, target.structureType, 1);
-	    }
-
 	    process(cluster, creep, opts, job, flag){
 	        var matrix = Game.matrix.rooms[creep.room.name];
-	        var action = false;
 	        var target = false;
-	        var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
-	        if(inTargetRoom && flag.room){
-	            var flags = flag.room.getFlagsByPrefix('target');
-	            if(flags.length > 0){
-	                var targets = _.reduce(flags, (result, targetFlag) => {
-	                    var struct = targetFlag.getStructure();
-	                    if(struct){
-	                        result.push(struct);
-	                    }else{
-	                        targetFlag.remove();
-	                    }
-	                    return result;
-	                }, []);
-	                target = _.first(Util.sort.closest(creep, targets));
-	            }
-	        }
-	        if(!target && inTargetRoom){
-	            var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
-	            let hostiles = matrix.hostiles;
-	            let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
-	            target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+	        if(!target){
+	            target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
 	        }
 	        if(target){
-	            // console.log(creep, target);
-	            let attack = creep.getActiveBodyparts('attack');
-	            let ranged = creep.getActiveBodyparts('ranged_attack');
 	            let dist = creep.pos.getRangeTo(target);
 	            target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
 	            target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
-	            if(attack > 0){
-	                action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
-	            }else if(ranged > 0){
-	                if(dist < 3){
-	                    var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-	                    creep.move(creep.pos.getDirectionTo(result.path[0]));
-	                }else if(dist > 3){
-	                    this.attackMove(creep, target);
-	                }
-	            }
-	            if(ranged > 0 && dist <= 3){
-	                action = action || creep.rangedAttack(target) == OK;
+	            if(dist < 3){
+	                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
+	                creep.move(creep.pos.getDirectionTo(result.path[0]));
+	            }else if(dist > 3){
+	                this.attackMove(creep, target);
 	            }
 	        }else if(creep.pos.getRangeTo(flag) > 3){
 	            this.attackMove(creep, flag);
 	        }else if(!flag.name.includes('stage')){
 	           flag.remove();
 	        }
-	        if(action && target){
-	            if(!matrix.targetted){
-	                matrix.targetted = {};
-	            }
-	            if(!matrix.targetted[target.id]){
-	                matrix.targetted[target.id] = {
-	                    id: target.id,
-	                    value: 0
-	                };
-	            }
-	            matrix.targetted[target.id].value++;
-	        }
-	        return action;
 	    }
 
 	}
@@ -4466,6 +4483,14 @@ module.exports =
 
 	"use strict";
 
+	function defendRoom(result, room){
+	    var roomData = Game.matrix.rooms[room.name];
+	    if(roomData.hostiles.length > 0 && roomData.total.heal < 80 && roomData.total.ranged_attack < 300){
+	        result.push(roomData.hostiles);
+	    }
+	    return result;
+	}
+
 	const BaseWorker = __webpack_require__(15);
 
 	class DefendWorker extends BaseWorker {
@@ -4490,14 +4515,8 @@ module.exports =
 	    /// Job ///
 
 	    defend(cluster, subtype){
-	        let hostiles = _.reduce(cluster.rooms, (result, room)=>{
-	            var roomData = Game.matrix.rooms[room.name];
-	            if(roomData.hostiles.length > 0){
-	                return result.concat(roomData.hostiles);
-	            }
-	            return result;
-	        }, []);
-	        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) == 'Invader'));
+	        let hostiles = _.reduce(cluster.rooms, defendRoom, []);
+	        return this.jobsForTargets(cluster, subtype, _.flatten(hostiles));
 	    }
 	    
 	    rampart(cluster, subtype){
@@ -4520,16 +4539,12 @@ module.exports =
 	        return ramparts;
 	    }
 
-	    calculateCapacity(cluster, subtype, id, target, args){
-	        if(subtype == 'rampart' || subtype == 'longbow'){
-	            return 1;
-	        }
-	        var value = target.getActiveBodyparts(ATTACK) * 5;
-	        value += target.getActiveBodyparts(RANGED_ATTACK) * 3;
-	        value += target.getActiveBodyparts(WORK) * 2;
-	        value += target.getActiveBodyparts(HEAL) * 5;
-	        return Math.max(1, Math.ceil(value / 35));
-	    }
+	    // calculateCapacity(cluster, subtype, id, target, args){
+	    //     if(subtype == 'rampart' || subtype == 'longbow'){
+	    //         return 1;
+	    //     }
+	    //     return 1;
+	    // }
 
 	    /// Creep ///
 
@@ -5607,11 +5622,8 @@ module.exports =
 	        if(target.level < 4){
 	            return 30;
 	        }
-	        if(Memory.levelroom != target.pos.roomName){
+	        if(Memory.levelroom != target.pos.roomName || Memory.siegemode){
 	            return 15;
-	        }
-	        if(Memory.siegemode){
-	            return 30;
 	        }
 	        let energy = _.get(target, 'room.storage.store.energy', 0);
 	        return Math.max(1, Math.floor(energy / 100000)) * 15;
@@ -5619,7 +5631,7 @@ module.exports =
 
 	    upgrade(cluster, subtype){
 	        let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-	        return this.jobsForTargets(cluster, subtype, controllers);
+	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000));
 	    }
 
 	    /// Creep ///
@@ -5702,10 +5714,10 @@ module.exports =
 	            }
 	        }
 	        var roomData = Game.matrix.rooms[creep.room.name];
-	        if(roomData.safemode || (roomData.hostiles.length == 0 && !roomData.keeper)){
+	        if(roomData.safemode || (roomData.armed.length == 0 && !roomData.keeper)){
 	            return false;
 	        }
-	        var hostiles = roomData.hostiles;
+	        var hostiles = roomData.armed;
 	        if(roomData.keeper){
 	            let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
 	            if(keeps.length > 0){
@@ -5839,6 +5851,9 @@ module.exports =
 	    }
 
 	    blocked(cluster, creep, opts, block){
+	        if(creep.memory.boostCluster){
+	            cluster = Game.clusters[creep.memory.boostCluster];
+	        }
 	        var type = _.first(_.keys(creep.memory.boost));
 	        var resource = Game.boosts[type];
 	        var needed = creep.memory.boost[type];
@@ -5846,8 +5861,14 @@ module.exports =
 	        if(!creep.memory.boostlab){
 	            var available = cluster.boostMinerals[resource];
 	            if(available > 30 * needed){
-	                var boostLabs = _.invert(cluster.boost);
-	                creep.memory.boostlab = boostLabs[type];
+	                var boostLabs = _.invert(cluster.boost, true);
+	                creep.memory.boostlab = _.last(_.sortBy(boostLabs[type], labId => {
+	                    var lab = Game.getObjectById(labId);
+	                    if(!lab || lab.mineralType != resource){
+	                        return 0;
+	                    }
+	                    return lab.mineralAmount;
+	                }));
 	            }
 	            if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
 	                console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
@@ -5883,6 +5904,7 @@ module.exports =
 	            delete creep.memory.boost[type];
 	        }else{
 	            delete creep.memory.boost;
+	            delete creep.memory.boostCluster;
 	        }
 	        creep.memory.calculateBoost = true;
 	    }
@@ -6137,6 +6159,12 @@ module.exports =
 	    }
 
 	    shouldBlock(cluster, creep, opts){
+	        if(opts.auto){
+	            if(creep.hits < creep.hitsMax || creep.room.matrix.hostiles.length > 0 || creep.room.hostile){
+	                creep.heal(creep);
+	            }
+	            return false;
+	        }
 	        if(opts.block && creep.hits < creep.hitsMax - opts.block){
 	            return { type: this.type, data: true };
 	        }
@@ -6200,7 +6228,8 @@ module.exports =
 	        for(let type in cluster.reaction){
 	            let deficit = _.get(reactions, [type, 'deficit'], 0);
 	            let capacity = _.get(reactions, [type, 'capacity'], 0);
-	            if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN){
+	            let labset = _.get(reactions, [type, 'lab'], false);
+	            if(deficit <= DEFICIT_END_MIN || capacity < CAPACITY_END_MIN || labset !== false && !cluster.labs[labset]){
 	                console.log(cluster.id, 'Ending reaction:', type, '-', deficit, 'of', capacity);
 	                delete cluster.reaction[type];
 	            }else{

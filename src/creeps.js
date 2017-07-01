@@ -14,8 +14,7 @@ var template = {
         quota: 'defend-defend',
         critical: true,
         parts: {
-            milli: { tough: 5, move: 25, ranged_attack: 20 },
-            micro: { tough: 5, move: 25, ranged_attack: 15 },
+            micro: { tough: 5, move: 15, ranged_attack: 10 },
             nano: { tough: 5, move: 10, ranged_attack: 5 },
             pico: { tough: 5, move: 7, ranged_attack: 2 },
             femto: { tough: 2, move: 4, ranged_attack: 2 }
@@ -36,7 +35,7 @@ var template = {
         quota: 'longbow-defend',
         critical: true,
         boost: {
-            milli: { rangedAttack: 40, fatigue: 10 }
+            milli: { fatigue: 10, rangedAttack: 40 }
         },
         parts: {
             milli: { ranged_attack: 40, move: 10 }//,
@@ -122,7 +121,10 @@ var template = {
                 quota: 'mineral-pickup',
                 allocationMulti: 50,
                 allocationMax: Infinity,
-                parts: { milli: { carry: 16, move: 8 } },
+                parts: { 
+                    milli: { carry: 24, move: 12 },
+                    micro: { carry: 16, move: 8 }
+                },
                 work: {
                     pickup: { subtype: 'mineral' },
                     deliver: { subtype: 'terminal' },
@@ -312,13 +314,13 @@ var template = {
         maxQuota: 6,
         critical: true,
         boost: {
-            milli: { fatigue: 10, damage: 10, attack: 10, heal: 20 }
+            milli: { fatigue: 10, damage: 5, rangedAttack: 25, heal: 10 }
         },
         parts: {
-            milli: { tough: 10, move: 10, attack: 10, heal: 20 }
+            milli: { tough: 5, ranged_attack: 25, move: 10, heal: 10 }
         },
         work: { attack: {} },
-        behavior: { selfheal: { block: 100 }, defend: {}, boost: {} }
+        behavior: { selfheal: { auto: true }, rampart: { range: 3 }, boost: {} }
     }
 }
 

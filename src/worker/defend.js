@@ -1,5 +1,13 @@
 "use strict";
 
+function defendRoom(result, room){
+    var roomData = Game.matrix.rooms[room.name];
+    if(roomData.hostiles.length > 0 && roomData.total.heal < 80 && roomData.total.ranged_attack < 300){
+        result.push(roomData.hostiles);
+    }
+    return result;
+}
+
 const BaseWorker = require('./base');
 
 class DefendWorker extends BaseWorker {
@@ -24,14 +32,8 @@ class DefendWorker extends BaseWorker {
     /// Job ///
 
     defend(cluster, subtype){
-        let hostiles = _.reduce(cluster.rooms, (result, room)=>{
-            var roomData = Game.matrix.rooms[room.name];
-            if(roomData.hostiles.length > 0){
-                return result.concat(roomData.hostiles);
-            }
-            return result;
-        }, []);
-        return this.jobsForTargets(cluster, subtype, _.filter(hostiles, target => _.get(target, 'owner.username', false) == 'Invader'));
+        let hostiles = _.reduce(cluster.rooms, defendRoom, []);
+        return this.jobsForTargets(cluster, subtype, _.flatten(hostiles));
     }
     
     rampart(cluster, subtype){
@@ -54,16 +56,12 @@ class DefendWorker extends BaseWorker {
         return ramparts;
     }
 
-    calculateCapacity(cluster, subtype, id, target, args){
-        if(subtype == 'rampart' || subtype == 'longbow'){
-            return 1;
-        }
-        var value = target.getActiveBodyparts(ATTACK) * 5;
-        value += target.getActiveBodyparts(RANGED_ATTACK) * 3;
-        value += target.getActiveBodyparts(WORK) * 2;
-        value += target.getActiveBodyparts(HEAL) * 5;
-        return Math.max(1, Math.ceil(value / 35));
-    }
+    // calculateCapacity(cluster, subtype, id, target, args){
+    //     if(subtype == 'rampart' || subtype == 'longbow'){
+    //         return 1;
+    //     }
+    //     return 1;
+    // }
 
     /// Creep ///
 

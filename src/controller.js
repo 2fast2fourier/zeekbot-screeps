@@ -8,7 +8,8 @@ const autobuyPriceLimit = {
     H: 0.3,
     O: 0.25,
     XKHO2: 1.5,
-    XZHO2: 1.5
+    XZHO2: 1.5,
+    XGHO2: 1.5
 };
 
 class Controller {
@@ -28,7 +29,7 @@ class Controller {
 
             var transferred = Controller.levelTerminals();
             Controller.terminalEnergy(transferred);
-            Controller.emptyTerminals();
+            // Controller.emptyTerminals();
         }
 
         var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
@@ -122,6 +123,7 @@ class Controller {
 
         _.forEach(cluster.structures.tower, tower=>{
             let action = false;
+            let hardTarget = false;
             if(tower.room.memory.halt){
                 return;
             }
@@ -132,18 +134,18 @@ class Controller {
                     let best = Game.getObjectById(_.max(data.targetted, 'value').id);
                     if(best){
                         hostile = best;
+                        hardTarget = true;
                     }
                 }
                 if(data.damaged.length > 0){
                     action = tower.heal(_.first(data.damaged)) == OK;
                 }
-                if(!action && hostile){
+                var energySaver = cluster.totalEnergy < 250000 && (data.armed.length == 0 && data.total.work == 0);
+                if(!action && hostile && (tower.energy > 500 || hardTarget || hostile.hits < hostile.maxHits * 0.5) && !energySaver){
                     action = tower.attack(hostile) == OK;
                 }
-                if(!action){
-                    if(data.damaged.length > 0){
-                        tower.heal(_.first(data.damaged));
-                    }else if(Game.interval(20)){
+                if(!action && !hostile){
+                    if(Game.interval(20)){
                         let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
                         if(critStruct){
                             tower.repair(critStruct);
@@ -293,6 +295,10 @@ class Controller {
 
     static runReaction(cluster, type, data){
         var labSet = data.lab;
+        if(!cluster.labs[data.lab]){
+            console.log('invalid reaction/lab!', cluster.id, type, data.lab);
+            return;
+        }
         var labs = Game.getObjects(cluster.labs[data.lab]);
         for(var ix=2;ix<labs.length;ix++){
             Controller.react(cluster, type, labs[ix], labs[0], labs[1], data.components);
@@ -364,7 +370,7 @@ class Controller {
         var requests = {};
         for(var terminal of terminals){
             for(var resource in autobuyPriceLimit){
-                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){
+                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000){// && !terminal.room.matrix.underSiege){
                     if(!requests[resource]){
                         requests[resource] = [];
                     }

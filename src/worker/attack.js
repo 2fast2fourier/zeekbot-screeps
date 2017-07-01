@@ -1,12 +1,5 @@
 "use strict";
 
-const priorities = {
-    tower: 0.01,
-    spawn: 0.1,
-    storage: 2,
-    rampart: 10
-};
-
 const BaseWorker = require('./base');
 
 const Util = require('../util');
@@ -17,10 +10,14 @@ class AttackWorker extends BaseWorker {
     /// Job ///
 
     attack(cluster, subtype){
-        if(cluster.attackSource){
-            return this.jobsForTargets(cluster, subtype, Flag.getByPrefix('attack'));
+        var targets = [];
+        for(var flag of Flag.getByPrefix('attack')){
+            //TODO fix name ambiguities
+            if(flag.name.includes(cluster.id)){
+                targets.push(flag);
+            }
         }
-        return [];
+        return this.jobsForTargets(cluster, subtype, targets);
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
@@ -45,74 +42,27 @@ class AttackWorker extends BaseWorker {
         return distance / 50;
     }
 
-    calculatePriority(creep, target){
-        return creep.pos.getRangeTo(target) * _.get(priorities, target.structureType, 1);
-    }
-
     process(cluster, creep, opts, job, flag){
         var matrix = Game.matrix.rooms[creep.room.name];
-        var action = false;
         var target = false;
-        var inTargetRoom = creep.pos.roomName == flag.pos.roomName;
-        if(inTargetRoom && flag.room){
-            var flags = flag.room.getFlagsByPrefix('target');
-            if(flags.length > 0){
-                var targets = _.reduce(flags, (result, targetFlag) => {
-                    var struct = targetFlag.getStructure();
-                    if(struct){
-                        result.push(struct);
-                    }else{
-                        targetFlag.remove();
-                    }
-                    return result;
-                }, []);
-                target = _.first(Util.sort.closest(creep, targets));
-            }
-        }
-        if(!target && inTargetRoom){
-            var buildings = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), target => _.get(target, 'owner.username', false) != 'Power Bank');
-            let hostiles = matrix.hostiles;
-            let targets = hostiles.concat(_.filter(buildings, target => _.get(target, 'owner.username', false) != 'Source Keeper' && target.structureType != STRUCTURE_CONTROLLER));
-            target = _.first(_.sortBy(targets, target => this.calculatePriority(creep, target)));
+        if(!target){
+            target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
         }
         if(target){
-            // console.log(creep, target);
-            let attack = creep.getActiveBodyparts('attack');
-            let ranged = creep.getActiveBodyparts('ranged_attack');
             let dist = creep.pos.getRangeTo(target);
             target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
             target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
-            if(attack > 0){
-                action = this.orAttackMove(creep, target, creep.attack(target)) == OK;
-            }else if(ranged > 0){
-                if(dist < 3){
-                    var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-                    creep.move(creep.pos.getDirectionTo(result.path[0]));
-                }else if(dist > 3){
-                    this.attackMove(creep, target);
-                }
-            }
-            if(ranged > 0 && dist <= 3){
-                action = action || creep.rangedAttack(target) == OK;
+            if(dist < 3){
+                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
+                creep.move(creep.pos.getDirectionTo(result.path[0]));
+            }else if(dist > 3){
+                this.attackMove(creep, target);
             }
         }else if(creep.pos.getRangeTo(flag) > 3){
             this.attackMove(creep, flag);
         }else if(!flag.name.includes('stage')){
            flag.remove();
         }
-        if(action && target){
-            if(!matrix.targetted){
-                matrix.targetted = {};
-            }
-            if(!matrix.targetted[target.id]){
-                matrix.targetted[target.id] = {
-                    id: target.id,
-                    value: 0
-                };
-            }
-            matrix.targetted[target.id].value++;
-        }
-        return action;
     }
 
 }

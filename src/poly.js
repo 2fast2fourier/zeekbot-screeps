@@ -21,6 +21,7 @@ for(let partType in BOOSTS){
 }
 
 module.exports = function(){
+    var flagData = {};
     ///
     /// Game Helpers
     ///
@@ -273,6 +274,16 @@ module.exports = function(){
         });
     }
 
+    if(!Room.prototype.hasOwnProperty('hostile')){
+        Object.defineProperty(Room.prototype, 'hostile', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                return this.controller && this.controller.owner && !this.controller.my;
+            }
+        });
+    }
+
     Room.prototype.getFlagsByPrefix = function(prefix){
         return _.filter(this.flags, flag => flag.name.startsWith(prefix));
     }
@@ -397,7 +408,12 @@ module.exports = function(){
     }
 
     Flag.getByPrefix = function getByPrefix(prefix){
-        return _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+        var data = flagData[prefix];
+        if(!data){
+            data = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+            flagData[prefix] = data;
+        }
+        return data;
     }
 
     Flag.prototype.getStructure = function(){

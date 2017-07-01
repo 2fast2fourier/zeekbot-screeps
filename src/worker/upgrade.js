@@ -22,11 +22,8 @@ class UpgradeWorker extends BaseWorker {
         if(target.level < 4){
             return 30;
         }
-        if(Memory.levelroom != target.pos.roomName){
+        if(Memory.levelroom != target.pos.roomName || Memory.siegemode){
             return 15;
-        }
-        if(Memory.siegemode){
-            return 30;
         }
         let energy = _.get(target, 'room.storage.store.energy', 0);
         return Math.max(1, Math.floor(energy / 100000)) * 15;
@@ -34,7 +31,7 @@ class UpgradeWorker extends BaseWorker {
 
     upgrade(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, controllers);
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000));
     }
 
     /// Creep ///

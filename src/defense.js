@@ -8,7 +8,7 @@ const whitelist = [
 const partValues = {
     heal: HEAL_POWER,
     attack: ATTACK_POWER,
-    rangedAttack: RANGED_ATTACK_POWER,
+    ranged_attack: RANGED_ATTACK_POWER,
     work: DISMANTLE_POWER
 };
 
@@ -29,7 +29,8 @@ class DefenseMatrix {
             return 'mine';
         }
         if(!creep.owner){
-            Game.notify('Invalid owner: '+creep);
+            Game.notify('Invalid owner: ' + JSON.stringify(creep));
+            console.log('Invalid owner: ' + JSON.stringify(creep));
             return 'friendly';
         }
         var owner = creep.owner.username;
@@ -45,7 +46,7 @@ class DefenseMatrix {
         return 'player';
     }
 
-    static characterize(creep){
+    static characterize(totals, armed, creep){
         var ownerType = DefenseMatrix.getOwnerType(creep);
         var details = {
             attack: 0,
@@ -55,7 +56,7 @@ class DefenseMatrix {
             ownerType,
             hostile: !creep.my && ownerType != 'friendly'
         };
-        for(let part in creep.body){
+        for(let part of creep.body){
             if(part.hits > 0){
                 if(part.type == 'attack' || part.type == 'heal' || part.type == 'ranged_attack' || part.type == 'work'){
                     var multi = 1;
@@ -66,7 +67,32 @@ class DefenseMatrix {
                 }
             }
         }
+        if(details.attack > 0 || details.ranged_attack > 0){
+            armed.push(creep);
+        }
         creep.details = details;
+        var typeData = totals[ownerType];
+        if(!typeData){
+            typeData = {
+                attack: 0,
+                heal: 0,
+                ranged_attack: 0,
+                work: 0,
+                count: 0
+            };
+            totals[ownerType] = typeData;
+        }
+        typeData.attack += details.attack;
+        typeData.heal += details.heal;
+        typeData.ranged_attack += details.ranged_attack;
+        typeData.work += details.work;
+        typeData.count++;
+
+        totals.attack += details.attack;
+        totals.heal += details.heal;
+        totals.ranged_attack += details.ranged_attack;
+        totals.work += details.work;
+        totals.count++;
         return ownerType;
     }
 
@@ -78,11 +104,26 @@ class DefenseMatrix {
         Game.perf();
         _.forEach(Game.rooms, room => {
             var hostiles = room.find(FIND_HOSTILE_CREEPS);
-            var threats = {};
-            var creeps = _.groupBy(hostiles, DefenseMatrix.characterize);
-            var enemy = _.filter(hostiles, 'details.hostile');
+            var totals = {
+                attack: 0,
+                heal: 0,
+                ranged_attack: 0,
+                work: 0,
+                count: 0
+            };
+            var creeps;
+            var enemy;
+            var armed = [];
+            if(hostiles.length > 0){
+                creeps = _.groupBy(hostiles, DefenseMatrix.characterize.bind(null, totals, armed));
+                enemy = _.filter(hostiles, 'details.hostile');
+            }else{
+                enemy = [];
+                creeps = {};
+            }
             var data = {
                 room,
+                armed,
                 hostiles: enemy,
                 damaged: [],
                 safemode: _.get(room, 'controller.safeMode', false),
@@ -91,7 +132,7 @@ class DefenseMatrix {
                 towers: [],
                 creeps,
                 underSiege: DefenseMatrix.isSiegeMode(creeps),
-                threat: threats,
+                total: totals,
                 targetted: false
             };
             if(data.underSiege && room.memory.defend){

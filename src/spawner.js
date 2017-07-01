@@ -26,7 +26,7 @@ class Spawner {
         var spawned = false;
         _.find(cluster.structures.spawn, spawn =>{
             if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type);
+                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type, cluster);
             }
         });
         return spawned;
@@ -63,7 +63,7 @@ class Spawner {
             }else{
                 _.forEach(config.parts, (parts, ver) => {
                     let cost = Spawner.calculateCost(parts);
-                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver) > 0;
+                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
                     if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
                         maxCost = cost;
                         version = ver;
@@ -72,7 +72,7 @@ class Spawner {
                 });
             }
             if(version){
-                const limit = Spawner.calculateBoostCapacity(cluster, config, version);
+                const limit = Spawner.calculateBoostCapacity(targetCluster, config, version, cluster);
                 const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
@@ -129,17 +129,17 @@ class Spawner {
         return limit;
     }
 
-    static calculateBoostCapacity(cluster, config, version){
+    static calculateBoostCapacity(cluster, config, version, originCluster){
         if(config.boost && config.boost[version]){
-            return _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(cluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
+            return _.min(_.map(config.boost[version], (amount, type) => Math.floor((_.get(originCluster.boostMinerals, Game.boosts[type], 0) / 30) / amount)));
         }
         return Infinity;
     }
 
-    static spawnCreep(cluster, spawn, spawnlist, spawnType){
+    static spawnCreep(cluster, spawn, spawnlist, spawnType, originCluster){
         var versionName = spawnlist.version[spawnType];
         var config = creepsConfig[spawnType];
-        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName);
+        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName, originCluster);
         if(spawn.room.memory.cluster != cluster.id){
             mem.bootstrap = true;
         }
@@ -159,7 +159,7 @@ class Spawner {
         return spawn.room.energyAvailable >= cost && spawn.canCreateCreep(parts) == OK;
     }
 
-    static prepareSpawnMemory(cluster, config, type, version){
+    static prepareSpawnMemory(cluster, config, type, version, originCluster){
         var memory = {
             type,
             version,
@@ -178,6 +178,10 @@ class Spawner {
 
         if(config.boost && config.boost[version]){
             memory.boost = _.clone(config.boost[version]);
+            if(originCluster.id != cluster.id){
+                memory.boostCluster = originCluster.id;
+                console.log('Cross-spawn boost', type, cluster.id, originCluster.id);
+            }
         }
 
         if(config.assignRoom){

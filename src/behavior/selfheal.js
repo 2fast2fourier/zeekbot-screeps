@@ -8,6 +8,12 @@ class SelfHealAction extends BaseAction {
     }
 
     shouldBlock(cluster, creep, opts){
+        if(opts.auto){
+            if(creep.hits < creep.hitsMax || creep.room.matrix.hostiles.length > 0 || creep.room.hostile){
+                creep.heal(creep);
+            }
+            return false;
+        }
         if(opts.block && creep.hits < creep.hitsMax - opts.block){
             return { type: this.type, data: true };
         }
