@@ -1,6 +1,6 @@
 "use strict";
 
-let VERSION = 3;
+let VERSION = 5;
 let STAT_INTERVAL = 100;
 let LONGTERM_STAT_INTERVAL = 5000;
 
@@ -47,101 +47,26 @@ class Startup {
                 count: {}
             }
             Game.notify(msg);
+
+            Startup.cleanup();
         }
 
-        var closest = 0;
-        Memory.levelroom = false;
-        Memory.stats.rooms = {};
-        _.forEach(Game.rooms, room => {
-            if(room.controller && room.controller.my && room.controller.level < 8){
-                var percent = room.controller.progress / room.controller.progressTotal;
-                Memory.stats.rooms[room.name] = room.controller.level + percent;
-                if(percent > closest && room.controller.level >= 6){
-                    closest = percent;
-                    Memory.levelroom = room.name;
+        if(Game.intervalOffset(10, 1)){
+            var closest = 0;
+            Memory.levelroom = false;
+            Memory.stats.rooms = {};
+            _.forEach(Game.rooms, room => {
+                if(room.controller && room.controller.my && room.controller.level < 8){
+                    var percent = room.controller.progress / room.controller.progressTotal;
+                    Memory.stats.rooms[room.name] = room.controller.level + percent;
+                    if(percent > closest && room.controller.level >= 6){
+                        closest = percent;
+                        Memory.levelroom = room.name;
+                    }
                 }
-            }
-        })
-    }
-
-    static convert(){
-        _.forEach(Game.rooms, (room, roomName)=>{
-            let clusterName = _.get(room, 'memory.cluster', 'Main');
-            if(!Memory.clusters[clusterName]){
-                Cluster.createCluster(clusterName);
-            }
-            let role = 'harvest';
-            if(room.controller && room.controller.my){
-                role = 'core';
-            }else if(!room.controller){
-                role = 'keep';
-            }
-            Cluster.addRoom(clusterName, roomName, _.get(room, 'memory.role', role), false);
-            for(let creep of room.find(FIND_MY_CREEPS)){
-                creep.memory.cluster = clusterName;
-            }
-        });
-        var translateTypes = {
-            levelerhauler: 'spawnhauler',
-            longhauler: 'harvesthauler',
-            picoclaimer: 'reserver',
-            picohealer: 'healer',
-            meleefighter: 'keeper',
-            rangedfighter: 'defender',
-            picoobserver: 'observer'
-        };
-        _.forEach(Game.creeps, creep=>{
-            var newType = _.get(translateTypes, creep.memory.type, creep.memory.type);
-            if(!creeps[newType]){
-                console.log('Cannot translate creep type:', creep.memory.type, newType);
-                creep.suicide();
-                return;
-            }
-            let data = creeps[newType];
-            _.assign(creep.memory, {
-                type: newType,
-                job: false,
-                jobType: false,
-                jobSubType: false,
-                jobAllocation: 0,
-                quota: data.quota,
-                quotaAlloc: Spawner.getAllocation(data, _.first(_.keys(data.parts)))
             });
-        });
-        delete Memory.transfer;
-        delete Memory.production;
-        delete Memory.jobs;
-        delete Memory.settings;
-        delete Memory.linkTransfer;
-        delete Memory.resetBehavior;
-        delete Memory.standDown;
-        delete Memory.upgradedLogic;
-        delete Memory.productionTime;
-        delete Memory.accessibility;
-        delete Memory.debugMisc;
-        delete Memory.debugType;
-        delete Memory.boost;
-        delete Memory.stockpile;
-        delete Memory.scaling;
-        delete Memory.limits;
-        delete Memory.notify;
-        delete Memory.reaction;
-        delete Memory.watch;
-        delete Memory.roomlist;
-        delete Memory.keeps;
+        }
     }
-    
-        // var memory = {
-        //     type,
-        //     version,
-        //     cluster: cluster.id,
-        //     job: false,
-        //     jobType: false,
-        //     jobSubType: false,
-        //     jobAllocation: 0,
-        //     quota: config.quota,
-        //     quotaAlloc: Spawner.getAllocation(config, version)
-        // };
 
     static migrate(ver){
         console.log('Migrating from version', ver, 'to', VERSION);
@@ -157,20 +82,6 @@ class Startup {
                 };
                 Memory.clusters = {};
                 Memory.avoidRoom = {};
-                if(Memory.memoryVersion){
-                    console.log('Converting last-gen memory!');
-                    // let oldMem;
-                    try{
-                        // oldMem = JSON.stringify(Memory);
-                        Startup.convert();
-                    }catch(e){
-                        console.log(e);
-                        // console.log('ERROR Converting last-gen memory! REVERTING MEMORY');
-                        // Memory = JSON.parse(oldMem);
-                        return;
-                    }
-                    delete Memory.memoryVersion;
-                }
             case 1:
                 _.forEach(Memory.clusters, cluster => {
                     cluster.opts = {
@@ -186,8 +97,25 @@ class Startup {
                 Memory.stats.longterm = {};
                 Memory.stats.longterm.count = {};
             case 3:
+                _.forEach(Memory.clusters, cluster => {
+                    if(cluster.state.portals){
+                        cluster.opts.portals = cluster.state.portals;
+                        delete cluster.state.portals;
+                    }
+                });
+                Memory.state = {};
+            case 4:
+                _.forEach(Memory.clusters, cluster => {
+                    cluster.defense = {};
+                    delete cluster.nukes;
+                    delete cluster.repair;
+                });
+                Memory.squads = {};
+            case 5:
             //TODO add migration
-            // case 4:
+            case 6:
+            //TODO add migration
+            case 7:
             //TODO add migration
 
 
@@ -252,11 +180,11 @@ class Startup {
                         var towers = _.filter(flag.room.find(FIND_MY_STRUCTURES), tower => tower.structureType == STRUCTURE_TOWER);
                         for(var tower of towers){
                             flag.room.visual.rect(tower.pos.x - 5.5, tower.pos.y - 5.5, 11, 11, {
-                                fill: '#ff0000',
+                                fill: '#00ff00',
                                 opacity: 0.1
                             });
                             flag.room.visual.rect(tower.pos.x - 10.5, tower.pos.y - 10.5, 21, 21, {
-                                fill: '#ff0000',
+                                fill: '#ffff00',
                                 opacity: 0.1
                             });
                             flag.room.visual.rect(tower.pos.x - 20.5, tower.pos.y - 20.5, 41, 41, {
@@ -297,6 +225,35 @@ class Startup {
                     _.set(Memory.rooms, [flag.pos.roomName, 'gather'], flag.pos);
                     console.log('Set gather point:', flag.pos);
                     flag.remove();
+                    break;
+                case 'portal':
+                    let cluster = Game.clusters[target];
+                    if(cluster){
+                        if(!cluster.opts.portals){
+                            cluster.opts.portals = [];
+                        }
+                        cluster.opts.portals.push(flag.pos.roomName);
+                        console.log('Set cluster', target, 'to watch portal:', flag.pos.roomName);
+                    }else{
+                        console.log('action-portal - NO CLUSTER FOUND:', target);
+                    }
+                    flag.remove();
+                    break;
+                case 'hardpoints':
+                    let roomCluster = Game.clusterForRoom(flag.pos.roomName);
+                    if(roomCluster){
+                        var vis = new RoomVisual(flag.pos.roomName);
+                        vis.text('Hardpoints: '+_.size(roomCluster.defense.hardpoints), 25, 25);
+                        _.forEach(roomCluster.defense.hardpoints, hardpoint => {
+                            if(hardpoint.pos.roomName == flag.pos.roomName){
+                                vis.circle(hardpoint.pos.x, hardpoint.pos.y, {
+                                    radius: 0.5,
+                                    fill: hardpoint.type == 'longbow' ? '#0000ff' : '#ff0000'
+                                });
+                            }
+                        });
+                    }
+
                     break;
             }
         }
@@ -369,6 +326,10 @@ class Startup {
         }
 
         Startup.processGenericFlags();
+    }
+
+    static cleanup(){
+        Memory.notify = _.pick(Memory.notify, tick => tick > Game.time);
     }
 }
 

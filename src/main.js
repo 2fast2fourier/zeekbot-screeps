@@ -39,9 +39,7 @@ module.exports.loop = function () {
 
     Startup.processActions();
 
-    const production = new Production();
-
-    const allocated = [];
+    const allocated = {};
 
     Game.matrix.startup();
 
@@ -76,7 +74,6 @@ module.exports.loop = function () {
             Game.matrix.process(cluster);
 
             Worker.process(cluster);
-
             
             let spawnStart = Game.cpu.getUsed();
             if(Game.interval(5) && Spawner.hasFreeSpawn(cluster)){
@@ -89,7 +86,6 @@ module.exports.loop = function () {
             Game.profileAdd('spawncpu', Game.cpu.getUsed() - spawnStart);
 
             Controller.control(cluster, allocated);
-            production.process(cluster);
 
             let iy = 1;
             for(let buildRoom of cluster.roomflags.autobuild){
@@ -119,10 +115,12 @@ module.exports.loop = function () {
     let clusterEndTime = Game.cpu.getUsed();
 
     try{
+        Production.process();
         Controller.federation(allocated);
     }catch(e){
         console.log('federation', e);
         Game.notify('federation: ' + e.toString());
+        throw e;
     }
 
     AutoBuilder.processRoadFlags();

@@ -16,8 +16,8 @@ class RepairWorker extends BaseWorker {
     }
 
     bunker(cluster, subtype){
-        if(cluster.repair){
-            return _.reduce(cluster.repair, (jobs, repairTarget, repairId) => {
+        if(cluster.state.repair){
+            return _.reduce(cluster.state.repair, (jobs, repairTarget, repairId) => {
                 var target = Game.getObjectById(repairId);
                 if(target && target.hits < repairTarget){
                     jobs.push(this.createJob(cluster, subtype, target));

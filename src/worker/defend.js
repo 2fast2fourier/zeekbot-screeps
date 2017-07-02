@@ -14,19 +14,23 @@ class DefendWorker extends BaseWorker {
     constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow' ], critical: true }); }
 
     genTarget(cluster, subtype, id, args){
-        if(subtype == 'rampart' || subtype == 'longbow'){
-            return Game.flags[id];
-        }else{
+        if(subtype == 'defend'){
             return super.genTarget(cluster, subtype, id, args);
         }
+        var target = _.get(cluster.defense, [subtype, id]);
+        return target ? { id, pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName) } : undefined;
     }
 
-    createId(cluster, subtype, target, args){
-        if(subtype == 'rampart' || subtype == 'longbow'){
-            return target.name;
-        }else{
-            return super.createId(cluster, subtype, target, args);
+    generateJobsForSubtype(cluster, subtype){
+        if(subtype == 'defend'){
+            return this.defend(cluster, subtype);
         }
+        return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
+            return {
+                id: target.id,
+                pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName)
+            };
+        }));
     }
 
     /// Job ///
@@ -35,33 +39,6 @@ class DefendWorker extends BaseWorker {
         let hostiles = _.reduce(cluster.rooms, defendRoom, []);
         return this.jobsForTargets(cluster, subtype, _.flatten(hostiles));
     }
-    
-    rampart(cluster, subtype){
-        var ramparts = [];
-        for(var flag of Flag.getByPrefix('Rampart')){
-            if(flag.room && flag.room.cluster && flag.room.cluster.id == cluster.id){
-                ramparts.push(this.createJob(cluster, subtype, flag));
-            }
-        }
-        return ramparts;
-    }
-    
-    longbow(cluster, subtype){
-        var ramparts = [];
-        for(var flag of Flag.getByPrefix('Longbow')){
-            if(flag.room && flag.room.cluster && flag.room.cluster.id == cluster.id){
-                ramparts.push(this.createJob(cluster, subtype, flag));
-            }
-        }
-        return ramparts;
-    }
-
-    // calculateCapacity(cluster, subtype, id, target, args){
-    //     if(subtype == 'rampart' || subtype == 'longbow'){
-    //         return 1;
-    //     }
-    //     return 1;
-    // }
 
     /// Creep ///
 
@@ -69,17 +46,23 @@ class DefendWorker extends BaseWorker {
         return distance / 50;
     }
 
-    processRampart(cluster, creep, opts, job, flag){
-        var flagRange = creep.pos.getRangeTo(flag);
-        if(flagRange > 1){
-            this.move(creep, flag);
-        }else if(flagRange == 1){
-            creep.moveTo(flag);
+    processRampart(cluster, creep, opts, job, target){
+        var targetRange = creep.pos.getRangeTo(target.pos);
+        if(targetRange > 1){
+            this.move(creep, target);
+        }else if(targetRange == 1){
+            creep.moveTo(target);
         }
+        var color = job.subtype == 'longbow' ? '#0000ff' : '#ff0000';
+        var remaining = cluster.state.defcon - Game.time;
+        var tickMessage = (remaining > 0 ? '' + remaining : 'EXP');
+        new RoomVisual(target.pos.roomName)
+            .circle(target.pos, { radius: 0.5, fill: color })
+            .text(tickMessage, target.pos.x, target.pos.y + 1);
     }
 
     process(cluster, creep, opts, job, target){
-        if(job.subtype == 'rampart' || job.subtype == 'longbow'){
+        if(job.subtype != 'defend'){
             return this.processRampart(cluster, creep, opts, job, target);
         }
         let attack = creep.getActiveBodyparts('attack');

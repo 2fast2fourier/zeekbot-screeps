@@ -90,10 +90,12 @@ class Cluster {
                 }
             }
         });
-        if(Game.interval(20)){
+        if(Game.intervalOffset(50, 1)){
             let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
-            this.update('totalEnergy', _.sum(_.map(energy, 'amount')) + _.sum(_.map(containers, struct => struct.getResource(RESOURCE_ENERGY))));
+            let totalEnergy = _.sum(_.map(energy, 'amount')) + _.sum(_.map(containers, struct => struct.getResource(RESOURCE_ENERGY)));
+            this.update('totalEnergy', totalEnergy);
+            this.state.totalEnergy = totalEnergy;
             this.profile('energy', this.totalEnergy);
         }
     }
@@ -121,11 +123,12 @@ class Cluster {
             if(Game.interval(30)){
                 Cluster.cleanupTags(cluster);
             }
-            if(Game.interval(200)){
+            if(Game.intervalOffset(200, 1)){
                 let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !cluster.boost[lab.id]));
+                roomLabs = _.pick(roomLabs, labs => _.get(_.first(labs), 'room.terminal', false));
                 let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
                 cluster.update('labs', _.values(labs));
-                cluster.update('production', labs);
+                cluster.state.labs = labs;
             }
         });
     }
@@ -214,7 +217,6 @@ class Cluster {
         //tags: stockpile, input, output, boost
         let data = {
             assignments: {},
-            labs: [],
             quota: {},
             reaction: {},
             tags: {},
@@ -228,7 +230,8 @@ class Cluster {
             stats: {},
             statscount: {},
             longstats: {},
-            longcount: {}
+            longcount: {},
+            state: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
@@ -371,10 +374,7 @@ class Cluster {
         for(let storage of this.structures.lab){
             catalogStorage(storage, this._resources);
         }
-    }
-
-    getResources(){
-        return this.resources;
+        this.state.energy = this._resources.energy.totals.storage / (600000 * this.structures.storage.length);
     }
 
     get boostMinerals(){

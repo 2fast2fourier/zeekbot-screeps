@@ -22,6 +22,7 @@ for(let partType in BOOSTS){
 
 module.exports = function(){
     var flagData = {};
+    Flag._flagPrefixes = false;
     ///
     /// Game Helpers
     ///
@@ -94,7 +95,7 @@ module.exports = function(){
         if(_.get(Memory, ['notify', type], 0) < Game.time){
             console.log(message);
             Game.notify(message);
-            _.set(Memory, ['notify', type], Game.time + 2000);
+            _.set(Memory, ['notify', type], Game.time + 1000);
         }
     };
 
@@ -107,6 +108,11 @@ module.exports = function(){
     }
 
     Game.boosts = boostTypes;
+
+    Game.clusterForRoom = function clusterForRoom(roomName){
+        var roomMemory = Memory.rooms[roomName];
+        return roomMemory ? Game.clusters[roomMemory.cluster] : undefined;
+    };
 
     /// Tag Helpers
 
@@ -123,6 +129,49 @@ module.exports = function(){
         if(cluster){
             cluster.addTag(tag, this.id);
         }
+    }
+
+    ///
+    /// Flag Helpers
+    ///
+
+    Flag.getByPrefix = function getByPrefix(prefix){
+        var data = flagData[prefix];
+        if(!data){
+            data = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
+            flagData[prefix] = data;
+        }
+        return data;
+    }
+
+    Flag.prototype.getStructure = function(){
+        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD));
+    }
+
+    if(!Flag.prototype.hasOwnProperty('parts')){
+        Object.defineProperty(Flag.prototype, 'parts', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                if(!this._parts){
+                    this._parts = this.name.split('-');
+                }
+                return this._parts;
+            }
+        });
+    }
+
+    if(!Flag.hasOwnProperty('prefix')){
+        Object.defineProperty(Flag, 'prefix', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                if(!Flag._flagPrefixes){
+                    Flag._flagPrefixes = _.groupBy(Game.flags, flag => flag.parts[0]);
+                }
+                return Flag._flagPrefixes;
+            }
+        });
     }
 
     ///
@@ -302,6 +351,21 @@ module.exports = function(){
     /// Position Helpers
     ///
 
+    if(!RoomPosition.prototype.hasOwnProperty('str')){
+        Object.defineProperty(RoomPosition.prototype, 'str', {
+            enumerable: false,
+            configurable: true,
+            get: function(){
+                return this.roomName + '-' + this.x + '-' + this.y;
+            }
+        });
+    }
+
+    RoomPosition.fromStr = function(str){
+        var parts = str.split('-');
+        return new RoomPosition(parseInt(parts[1]), parseInt(parts[2]), parts[0]);
+    }
+
     function cacheMinDistance(roomA, roomB){
         if(roomA.name == roomB.name){
             _.set(Memory.cache.dist, roomA.name + '-' + roomB.name, 0);
@@ -405,19 +469,6 @@ module.exports = function(){
     RoomPosition.prototype.getPathDistance = function getPathDistance(entity){
         var target = entity instanceof RoomPosition ? entity : entity.pos;
         return Math.max(this.getLinearDistance(target), Pathing.getMinPathDistance(this, target));
-    }
-
-    Flag.getByPrefix = function getByPrefix(prefix){
-        var data = flagData[prefix];
-        if(!data){
-            data = _.filter(Game.flags, flag => flag.name.startsWith(prefix));
-            flagData[prefix] = data;
-        }
-        return data;
-    }
-
-    Flag.prototype.getStructure = function(){
-        return _.first(_.filter(this.pos.lookFor(LOOK_STRUCTURES), struct => struct.structureType != STRUCTURE_ROAD));
     }
 
     Structure.prototype.getMaxHits = function(){

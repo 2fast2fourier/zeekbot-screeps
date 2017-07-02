@@ -56,11 +56,11 @@ class TransferWorker extends BaseWorker {
     generateLabTransfers(cluster){
         var min = 2400;
         var max = 2750;
-        return _.reduce(cluster.transfer, (result, resource, labId) => {
+        return _.reduce(cluster.state.transfer, (result, resource, labId) => {
             var target = Game.structures[labId];
             if(!target){
                 console.log('invalid lab', labId, cluster.id);
-                delete cluster.transfer[labId];
+                delete cluster.state.transfer[labId];
                 return result;
             }
             if(resource && resource.startsWith('store')){

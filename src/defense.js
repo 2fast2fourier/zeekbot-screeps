@@ -96,8 +96,11 @@ class DefenseMatrix {
         return ownerType;
     }
 
-    static isSiegeMode(creeps){
-        return creeps.player && creeps.player.length > 0;
+    static isSiegeMode(creeps, totals){
+        return creeps.player
+            && creeps.player.length > 0
+            && totals.player
+            && totals.player.heal > 200;
     }
 
     startup(){
@@ -131,12 +134,16 @@ class DefenseMatrix {
                 target: _.first(enemy),
                 towers: [],
                 creeps,
-                underSiege: DefenseMatrix.isSiegeMode(creeps),
+                underSiege: DefenseMatrix.isSiegeMode(creeps, totals),
                 total: totals,
                 targetted: false
             };
-            if(data.underSiege && room.memory.defend){
-                Game.note('playerWarn', 'Warning: Player creeps detected in our territory: ' + room.name);
+            if(data.underSiege && (room.memory.defend || room.memory.tripwire)){
+                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(matrix.creeps, 'player[0].owner.username', 'Unknown');
+                Game.note('playerWarn'+room.name, message);
+                if(room.cluster){
+                    room.cluster.state.defcon = Game.time + 500;
+                }
             }
             this.rooms[room.name] = data;
         });
@@ -145,6 +152,28 @@ class DefenseMatrix {
                 this.rooms[creep.room.name].damaged.push(creep);
             }
         });
+        if(Flag.prefix.defend){
+            for(var flag of Flag.prefix.defend){
+                var cluster = Game.clusterForRoom(flag.pos.roomName);
+                if(cluster && flag.parts.length > 1){
+                    if(!cluster.defense.hardpoints){
+                        cluster.defense.hardpoints = {};
+                    }
+                    if(flag.parts[1] == 'remove'){
+                        delete cluster.defense.hardpoints[flag.pos.str];
+                        console.log('Removed defend order:', flag.pos, flag.parts[1]);
+                    }else{
+                        cluster.defense.hardpoints[flag.pos.str] = {
+                            type: flag.parts[1],
+                            pos: flag.pos
+                        };
+                        console.log('Defending:', flag.pos, flag.parts[1]);
+                    }
+                    flag.remove();
+                }
+            }
+        }
+
         Game.perf('matrix');
     }
 
@@ -154,6 +183,8 @@ class DefenseMatrix {
                 this.rooms[tower.pos.roomName].towers.push(tower);
             }
         });
+        var remaining = cluster.state.defcon - Game.time;
+        var tickMessage = 'DEFCON: ' + remaining;
         _.forEach(cluster.rooms, room => {
             let data = this.rooms[room.name];
             if(data.hostiles.length > 0 && room.memory.role != 'core'){
@@ -169,7 +200,23 @@ class DefenseMatrix {
                     }
                 }
             }
+            if(remaining > 0){
+                room.visual.text(tickMessage, 25, 25);
+            }
         });
+        if(Game.intervalOffset(10, 5)){
+            cluster.defense.longbow = {};
+            cluster.defense.rampart = {};
+            if(cluster.state.defcon > Game.time && cluster.defense.hardpoints){
+                for(let id in cluster.defense.hardpoints){
+                    let data = cluster.defense.hardpoints[id];
+                    cluster.defense[data.type][id] = {
+                        id,
+                        pos: data.pos
+                    };
+                }
+            }
+        }
     }
 
     helpers(){

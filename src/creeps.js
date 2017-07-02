@@ -284,8 +284,8 @@ var template = {
     transferhauler: {
         quota: 'transfer',
         critical: true,
-        maxQuota: 4,
-        allocation: 2,
+        maxQuota: 3,
+        allocation: 1,
         parts: { milli: { carry: 20, move: 10 } },
         work: {
             transfer: {},
