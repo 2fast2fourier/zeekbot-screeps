@@ -42,7 +42,7 @@ var template = {
             // micro: { ranged_attack: 40, move: 10 }
         },
         work: { defend: { subtype: 'longbow' } },
-        behavior: { boost: {}, rampart: { range: 3 } }
+        behavior: { boost: { required: true }, rampart: { range: 3 } }
     },
     spawnhauler: {
         quota: 'spawnhauler',
@@ -266,7 +266,8 @@ var template = {
             nano: { move: 2, heal: 2 },
             pico: { move: 1, heal: 1 }
         },
-        work: { heal: {} }
+        work: { heal: {} },
+        behavior: { avoid: {} }
     },
     mineralminer: {
         quota: 'mineral-mine',

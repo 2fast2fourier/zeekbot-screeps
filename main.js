@@ -1761,7 +1761,7 @@ module.exports =
 	            // micro: { ranged_attack: 40, move: 10 }
 	        },
 	        work: { defend: { subtype: 'longbow' } },
-	        behavior: { boost: {}, rampart: { range: 3 } }
+	        behavior: { boost: { required: true }, rampart: { range: 3 } }
 	    },
 	    spawnhauler: {
 	        quota: 'spawnhauler',
@@ -1985,7 +1985,8 @@ module.exports =
 	            nano: { move: 2, heal: 2 },
 	            pico: { move: 1, heal: 1 }
 	        },
-	        work: { heal: {} }
+	        work: { heal: {} },
+	        behavior: { avoid: {} }
 	    },
 	    mineralminer: {
 	        quota: 'mineral-mine',
@@ -5350,7 +5351,7 @@ module.exports =
 	    }
 
 	    generateLabTransfers(cluster){
-	        var min = 2000;
+	        var min = 2400;
 	        var max = 2750;
 	        return _.reduce(cluster.transfer, (result, resource, labId) => {
 	            var target = Game.structures[labId];
@@ -5631,7 +5632,10 @@ module.exports =
 
 	    upgrade(cluster, subtype){
 	        let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000));
+	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode
+	                                            || target.level < 8
+	                                            || target.ticksToDowngrade < 145000
+	                                            || cluster.totalEnergy > 400000 * cluster.structures.storage.length));
 	    }
 
 	    /// Creep ///
@@ -5871,8 +5875,10 @@ module.exports =
 	                }));
 	            }
 	            if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
-	                console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
-	                this.remove(cluster, creep, type);
+	                if(!opts.required){
+	                    console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
+	                    this.remove(cluster, creep, type);
+	                }
 	            }
 	        }
 
@@ -6212,7 +6218,7 @@ module.exports =
 	        var resourceList = _.values(REACTIONS.X);
 	        var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
 	        quota.G = targetAmount;
-	        quota.XUH2O = targetAmount * 2;
+	        // quota.XUH2O = targetAmount * 2;
 	        quota.XKHO2 = targetAmount * 2;
 	        quota.XLHO2 = targetAmount * 2;
 	        quota.XZHO2 = targetAmount * 2;

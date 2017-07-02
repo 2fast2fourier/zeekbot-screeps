@@ -54,7 +54,7 @@ class TransferWorker extends BaseWorker {
     }
 
     generateLabTransfers(cluster){
-        var min = 2000;
+        var min = 2400;
         var max = 2750;
         return _.reduce(cluster.transfer, (result, resource, labId) => {
             var target = Game.structures[labId];

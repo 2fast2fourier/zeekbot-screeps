@@ -31,7 +31,10 @@ class UpgradeWorker extends BaseWorker {
 
     upgrade(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000));
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode
+                                            || target.level < 8
+                                            || target.ticksToDowngrade < 145000
+                                            || cluster.totalEnergy > 400000 * cluster.structures.storage.length));
     }
 
     /// Creep ///

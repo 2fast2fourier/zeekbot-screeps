@@ -45,8 +45,10 @@ class BoostAction extends BaseAction {
                 }));
             }
             if(!BoostAction.validateLab(creep.memory.boostlab, resource, needed)){
-                console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
-                this.remove(cluster, creep, type);
+                if(!opts.required){
+                    console.log(cluster.id, 'Insufficient resources to boost', creep.name, resource, type);
+                    this.remove(cluster, creep, type);
+                }
             }
         }
 
