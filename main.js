@@ -2692,15 +2692,18 @@ module.exports =
 	                sources: [],
 	                storage: [],
 	                terminal: [],
+	                lab: [],
 	                totals: {
 	                    storage: 0,
-	                    terminal: 0
+	                    terminal: 0,
+	                    lab: 0
 	                }
 	            };
 	        }));
 	        let cataFn = catalogStorage.bind(this, this._resources);
 	        _.forEach(this.structures.storage, cataFn);
 	        _.forEach(this.structures.terminal, cataFn);
+	        _.forEach(this.structures.lab, cataFn);
 	    }
 
 	    get roomflags(){
@@ -6303,16 +6306,18 @@ module.exports =
 	            Memory.state.reaction = {};
 	        }
 	        var resources = Game.federation.resources;
-	        var targetAmount = _.size(Game.federation.structures.terminal) * 5000;
+	        var targetAmount = _.size(Game.federation.structures.terminal) * 5000 + 5000;
 	        var resourceList = _.values(REACTIONS.X);
 	        var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
 	        quota.G = targetAmount;
+	        quota.OH = targetAmount;
 	        // quota.XUH2O = targetAmount * 2;
 	        quota.XKHO2 = targetAmount + 5000;
 	        // quota.XLHO2 = targetAmount * 2;
 	        // quota.XZHO2 = targetAmount * 2;
 	        // quota.XGHO2 = targetAmount * 2;
 
+	        var allocated = {};
 	        var reactions = {};
 	        _.forEach(quota, (amount, type) => {
 	            Production.generateReactions(type, amount - resources[type].total, reactions, true, resources);
@@ -6320,7 +6325,6 @@ module.exports =
 
 	        Memory.stats.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
 	        Memory.state.requests = {};
-	        // console.log(JSON.stringify(_.mapValues(_.pick(reactions, reaction => reaction.deficit > 0), 'deficit')));
 
 	        for(let type in Memory.state.reaction){
 	            let deficit = _.get(reactions, [type, 'deficit'], 0);
@@ -6329,12 +6333,17 @@ module.exports =
 	                console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
 	                delete Memory.state.reaction[type];
 	            }else{
-	                Production.updateReaction(type, Memory.state.reaction[type], reactions[type]);
+	                let reaction = reactions[type];
+	                Production.updateReaction(type, Memory.state.reaction[type], reaction);
+	                for(let component of reaction.components){
+	                    allocated[component] = _.get(allocated, component, 0) + reaction.deficit;
+	                }
 	            }
 	        }
 
 	        var runnableReactions = _.filter(reactions, (reaction, type) => reaction.capacity >= DEFICIT_START_MIN
 	                                                                     && reaction.deficit >= DEFICIT_START_MIN
+	                                                                     && Production.checkAllocations(reaction, allocated, resources)
 	                                                                     && !Memory.state.reaction[type]);
 	        if(runnableReactions.length > 0){
 
@@ -6347,6 +6356,9 @@ module.exports =
 	                        console.log('Starting reaction:', reaction.type, 'x', Math.min(reaction.deficit, reaction.capacity), 'in', targetRoom);
 	                        _.pull(freeRooms, targetRoom);
 	                        Production.startReaction(reaction.type, reaction, targetRoom);
+	                        for(let component of reaction.components){
+	                            allocated[component] = _.get(allocated, component, 0) + reaction.deficit;
+	                        }
 	                    }
 	                }
 	            }
@@ -6355,8 +6367,13 @@ module.exports =
 	        _.forEach(Game.clusters, Production.updateLabTransfers);
 	    }
 
+	    static checkAllocations(reaction, allocated, resources){
+	        return _.all(reaction.components, comp => resources[comp].total - _.get(allocated, comp, 0) > DEFICIT_START_MIN);
+	    }
+
 	    static getOpenRooms(){
-	        return _.difference(_.flatten(_.compact(_.map(Game.clusters, cluster => _.keys(cluster.state.labs)))), _.map(Memory.state.reaction, 'room'));
+	        var freeRooms = _.difference(_.flatten(_.compact(_.map(Game.clusters, cluster => _.keys(cluster.state.labs)))), _.map(Memory.state.reaction, 'room'));
+	        return _.sortBy(freeRooms, room => -_.size(Game.clusterForRoom(room).state.labs[room]));
 	    }
 
 	    static updateLabTransfers(cluster){
@@ -6401,19 +6418,20 @@ module.exports =
 	        reaction.capacity = updated.capacity;
 	        reaction.current = updated.current;
 	    }
-
 	    static generateReactions(type, deficit, output, topLevel, resources){
 	        if(type.length == 1 && (!topLevel || type != 'G')){
 	            return;
 	        }
 	        var components = Production.findReaction(type);
 	        var inventory = _.map(components, component => resources[component].total);
-	        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], deficit - amount + 500, output, false, resources));
+	        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], (deficit - amount) + 500, output, false, resources));
 
-	        if(output[type]){
-	            output[type].deficit += deficit;
-	        }else{
-	            output[type] = { type, components, deficit, capacity: _.min(inventory), current: resources[type].total };
+	        if(deficit > 0){
+	            if(output[type]){
+	                output[type].deficit += deficit;
+	            }else{
+	                output[type] = { type, components, deficit, capacity: _.min(inventory), current: resources[type].total };
+	            }
 	        }
 	    }
 

@@ -65,15 +65,18 @@ class Federation {
                 sources: [],
                 storage: [],
                 terminal: [],
+                lab: [],
                 totals: {
                     storage: 0,
-                    terminal: 0
+                    terminal: 0,
+                    lab: 0
                 }
             };
         }));
         let cataFn = catalogStorage.bind(this, this._resources);
         _.forEach(this.structures.storage, cataFn);
         _.forEach(this.structures.terminal, cataFn);
+        _.forEach(this.structures.lab, cataFn);
     }
 
     get roomflags(){
