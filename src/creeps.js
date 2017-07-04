@@ -186,7 +186,7 @@ var template = {
         behavior: { avoid: {} }
     },
     upgradeworker: {
-        quota: 'upgrade',
+        quota: 'upgrade-upgrade',
         allocation: 'work',
         parts: {
             //mega: { work: 15, move: 24, carry: 9 },//2700
@@ -197,20 +197,34 @@ var template = {
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
-        behavior: { energy: {}, avoid: {} }
+        behavior: { energy: {}, avoid: {} },
+        variants: {
+            level: {
+                quota: 'levelroom-upgrade',
+                boost: {
+                    nano: { upgradeController: 15 }
+                },
+                parts: {
+                    nano: { work: 15, move: 14, carry: 12 },
+                    pico: { work: 15, move: 9, carry: 3 }
+                },
+                behavior: { energy: {}, avoid: {}, boost: {} },
+                work: { pickup: {}, upgrade: { subtype: 'levelroom' }, idle: { subtype: 'controller' } },
+            }
+        }
     },
     repairworker: {
         quota: 'repair-repair',
         allocation: 5,
         maxQuota: 20,
         parts: {
-            kilo: { move: 10, carry: 10, work: 10 },
-            milli: { move: 6, carry: 7, work: 5 },//1150
-            micro: { move: 7, carry: 5, work: 2 },//800
-            nano: { move: 5, carry: 4, work: 1 },//550
-            pico: { move: 2, carry: 1, work: 1 }//300
+            kilo: { carry: 10, work: 10, move: 10 },
+            milli: { carry: 7, work: 5, move: 6 },//1150
+            micro: { carry: 5, work: 2, move: 7 },//800
+            nano: { carry: 4, work: 1, move: 5 },//550
+            pico: { carry: 1, work: 1, move: 2 }//300
         },
-        work: { pickup: { priority: 1 }, repair: { subtype: 'repair' }, idle: { subtype: 'spawn' } },
+        work: { pickup: { priority: 1 }, repair: { subtype: 'repair' }, idle: { subtype: 'gather' } },
         behavior: { avoid: {}, repair: {} },
         variants: {
             heavy: {
@@ -218,13 +232,13 @@ var template = {
                 allocation: 3,
                 maxQuota: 20,
                 parts: {
-                    micro: { move: 16, carry: 12, work: 20 },
-                    nano: { move: 10, carry: 10, work: 10 },
-                    pico: { move: 6, carry: 7, work: 5 },
-                    femto: { move: 2, carry: 1, work: 1 }
+                    micro: { carry: 12, work: 20, move: 16 },
+                    nano: { carry: 10, work: 10, move: 16 },
+                    pico: { carry: 7, work: 5, move: 16 },
+                    femto: { carry: 1, work: 1, move: 16 }
                 },
-                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
-                behavior: { avoid: {}, boost: {} }
+                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
+                behavior: { avoid: {}, boost: {}, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 5 } }
             },
             bunker: {
                 quota: 'bunker-repair',
@@ -240,7 +254,7 @@ var template = {
                     pico: { move: 6, carry: 7, work: 5 },
                     femto: { move: 2, carry: 1, work: 1 }
                 },
-                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'storage' } },
+                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
                 behavior: { avoid: {}, boost: {} }
             }
         }
@@ -278,7 +292,7 @@ var template = {
             nano: { move: 8, carry: 4, work: 16 },
             pico: { move: 4, carry: 4, work: 8 }
         },
-        work: { mine: { subtype: 'mineral' } },
+        work: { mine: { subtype: 'mineral' }, idle: { subtype: 'gather' } },
         behavior: { avoid: {}, minecart: {} }
     },
     transferhauler: {

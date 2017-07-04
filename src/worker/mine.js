@@ -8,13 +8,22 @@ class MineWorker extends BaseWorker {
     /// Job ///
 
     energy(cluster, subtype){
-        var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
-        return this.jobsForTargets(cluster, subtype, sources);
+        if(!cluster.cache.sources || cluster.cache.sourceUpdate < Game.time){
+            var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
+            cluster.cache.sources = _.map(sources, 'id');
+            cluster.cache.sourceUpdate = Game.time + 500;
+        }
+        return this.jobsForTargets(cluster, subtype, _.compact(Game.getObjects(cluster.cache.sources)));
     }
 
     mineral(cluster, subtype){
-        var resources = Game.federation.resources;
-        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
+        if(!cluster.cache.extractors || cluster.cache.extractorUpdate < Game.time){
+            var resources = Game.federation.resources;
+            var sources = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
+            cluster.cache.extractors = _.map(sources, 'id');
+            cluster.cache.extractorUpdate = Game.time + 500;
+        }
+        var minerals = _.filter(Game.getObjects(cluster.cache.extractors), mineral => mineral && mineral.mineralAmount > 0);
         return this.jobsForTargets(cluster, subtype, minerals);
     }
 

@@ -28,7 +28,9 @@ module.exports.loop = function () {
         }
     }
     Game.profile('memory', Game.cpu.getUsed());
+    Game.perf();
     Cluster.init();
+    Game.perf('cluster-init');
     
     if(Game.interval(100)){
         _.forEach(Game.clusters, cluster =>cluster.processStats());
@@ -115,15 +117,17 @@ module.exports.loop = function () {
     let clusterEndTime = Game.cpu.getUsed();
 
     try{
+        Game.perfAdd();
         Production.process();
         Controller.federation(allocated);
+        Game.perfAdd('federation');
     }catch(e){
         console.log('federation', e);
         Game.notify('federation: ' + e.toString());
         throw e;
     }
 
-    AutoBuilder.processRoadFlags();
+    // AutoBuilder.processRoadFlags();
 
 
 
@@ -135,17 +139,19 @@ module.exports.loop = function () {
         }
     }
 
-    if(Game.interval(50)){
+    if(Game.intervalOffset(50, 2)){
         for(var roomName in Memory.rooms){
             if(_.size(Memory.rooms[roomName]) == 0){
                 delete Memory.rooms[roomName];
             }
         }
+        Memory.stats.repair = _.mapValues(Memory.clusters, 'work.repair.damage.total');
     }
     
     //// Wrapup ////
+    var wrapStart = Game.cpu.getUsed();
     _.forEach(Game.clusters, cluster => cluster.finishProfile());
-    Game.finishProfile();    
+    Game.finishProfile();
 
     Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
     Game.profile('clusters', clusterEndTime - initTime);
@@ -167,5 +173,6 @@ module.exports.loop = function () {
     Memory.stats.gcl = Game.gcl.level + Game.gcl.progress / Game.gcl.progressTotal;
     var cpu = Game.cpu.getUsed();
     Game.profile('cpu', cpu);
+    Game.profile('wrapup', cpu - wrapStart);
     Memory.stats.cpu = cpu;
 }

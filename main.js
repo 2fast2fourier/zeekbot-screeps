@@ -57,7 +57,7 @@ module.exports =
 	var Controller = __webpack_require__(12);
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(13);
-	var Production = __webpack_require__(41);
+	var Production = __webpack_require__(42);
 	var Pathing = __webpack_require__(2);
 
 	var REPAIR_CAP = 10000000;
@@ -75,7 +75,9 @@ module.exports =
 	        }
 	    }
 	    Game.profile('memory', Game.cpu.getUsed());
+	    Game.perf();
 	    Cluster.init();
+	    Game.perf('cluster-init');
 	    
 	    if(Game.interval(100)){
 	        _.forEach(Game.clusters, cluster =>cluster.processStats());
@@ -162,15 +164,17 @@ module.exports =
 	    let clusterEndTime = Game.cpu.getUsed();
 
 	    try{
+	        Game.perfAdd();
 	        Production.process();
 	        Controller.federation(allocated);
+	        Game.perfAdd('federation');
 	    }catch(e){
 	        console.log('federation', e);
 	        Game.notify('federation: ' + e.toString());
 	        throw e;
 	    }
 
-	    AutoBuilder.processRoadFlags();
+	    // AutoBuilder.processRoadFlags();
 
 
 
@@ -182,17 +186,19 @@ module.exports =
 	        }
 	    }
 
-	    if(Game.interval(50)){
+	    if(Game.intervalOffset(50, 2)){
 	        for(var roomName in Memory.rooms){
 	            if(_.size(Memory.rooms[roomName]) == 0){
 	                delete Memory.rooms[roomName];
 	            }
 	        }
+	        Memory.stats.repair = _.mapValues(Memory.clusters, 'work.repair.damage.total');
 	    }
 	    
 	    //// Wrapup ////
+	    var wrapStart = Game.cpu.getUsed();
 	    _.forEach(Game.clusters, cluster => cluster.finishProfile());
-	    Game.finishProfile();    
+	    Game.finishProfile();
 
 	    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
 	    Game.profile('clusters', clusterEndTime - initTime);
@@ -214,6 +220,7 @@ module.exports =
 	    Memory.stats.gcl = Game.gcl.level + Game.gcl.progress / Game.gcl.progressTotal;
 	    var cpu = Game.cpu.getUsed();
 	    Game.profile('cpu', cpu);
+	    Game.profile('wrapup', cpu - wrapStart);
 	    Memory.stats.cpu = cpu;
 	}
 
@@ -521,7 +528,10 @@ module.exports =
 	            enumerable: false,
 	            configurable: true,
 	            get: function(){
-	                return Game.clusters[this.memory.cluster];
+	                if(!this._cluster){
+	                    this._cluster = Game.clusters[this.memory.cluster];
+	                }
+	                return this._cluster;
 	            }
 	        });
 	    }
@@ -825,7 +835,7 @@ module.exports =
 
 	"use strict";
 
-	let VERSION = 5;
+	let VERSION = 6;
 	let STAT_INTERVAL = 100;
 	let LONGTERM_STAT_INTERVAL = 5000;
 
@@ -853,12 +863,12 @@ module.exports =
 	        if(Game.interval(STAT_INTERVAL)){
 	            Startup.longStats();
 	            Startup.shortStats();
-	            var heaviestCreep = _.max(Game.creeps, creepCPU);
-	            if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
-	                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
-	            }else{
-	                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
-	            }
+	            // var heaviestCreep = _.max(Game.creeps, creepCPU);
+	            // if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
+	            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
+	            // }else{
+	            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
+	            // }
 	        }
 	        if(Game.interval(LONGTERM_STAT_INTERVAL)){
 	            var msg = 'Statistics: \n';
@@ -879,6 +889,8 @@ module.exports =
 	        if(Game.intervalOffset(10, 1)){
 	            var closest = 0;
 	            Memory.levelroom = false;
+	            Memory.state.levelroom = false;
+	            Memory.stats.limit = Game.cpu.limit;
 	            Memory.stats.rooms = {};
 	            _.forEach(Game.rooms, room => {
 	                if(room.controller && room.controller.my && room.controller.level < 8){
@@ -887,6 +899,7 @@ module.exports =
 	                    if(percent > closest && room.controller.level >= 6){
 	                        closest = percent;
 	                        Memory.levelroom = room.name;
+	                        Memory.state.levelroom = room.name;
 	                    }
 	                }
 	            });
@@ -937,7 +950,11 @@ module.exports =
 	                });
 	                Memory.squads = {};
 	            case 5:
-	            //TODO add migration
+	                _.forEach(Memory.creeps, creep => {
+	                    if(creep.quota == 'upgrade'){
+	                        creep.quota = 'upgrade-upgrade';
+	                    }
+	                });
 	            case 6:
 	            //TODO add migration
 	            case 7:
@@ -1166,16 +1183,10 @@ module.exports =
 
 	"use strict";
 
-	// function catalogGlobal(resources, struct){
-	//     if(struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_TERMINAL){
-	//         var stored = struct.getResourceList();
-	//         for(let type in stored){
-	//             let amount = stored[type];
-	//             resources[type].global += amount;
-	//             resources[type].globals[struct.structureType] += amount;
-	//         }
-	//     }
-	// }
+	function grpStructFn(result, structure){
+	    result[structure.room.memory.cluster][structure.structureType].push(structure);
+	    return result;
+	}
 
 	function catalogStorage(storage, resources){
 	    var stored = storage.getResourceList();
@@ -1193,7 +1204,7 @@ module.exports =
 	}
 
 	class Cluster {
-	    constructor(id, data, creeps, rooms){
+	    constructor(id, data, creeps, rooms, structures){
 	        Object.assign(this, data);
 	        this.id = id;
 	        this.rooms = rooms;
@@ -1202,22 +1213,7 @@ module.exports =
 	        this.maxSpawn = 0;
 	        this.maxRCL = 0;
 
-	        this.structures = {
-	            spawn: [],
-	            extension: [],
-	            rampart: [],
-	            controller: [],
-	            link: [],
-	            storage: [],
-	            tower: [],
-	            observer: [],
-	            powerBank: [],
-	            powerSpawn: [],
-	            extractor: [],
-	            lab: [],
-	            terminal: [],
-	            nuker: []
-	        };
+	        this.structures = structures;
 
 	        this._found = {};
 	        this._foundAll = {};
@@ -1256,6 +1252,8 @@ module.exports =
 	                }
 	            }
 	        });
+
+	        var start = Game.cpu.getUsed();
 	        if(Game.intervalOffset(50, 1)){
 	            let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
 	            let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
@@ -1264,22 +1262,34 @@ module.exports =
 	            this.state.totalEnergy = totalEnergy;
 	            this.profile('energy', this.totalEnergy);
 	        }
+	        Game.profile('totalEnergy', Game.cpu.getUsed() - start);
 	    }
 
 	    static init(){
 	        Memory.bootstrap = false;
 	        let creeps = _.groupBy(Game.creeps, 'memory.cluster');
 	        let rooms = _.groupBy(Game.rooms, 'memory.cluster');
-	        Game.clusters = _.reduce(Memory.clusters, (result, data, name)=>{
-	            result[name] = new Cluster(name, data, creeps[name], rooms[name]);
-	            return result;
-	        }, {});
-	        _.forEach(Game.structures, structure =>{
-	            let cluster = structure.room.getCluster();
-	            if(cluster){
-	                cluster.structures[structure.structureType].push(structure);
-	            }
+	        var structTemplate = _.mapValues(Memory.clusters, cluster => {
+	            return {
+	                spawn: [],
+	                extension: [],
+	                rampart: [],
+	                controller: [],
+	                link: [],
+	                storage: [],
+	                tower: [],
+	                observer: [],
+	                powerBank: [],
+	                powerSpawn: [],
+	                extractor: [],
+	                lab: [],
+	                terminal: [],
+	                nuker: []
+	            };
 	        });
+	        let structures = _.reduce(Game.structures, grpStructFn, structTemplate);
+	        Game.clusters = _.mapValues(Memory.clusters, (data, name) => new Cluster(name, data, creeps[name], rooms[name], structures[name]));
+
 	        Cluster.processClusterFlags();
 	        _.forEach(Game.clusters, cluster => {
 	            if(cluster.maxRCL < 3 || _.size(cluster.structures.spawn) == 0){
@@ -1397,7 +1407,8 @@ module.exports =
 	            statscount: {},
 	            longstats: {},
 	            longcount: {},
-	            state: {}
+	            state: {},
+	            cache: {}
 	        };
 	        _.set(Memory, ['clusters', id], data);
 	        if(Game.clusters){
@@ -1719,6 +1730,12 @@ module.exports =
 	        this.update('longcount', {});
 	    }
 
+	    getGatherPoints(){
+	        return _.map(this.roles.core, room => room.memory.gather
+	                        ? new RoomPosition(room.memory.gather.x, room.memory.gather.y, room.memory.gather.roomName)
+	                        : new RoomPosition(25, 25, room.name));
+	    }
+
 	}
 
 	module.exports = Cluster;
@@ -1915,7 +1932,7 @@ module.exports =
 	        behavior: { avoid: {} }
 	    },
 	    upgradeworker: {
-	        quota: 'upgrade',
+	        quota: 'upgrade-upgrade',
 	        allocation: 'work',
 	        parts: {
 	            //mega: { work: 15, move: 24, carry: 9 },//2700
@@ -1926,20 +1943,34 @@ module.exports =
 	            pico: { move: 2, carry: 1, work: 1 }//300
 	        },
 	        work: { pickup: {}, upgrade: {}, idle: { subtype: 'controller' } },
-	        behavior: { energy: {}, avoid: {} }
+	        behavior: { energy: {}, avoid: {} },
+	        variants: {
+	            level: {
+	                quota: 'levelroom-upgrade',
+	                boost: {
+	                    nano: { upgradeController: 15 }
+	                },
+	                parts: {
+	                    nano: { work: 15, move: 14, carry: 12 },
+	                    pico: { work: 15, move: 9, carry: 3 }
+	                },
+	                behavior: { energy: {}, avoid: {}, boost: {} },
+	                work: { pickup: {}, upgrade: { subtype: 'levelroom' }, idle: { subtype: 'controller' } },
+	            }
+	        }
 	    },
 	    repairworker: {
 	        quota: 'repair-repair',
 	        allocation: 5,
 	        maxQuota: 20,
 	        parts: {
-	            kilo: { move: 10, carry: 10, work: 10 },
-	            milli: { move: 6, carry: 7, work: 5 },//1150
-	            micro: { move: 7, carry: 5, work: 2 },//800
-	            nano: { move: 5, carry: 4, work: 1 },//550
-	            pico: { move: 2, carry: 1, work: 1 }//300
+	            kilo: { carry: 10, work: 10, move: 10 },
+	            milli: { carry: 7, work: 5, move: 6 },//1150
+	            micro: { carry: 5, work: 2, move: 7 },//800
+	            nano: { carry: 4, work: 1, move: 5 },//550
+	            pico: { carry: 1, work: 1, move: 2 }//300
 	        },
-	        work: { pickup: { priority: 1 }, repair: { subtype: 'repair' }, idle: { subtype: 'spawn' } },
+	        work: { pickup: { priority: 1 }, repair: { subtype: 'repair' }, idle: { subtype: 'gather' } },
 	        behavior: { avoid: {}, repair: {} },
 	        variants: {
 	            heavy: {
@@ -1947,13 +1978,13 @@ module.exports =
 	                allocation: 3,
 	                maxQuota: 20,
 	                parts: {
-	                    micro: { move: 16, carry: 12, work: 20 },
-	                    nano: { move: 10, carry: 10, work: 10 },
-	                    pico: { move: 6, carry: 7, work: 5 },
-	                    femto: { move: 2, carry: 1, work: 1 }
+	                    micro: { carry: 12, work: 20, move: 16 },
+	                    nano: { carry: 10, work: 10, move: 16 },
+	                    pico: { carry: 7, work: 5, move: 16 },
+	                    femto: { carry: 1, work: 1, move: 16 }
 	                },
-	                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
-	                behavior: { avoid: {}, boost: {} }
+	                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
+	                behavior: { avoid: {}, boost: {}, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 5 } }
 	            },
 	            bunker: {
 	                quota: 'bunker-repair',
@@ -1969,7 +2000,7 @@ module.exports =
 	                    pico: { move: 6, carry: 7, work: 5 },
 	                    femto: { move: 2, carry: 1, work: 1 }
 	                },
-	                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'storage' } },
+	                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
 	                behavior: { avoid: {}, boost: {} }
 	            }
 	        }
@@ -2007,13 +2038,13 @@ module.exports =
 	            nano: { move: 8, carry: 4, work: 16 },
 	            pico: { move: 4, carry: 4, work: 8 }
 	        },
-	        work: { mine: { subtype: 'mineral' } },
+	        work: { mine: { subtype: 'mineral' }, idle: { subtype: 'gather' } },
 	        behavior: { avoid: {}, minecart: {} }
 	    },
 	    transferhauler: {
 	        quota: 'transfer',
 	        critical: true,
-	        maxQuota: 3,
+	        maxQuota: 2,
 	        allocation: 1,
 	        parts: { milli: { carry: 20, move: 10 } },
 	        work: {
@@ -3946,7 +3977,6 @@ module.exports =
 	        if(Game.market.credits < 500000 || Game.cpu.bucket < 7500){
 	            return;
 	        }
-	        Game.perfAdd();
 	        var terminals = Game.federation.structures.terminal;
 	        var requests = {};
 	        for(var terminal of terminals){
@@ -3986,7 +4016,6 @@ module.exports =
 	                }
 	            }
 	        }
-	        Game.perfAdd('autobuy');
 	    }
 	}
 
@@ -4043,10 +4072,10 @@ module.exports =
 
 	    //hydrate, validate, and end jobs
 	    static validate(workers, behaviors, cluster, creep){
-	        if(creep.memory.cpu === undefined){
-	            creep.memory.cpu = 0;
-	        }
-	        var validateStart = Game.cpu.getUsed();
+	        // if(creep.memory.cpu === undefined){
+	        //     creep.memory.cpu = 0;
+	        // }
+	        // var validateStart = Game.cpu.getUsed();
 	        if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
 	            creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
 	        }else{
@@ -4094,29 +4123,29 @@ module.exports =
 	        }else{
 	            creep.job = null;
 	        }
-	        var validateDelta = Game.cpu.getUsed() - validateStart;
-	        Game.profileAdd(creep.memory.type, validateDelta);
-	        creep.memory.cpu += validateDelta;
+	        // var validateDelta = Game.cpu.getUsed() - validateStart;
+	        // Game.profileAdd(creep.memory.type, validateDelta);
+	        // creep.memory.cpu += validateDelta;
 	    }
 
 	    //bid and work jobs
 	    static work(workers, behaviors, cluster, creep){
-	        var workStart = Game.cpu.getUsed();
+	        // var workStart = Game.cpu.getUsed();
 	        const workConfig = config[creep.memory.type].work;
-	        if(!creep.memory.job){
+	        if(!creep.memory.job || !creep.memory.jobType){
 	            var lowestBid = Infinity;
 	            var bidder = _.reduce(workConfig, (result, opts, type) => {
-	                if(!workers[type]){
-	                    console.log('missing worker', type);
-	                    return result;
-	                }
-	                if(workers[type].profile){
-	                    Game.perfAdd();
-	                }
+	                // if(!workers[type]){
+	                //     console.log('missing worker', type);
+	                //     return result;
+	                // }
+	                // if(workers[type].profile){
+	                //     Game.perfAdd();
+	                // }
 	                var bid = workers[type].bid(cluster, creep, opts);
-	                if(workers[type].profile){
-	                    Game.perfAdd('bid-'+type);
-	                }
+	                // if(workers[type].profile){
+	                //     Game.perfAdd('bid-'+type);
+	                // }
 	                if(bid !== false && bid.bid < lowestBid){
 	                    lowestBid = bid.bid;
 	                    return bid;
@@ -4142,26 +4171,26 @@ module.exports =
 	            if(creep.memory.job && creep.job){
 	                let job = creep.job;
 	                let type = job.type;
-	                if(workers[type].profile){
-	                    Game.perfAdd();
-	                }
+	                // if(workers[type].profile){
+	                //     Game.perfAdd();
+	                // }
 	                action = workers[type].process(cluster, creep, workConfig[type], job, job.target);
-	                if(workers[type].profile){
-	                    Game.perfAdd('work-'+type);
-	                }
+	                // if(workers[type].profile){
+	                //     Game.perfAdd('work-'+type);
+	                // }
 	            }
 	            _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
 	        }
-	        var workDelta = Game.cpu.getUsed() - workStart;
-	        Game.profileAdd(creep.memory.type, workDelta);
-	        creep.memory.cpu += workDelta;
-	        if(creep.memory.cpu > 1200 && !creep.memory.critical){
-	            if(creep.ticksToLive > 100){
-	                console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-	                Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-	            }
-	            creep.suicide();
-	        }
+	        // var workDelta = Game.cpu.getUsed() - workStart;
+	        // Game.profileAdd(creep.memory.type, workDelta);
+	        // creep.memory.cpu += workDelta;
+	        // if(creep.memory.cpu > 1200 && !creep.memory.critical){
+	        //     if(creep.ticksToLive > 100){
+	        //         console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+	        //         Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+	        //     }
+	        //     creep.suicide();
+	        // }
 	    }
 
 	    static generateQuota(workers, cluster){
@@ -4313,12 +4342,12 @@ module.exports =
 	    }
 
 	    pretick(cluster){
-	        if(this.profile){
-	            Game.profileAdd('valid-'+this.type, 0);
-	            Game.profileAdd('bid-'+this.type, 0);
-	            Game.profileAdd('gen-'+this.type, 0);
-	            Game.profileAdd('work-'+this.type, 0);
-	        }
+	        // if(this.profile){
+	        //     Game.profileAdd('valid-'+this.type, 0);
+	        //     Game.profileAdd('bid-'+this.type, 0);
+	        //     Game.profileAdd('gen-'+this.type, 0);
+	        //     Game.profileAdd('work-'+this.type, 0);
+	        // }
 	    }
 
 	    genTarget(cluster, subtype, id, args){
@@ -4501,13 +4530,13 @@ module.exports =
 	        }
 	        let subtype = _.get(opts, 'subtype', this.type);
 	        var start;
-	        if(this.profile){
-	            start = Game.cpu.getUsed();
-	        }
+	        // if(this.profile){
+	        //     start = Game.cpu.getUsed();
+	        // }
 	        let jobs = this.generateJobs(cluster, subtype);
-	        if(this.profile){
-	            Game.profileAdd('gen-'+this.type, Game.cpu.getUsed() - start);
-	        }
+	        // if(this.profile){
+	        //     Game.profileAdd('gen-'+this.type, Game.cpu.getUsed() - start);
+	        // }
 	        let lowestBid = Infinity;
 	        return _.reduce(jobs, (result, job) =>{
 	            if(job.capacity <= _.get(cluster._hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){
@@ -4946,12 +4975,34 @@ module.exports =
 	class IdleWorker extends BaseWorker {
 	    constructor(){ super('idle', { priority: 99, critical: true }); }
 
+	    genTarget(cluster, subtype, id, args){
+	        if(subtype == 'gather'){
+	            return { id: id, pos: RoomPosition.fromStr(id) };
+	        }else{
+	            return super.genTarget(cluster, subtype, id, args);
+	        }
+	    }
+
+	    createId(cluster, subtype, target, args){
+	        if(subtype == 'gather'){
+	            return target.pos.str;
+	        }else{
+	            return super.createId(cluster, subtype, target, args);
+	        }
+	    }
+
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
 	        return 8;
 	    }
 
 	    generateJobsForSubtype(cluster, subtype){
+	        if(subtype == 'gather'){
+	            var points = _.map(cluster.getGatherPoints(), point => {
+	                return { id: point.str, pos: point };
+	            });
+	            return this.jobsForTargets(cluster, subtype, points);
+	        }
 	        return this.jobsForTargets(cluster, subtype, cluster.structures[subtype]);
 	    }
 
@@ -5051,13 +5102,22 @@ module.exports =
 	    /// Job ///
 
 	    energy(cluster, subtype){
-	        var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
-	        return this.jobsForTargets(cluster, subtype, sources);
+	        if(!cluster.cache.sources || cluster.cache.sourceUpdate < Game.time){
+	            var sources = _.filter(cluster.findAll(FIND_SOURCES), source => source.room.memory.role != 'reserve');
+	            cluster.cache.sources = _.map(sources, 'id');
+	            cluster.cache.sourceUpdate = Game.time + 500;
+	        }
+	        return this.jobsForTargets(cluster, subtype, _.compact(Game.getObjects(cluster.cache.sources)));
 	    }
 
 	    mineral(cluster, subtype){
-	        var resources = Game.federation.resources;
-	        var minerals = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
+	        if(!cluster.cache.extractors || cluster.cache.extractorUpdate < Game.time){
+	            var resources = Game.federation.resources;
+	            var sources = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
+	            cluster.cache.extractors = _.map(sources, 'id');
+	            cluster.cache.extractorUpdate = Game.time + 500;
+	        }
+	        var minerals = _.filter(Game.getObjects(cluster.cache.extractors), mineral => mineral && mineral.mineralAmount > 0);
 	        return this.jobsForTargets(cluster, subtype, minerals);
 	    }
 
@@ -5189,23 +5249,35 @@ module.exports =
 	    }
 
 	    pickup(cluster, subtype){
+	        if(!cluster.cache.pickup || cluster.cache.pickupUpdate < Game.time){
+	            var structs = cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]);
+	            cluster.cache.pickup = _.map(structs, 'id');
+	            cluster.cache.pickupUpdate = Game.time + 500;
+	        }
 	        var energy = _.filter(cluster.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
-	        var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
+	        var storage = _.filter(Game.getObjects(cluster.cache.pickup), struct => struct && struct.getResource(RESOURCE_ENERGY) > 0);
 	        var terminals = _.filter(cluster.structures.terminal, terminal => terminal.getResource(RESOURCE_ENERGY) > 60000);
 	        return this.jobsForTargets(cluster, subtype, energy.concat(storage).concat(terminals), { resource: RESOURCE_ENERGY });
 	    }
 
 	    harvest(cluster, subtype){
-	        var targets = _.reduce(cluster.roomflags.harvest, (result, room)=>{
-	            var energy = _.filter(cluster.find(room, FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
-	            var containers = _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => struct.getResource(RESOURCE_ENERGY) > 0 && !struct.hasTag('stockpile'));
-	            return result.concat(energy).concat(containers);
-	        }, []);
-	        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
+	        if(!cluster.cache.harvest || cluster.cache.harvestUpdate < Game.time){
+	            var containers = _.map(cluster.roomflags.harvest, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+	            cluster.cache.harvest = _.map(_.flatten(containers), 'id');
+	            cluster.cache.harvestUpdate = Game.time + 500;
+	        }
+	        var storage = _.filter(Game.getObjects(cluster.cache.harvest), struct => struct && struct.getResource(RESOURCE_ENERGY) > 0);
+	        var energy = _.map(cluster.roomflags.harvest, room => _.filter(cluster.find(room, FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY }));
+	        return this.jobsForTargets(cluster, subtype, storage.concat(_.flatten(energy)), { resource: RESOURCE_ENERGY });
 	    }
 
 	    mineral(cluster, subtype){
-	        var containers = _.filter(cluster.getAllStructures([STRUCTURE_CONTAINER]), struct => struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+	        if(!cluster.cache.mineral || cluster.cache.mineralUpdate < Game.time){
+	            cluster.cache.mineral = _.map(cluster.getAllStructures([STRUCTURE_CONTAINER]), 'id');
+	            cluster.cache.mineralUpdate = Game.time + 500;
+	        }
+	        var containers = _.filter(Game.getObjects(cluster.cache.mineral), struct => struct && struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+	        var resources = _.filter(cluster.findAll(FIND_DROPPED_RESOURCES), resource => resource.resourceType != RESOURCE_ENERGY && resource.amount > 200);
 	        var jobs = [];
 	        for(let store of containers){
 	            _.forEach(store.getResourceList(), (amount, type)=>{
@@ -5214,7 +5286,7 @@ module.exports =
 	                }
 	            });
 	        }
-	        return jobs;
+	        return jobs.concat(_.map(resources, resource => this.createJob(cluster, subtype, resource, { resource: resource.resourceType })));
 	    }
 
 	    /// Creep ///
@@ -5696,7 +5768,7 @@ module.exports =
 	const BaseWorker = __webpack_require__(15);
 
 	class UpgradeWorker extends BaseWorker {
-	    constructor(){ super('upgrade', { requiresEnergy: true, quota: true, range: 3 }); }
+	    constructor(){ super('upgrade', { requiresEnergy: true, quota: ['upgrade', 'levelroom'], range: 3 }); }
 
 	    /// Job ///
 	    calculateCapacity(cluster, subtype, id, target, args){
@@ -5715,19 +5787,27 @@ module.exports =
 	        if(target.level < 4){
 	            return 30;
 	        }
-	        if(Memory.levelroom != target.pos.roomName || Memory.siegemode){
-	            return 15;
+	        if(Memory.levelroom == target.pos.roomName){
+	            let energy = _.get(target, 'room.storage.store.energy', 0);
+	            return energy > 200000 ? 30 : 15;
 	        }
-	        let energy = _.get(target, 'room.storage.store.energy', 0);
-	        return Math.max(1, Math.floor(energy / 100000)) * 15;
+	        return 15;
 	    }
 
 	    upgrade(cluster, subtype){
 	        let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode
-	                                            || target.level < 8
-	                                            || target.ticksToDowngrade < 145000
-	                                            || cluster.totalEnergy > 400000 * cluster.structures.storage.length));
+	        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => Memory.state.levelroom != target.room.name &&
+	                (!Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000 || cluster.totalEnergy > 400000 * cluster.structures.storage.length)));
+	    }
+
+	    levelroom(cluster, subtype){
+	        if(Memory.state.levelroom){
+	            var room = Game.rooms[Memory.state.levelroom];
+	            if(room && room.memory.cluster == cluster.id){
+	                return [this.createJob(cluster, subtype, room.controller)];
+	            }
+	        }
+	        return [];
 	    }
 
 	    /// Creep ///
@@ -5741,11 +5821,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        // var result = 
 	        this.orMove(creep, target, creep.upgradeController(target));
-	        // if(result == OK){
-	        //     cluster.longtermAdd('upgrade', creep.memory.jobAllocation);
-	        // }
 	    }
 
 	}
@@ -5760,17 +5836,19 @@ module.exports =
 
 	var Avoid = __webpack_require__(32);
 	var Boost = __webpack_require__(34);
-	var Defend = __webpack_require__(35);
-	var Energy = __webpack_require__(36);
-	var MinecartAction = __webpack_require__(37);
-	var Rampart = __webpack_require__(38);
-	var Repair = __webpack_require__(39);
-	var SelfHeal = __webpack_require__(40);
+	var Convert = __webpack_require__(35);
+	var Defend = __webpack_require__(36);
+	var Energy = __webpack_require__(37);
+	var MinecartAction = __webpack_require__(38);
+	var Rampart = __webpack_require__(39);
+	var Repair = __webpack_require__(40);
+	var SelfHeal = __webpack_require__(41);
 
 	module.exports = function(){
 	    return {
 	        avoid: new Avoid(),
 	        boost: new Boost(),
+	        convert: new Convert(),
 	        defend: new Defend(),
 	        energy: new Energy(),
 	        minecart: new MinecartAction(),
@@ -6018,6 +6096,41 @@ module.exports =
 	"use strict";
 
 	var BaseAction = __webpack_require__(33);
+
+	class ConvertAction extends BaseAction {
+	    constructor(){
+	        super('convert');
+	    }
+
+	    preWork(cluster, creep, opts){
+	        if(creep.memory.jobType == 'idle' && creep.ticksToLive < 1000){
+	            if(creep.ticksToLive > 300){
+	                console.log('Converted', creep.name, 'to', opts.type);
+	                creep.memory.type = opts.type;
+	                creep.memory.job = false;
+	                creep.memory.jobType = false;
+	                creep.memory.jobSubType = false;
+	                creep.memory.quota = opts.quota;
+	                creep.memory.quotaAlloc = opts.quotaAlloc;
+	                creep.memory.cpu = 0;
+	            }else{
+	                creep.suicide();
+	            }
+	        }
+	    }
+
+	}
+
+
+	module.exports = ConvertAction;
+
+/***/ },
+/* 36 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(33);
 	var Util = __webpack_require__(10);
 
 	var range = 5;
@@ -6052,7 +6165,7 @@ module.exports =
 	module.exports = DefendAction;
 
 /***/ },
-/* 36 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6103,7 +6216,7 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 37 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6164,7 +6277,7 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 38 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6214,7 +6327,7 @@ module.exports =
 	module.exports = RampartAction;
 
 /***/ },
-/* 39 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6244,7 +6357,7 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 40 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6287,7 +6400,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 41 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6324,6 +6437,7 @@ module.exports =
 	        });
 
 	        Memory.stats.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
+	        Memory.stats.reactionTypes = _.pick(_.mapValues(reactions, 'deficit'), deficit => deficit >= DEFICIT_START_MIN);
 	        Memory.state.requests = {};
 
 	        for(let type in Memory.state.reaction){

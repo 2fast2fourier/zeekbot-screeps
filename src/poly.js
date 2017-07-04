@@ -298,7 +298,10 @@ module.exports = function(){
             enumerable: false,
             configurable: true,
             get: function(){
-                return Game.clusters[this.memory.cluster];
+                if(!this._cluster){
+                    this._cluster = Game.clusters[this.memory.cluster];
+                }
+                return this._cluster;
             }
         });
     }

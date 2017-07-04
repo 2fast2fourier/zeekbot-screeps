@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class UpgradeWorker extends BaseWorker {
-    constructor(){ super('upgrade', { requiresEnergy: true, quota: true, range: 3 }); }
+    constructor(){ super('upgrade', { requiresEnergy: true, quota: ['upgrade', 'levelroom'], range: 3 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -22,19 +22,27 @@ class UpgradeWorker extends BaseWorker {
         if(target.level < 4){
             return 30;
         }
-        if(Memory.levelroom != target.pos.roomName || Memory.siegemode){
-            return 15;
+        if(Memory.levelroom == target.pos.roomName){
+            let energy = _.get(target, 'room.storage.store.energy', 0);
+            return energy > 200000 ? 30 : 15;
         }
-        let energy = _.get(target, 'room.storage.store.energy', 0);
-        return Math.max(1, Math.floor(energy / 100000)) * 15;
+        return 15;
     }
 
     upgrade(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => !Memory.siegemode
-                                            || target.level < 8
-                                            || target.ticksToDowngrade < 145000
-                                            || cluster.totalEnergy > 400000 * cluster.structures.storage.length));
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => Memory.state.levelroom != target.room.name &&
+                (!Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000 || cluster.totalEnergy > 400000 * cluster.structures.storage.length)));
+    }
+
+    levelroom(cluster, subtype){
+        if(Memory.state.levelroom){
+            var room = Game.rooms[Memory.state.levelroom];
+            if(room && room.memory.cluster == cluster.id){
+                return [this.createJob(cluster, subtype, room.controller)];
+            }
+        }
+        return [];
     }
 
     /// Creep ///
@@ -48,11 +56,7 @@ class UpgradeWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        // var result = 
         this.orMove(creep, target, creep.upgradeController(target));
-        // if(result == OK){
-        //     cluster.longtermAdd('upgrade', creep.memory.jobAllocation);
-        // }
     }
 
 }

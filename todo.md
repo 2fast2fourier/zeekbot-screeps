@@ -9,7 +9,7 @@
 
 
 ==== Production ====
-- Base production on global state.
+DONE - Base production on global state.
 - Make storage reserves of critical materials.
 
 ==== Combat ====

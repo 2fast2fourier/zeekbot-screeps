@@ -45,10 +45,10 @@ class Worker {
 
     //hydrate, validate, and end jobs
     static validate(workers, behaviors, cluster, creep){
-        if(creep.memory.cpu === undefined){
-            creep.memory.cpu = 0;
-        }
-        var validateStart = Game.cpu.getUsed();
+        // if(creep.memory.cpu === undefined){
+        //     creep.memory.cpu = 0;
+        // }
+        // var validateStart = Game.cpu.getUsed();
         if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
             creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
         }else{
@@ -96,29 +96,29 @@ class Worker {
         }else{
             creep.job = null;
         }
-        var validateDelta = Game.cpu.getUsed() - validateStart;
-        Game.profileAdd(creep.memory.type, validateDelta);
-        creep.memory.cpu += validateDelta;
+        // var validateDelta = Game.cpu.getUsed() - validateStart;
+        // Game.profileAdd(creep.memory.type, validateDelta);
+        // creep.memory.cpu += validateDelta;
     }
 
     //bid and work jobs
     static work(workers, behaviors, cluster, creep){
-        var workStart = Game.cpu.getUsed();
+        // var workStart = Game.cpu.getUsed();
         const workConfig = config[creep.memory.type].work;
-        if(!creep.memory.job){
+        if(!creep.memory.job || !creep.memory.jobType){
             var lowestBid = Infinity;
             var bidder = _.reduce(workConfig, (result, opts, type) => {
-                if(!workers[type]){
-                    console.log('missing worker', type);
-                    return result;
-                }
-                if(workers[type].profile){
-                    Game.perfAdd();
-                }
+                // if(!workers[type]){
+                //     console.log('missing worker', type);
+                //     return result;
+                // }
+                // if(workers[type].profile){
+                //     Game.perfAdd();
+                // }
                 var bid = workers[type].bid(cluster, creep, opts);
-                if(workers[type].profile){
-                    Game.perfAdd('bid-'+type);
-                }
+                // if(workers[type].profile){
+                //     Game.perfAdd('bid-'+type);
+                // }
                 if(bid !== false && bid.bid < lowestBid){
                     lowestBid = bid.bid;
                     return bid;
@@ -144,26 +144,26 @@ class Worker {
             if(creep.memory.job && creep.job){
                 let job = creep.job;
                 let type = job.type;
-                if(workers[type].profile){
-                    Game.perfAdd();
-                }
+                // if(workers[type].profile){
+                //     Game.perfAdd();
+                // }
                 action = workers[type].process(cluster, creep, workConfig[type], job, job.target);
-                if(workers[type].profile){
-                    Game.perfAdd('work-'+type);
-                }
+                // if(workers[type].profile){
+                //     Game.perfAdd('work-'+type);
+                // }
             }
             _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }
-        var workDelta = Game.cpu.getUsed() - workStart;
-        Game.profileAdd(creep.memory.type, workDelta);
-        creep.memory.cpu += workDelta;
-        if(creep.memory.cpu > 1200 && !creep.memory.critical){
-            if(creep.ticksToLive > 100){
-                console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-                Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
-            }
-            creep.suicide();
-        }
+        // var workDelta = Game.cpu.getUsed() - workStart;
+        // Game.profileAdd(creep.memory.type, workDelta);
+        // creep.memory.cpu += workDelta;
+        // if(creep.memory.cpu > 1200 && !creep.memory.critical){
+        //     if(creep.ticksToLive > 100){
+        //         console.log('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+        //         Game.notify('CPU Exceeded: ' + creep.memory.cluster + ' - ' + creep.name + ' - ' + creep.memory.cpu + ' - ' + creep.ticksToLive);
+        //     }
+        //     creep.suicide();
+        // }
     }
 
     static generateQuota(workers, cluster){

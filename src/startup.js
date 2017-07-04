@@ -1,6 +1,6 @@
 "use strict";
 
-let VERSION = 5;
+let VERSION = 6;
 let STAT_INTERVAL = 100;
 let LONGTERM_STAT_INTERVAL = 5000;
 
@@ -28,12 +28,12 @@ class Startup {
         if(Game.interval(STAT_INTERVAL)){
             Startup.longStats();
             Startup.shortStats();
-            var heaviestCreep = _.max(Game.creeps, creepCPU);
-            if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
-                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
-            }else{
-                console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
-            }
+            // var heaviestCreep = _.max(Game.creeps, creepCPU);
+            // if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
+            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
+            // }else{
+            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
+            // }
         }
         if(Game.interval(LONGTERM_STAT_INTERVAL)){
             var msg = 'Statistics: \n';
@@ -54,6 +54,8 @@ class Startup {
         if(Game.intervalOffset(10, 1)){
             var closest = 0;
             Memory.levelroom = false;
+            Memory.state.levelroom = false;
+            Memory.stats.limit = Game.cpu.limit;
             Memory.stats.rooms = {};
             _.forEach(Game.rooms, room => {
                 if(room.controller && room.controller.my && room.controller.level < 8){
@@ -62,6 +64,7 @@ class Startup {
                     if(percent > closest && room.controller.level >= 6){
                         closest = percent;
                         Memory.levelroom = room.name;
+                        Memory.state.levelroom = room.name;
                     }
                 }
             });
@@ -112,7 +115,11 @@ class Startup {
                 });
                 Memory.squads = {};
             case 5:
-            //TODO add migration
+                _.forEach(Memory.creeps, creep => {
+                    if(creep.quota == 'upgrade'){
+                        creep.quota = 'upgrade-upgrade';
+                    }
+                });
             case 6:
             //TODO add migration
             case 7:

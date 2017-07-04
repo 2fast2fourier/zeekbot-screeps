@@ -16,12 +16,12 @@ class BaseWorker {
     }
 
     pretick(cluster){
-        if(this.profile){
-            Game.profileAdd('valid-'+this.type, 0);
-            Game.profileAdd('bid-'+this.type, 0);
-            Game.profileAdd('gen-'+this.type, 0);
-            Game.profileAdd('work-'+this.type, 0);
-        }
+        // if(this.profile){
+        //     Game.profileAdd('valid-'+this.type, 0);
+        //     Game.profileAdd('bid-'+this.type, 0);
+        //     Game.profileAdd('gen-'+this.type, 0);
+        //     Game.profileAdd('work-'+this.type, 0);
+        // }
     }
 
     genTarget(cluster, subtype, id, args){
@@ -204,13 +204,13 @@ class BaseWorker {
         }
         let subtype = _.get(opts, 'subtype', this.type);
         var start;
-        if(this.profile){
-            start = Game.cpu.getUsed();
-        }
+        // if(this.profile){
+        //     start = Game.cpu.getUsed();
+        // }
         let jobs = this.generateJobs(cluster, subtype);
-        if(this.profile){
-            Game.profileAdd('gen-'+this.type, Game.cpu.getUsed() - start);
-        }
+        // if(this.profile){
+        //     Game.profileAdd('gen-'+this.type, Game.cpu.getUsed() - start);
+        // }
         let lowestBid = Infinity;
         return _.reduce(jobs, (result, job) =>{
             if(job.capacity <= _.get(cluster._hydratedJobs, [this.type, subtype, job.id, 'allocation'], 0)){

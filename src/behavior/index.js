@@ -2,6 +2,7 @@
 
 var Avoid = require('./avoid');
 var Boost = require('./boost');
+var Convert = require('./convert');
 var Defend = require('./defend');
 var Energy = require('./energy');
 var MinecartAction = require('./minecart');
@@ -13,6 +14,7 @@ module.exports = function(){
     return {
         avoid: new Avoid(),
         boost: new Boost(),
+        convert: new Convert(),
         defend: new Defend(),
         energy: new Energy(),
         minecart: new MinecartAction(),

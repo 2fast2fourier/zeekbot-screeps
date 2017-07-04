@@ -1,15 +1,9 @@
 "use strict";
 
-// function catalogGlobal(resources, struct){
-//     if(struct.structureType == STRUCTURE_STORAGE || struct.structureType == STRUCTURE_TERMINAL){
-//         var stored = struct.getResourceList();
-//         for(let type in stored){
-//             let amount = stored[type];
-//             resources[type].global += amount;
-//             resources[type].globals[struct.structureType] += amount;
-//         }
-//     }
-// }
+function grpStructFn(result, structure){
+    result[structure.room.memory.cluster][structure.structureType].push(structure);
+    return result;
+}
 
 function catalogStorage(storage, resources){
     var stored = storage.getResourceList();
@@ -27,7 +21,7 @@ function catalogStorage(storage, resources){
 }
 
 class Cluster {
-    constructor(id, data, creeps, rooms){
+    constructor(id, data, creeps, rooms, structures){
         Object.assign(this, data);
         this.id = id;
         this.rooms = rooms;
@@ -36,22 +30,7 @@ class Cluster {
         this.maxSpawn = 0;
         this.maxRCL = 0;
 
-        this.structures = {
-            spawn: [],
-            extension: [],
-            rampart: [],
-            controller: [],
-            link: [],
-            storage: [],
-            tower: [],
-            observer: [],
-            powerBank: [],
-            powerSpawn: [],
-            extractor: [],
-            lab: [],
-            terminal: [],
-            nuker: []
-        };
+        this.structures = structures;
 
         this._found = {};
         this._foundAll = {};
@@ -90,6 +69,8 @@ class Cluster {
                 }
             }
         });
+
+        var start = Game.cpu.getUsed();
         if(Game.intervalOffset(50, 1)){
             let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
@@ -98,22 +79,34 @@ class Cluster {
             this.state.totalEnergy = totalEnergy;
             this.profile('energy', this.totalEnergy);
         }
+        Game.profile('totalEnergy', Game.cpu.getUsed() - start);
     }
 
     static init(){
         Memory.bootstrap = false;
         let creeps = _.groupBy(Game.creeps, 'memory.cluster');
         let rooms = _.groupBy(Game.rooms, 'memory.cluster');
-        Game.clusters = _.reduce(Memory.clusters, (result, data, name)=>{
-            result[name] = new Cluster(name, data, creeps[name], rooms[name]);
-            return result;
-        }, {});
-        _.forEach(Game.structures, structure =>{
-            let cluster = structure.room.getCluster();
-            if(cluster){
-                cluster.structures[structure.structureType].push(structure);
-            }
+        var structTemplate = _.mapValues(Memory.clusters, cluster => {
+            return {
+                spawn: [],
+                extension: [],
+                rampart: [],
+                controller: [],
+                link: [],
+                storage: [],
+                tower: [],
+                observer: [],
+                powerBank: [],
+                powerSpawn: [],
+                extractor: [],
+                lab: [],
+                terminal: [],
+                nuker: []
+            };
         });
+        let structures = _.reduce(Game.structures, grpStructFn, structTemplate);
+        Game.clusters = _.mapValues(Memory.clusters, (data, name) => new Cluster(name, data, creeps[name], rooms[name], structures[name]));
+
         Cluster.processClusterFlags();
         _.forEach(Game.clusters, cluster => {
             if(cluster.maxRCL < 3 || _.size(cluster.structures.spawn) == 0){
@@ -231,7 +224,8 @@ class Cluster {
             statscount: {},
             longstats: {},
             longcount: {},
-            state: {}
+            state: {},
+            cache: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
@@ -551,6 +545,12 @@ class Cluster {
         Game.notify(output);
         this.update('longstats', {});
         this.update('longcount', {});
+    }
+
+    getGatherPoints(){
+        return _.map(this.roles.core, room => room.memory.gather
+                        ? new RoomPosition(room.memory.gather.x, room.memory.gather.y, room.memory.gather.roomName)
+                        : new RoomPosition(25, 25, room.name));
     }
 
 }

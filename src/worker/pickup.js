@@ -11,23 +11,35 @@ class PickupWorker extends BaseWorker {
     }
 
     pickup(cluster, subtype){
+        if(!cluster.cache.pickup || cluster.cache.pickupUpdate < Game.time){
+            var structs = cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]);
+            cluster.cache.pickup = _.map(structs, 'id');
+            cluster.cache.pickupUpdate = Game.time + 500;
+        }
         var energy = _.filter(cluster.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
-        var storage = _.filter(cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
+        var storage = _.filter(Game.getObjects(cluster.cache.pickup), struct => struct && struct.getResource(RESOURCE_ENERGY) > 0);
         var terminals = _.filter(cluster.structures.terminal, terminal => terminal.getResource(RESOURCE_ENERGY) > 60000);
         return this.jobsForTargets(cluster, subtype, energy.concat(storage).concat(terminals), { resource: RESOURCE_ENERGY });
     }
 
     harvest(cluster, subtype){
-        var targets = _.reduce(cluster.roomflags.harvest, (result, room)=>{
-            var energy = _.filter(cluster.find(room, FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
-            var containers = _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => struct.getResource(RESOURCE_ENERGY) > 0 && !struct.hasTag('stockpile'));
-            return result.concat(energy).concat(containers);
-        }, []);
-        return this.jobsForTargets(cluster, subtype, targets, { resource: RESOURCE_ENERGY });
+        if(!cluster.cache.harvest || cluster.cache.harvestUpdate < Game.time){
+            var containers = _.map(cluster.roomflags.harvest, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+            cluster.cache.harvest = _.map(_.flatten(containers), 'id');
+            cluster.cache.harvestUpdate = Game.time + 500;
+        }
+        var storage = _.filter(Game.getObjects(cluster.cache.harvest), struct => struct && struct.getResource(RESOURCE_ENERGY) > 0);
+        var energy = _.map(cluster.roomflags.harvest, room => _.filter(cluster.find(room, FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY }));
+        return this.jobsForTargets(cluster, subtype, storage.concat(_.flatten(energy)), { resource: RESOURCE_ENERGY });
     }
 
     mineral(cluster, subtype){
-        var containers = _.filter(cluster.getAllStructures([STRUCTURE_CONTAINER]), struct => struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+        if(!cluster.cache.mineral || cluster.cache.mineralUpdate < Game.time){
+            cluster.cache.mineral = _.map(cluster.getAllStructures([STRUCTURE_CONTAINER]), 'id');
+            cluster.cache.mineralUpdate = Game.time + 500;
+        }
+        var containers = _.filter(Game.getObjects(cluster.cache.mineral), struct => struct && struct.getStored() > struct.getResource(RESOURCE_ENERGY));
+        var resources = _.filter(cluster.findAll(FIND_DROPPED_RESOURCES), resource => resource.resourceType != RESOURCE_ENERGY && resource.amount > 200);
         var jobs = [];
         for(let store of containers){
             _.forEach(store.getResourceList(), (amount, type)=>{
@@ -36,7 +48,7 @@ class PickupWorker extends BaseWorker {
                 }
             });
         }
-        return jobs;
+        return jobs.concat(_.map(resources, resource => this.createJob(cluster, subtype, resource, { resource: resource.resourceType })));
     }
 
     /// Creep ///

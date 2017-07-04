@@ -32,6 +32,7 @@ class Production {
         });
 
         Memory.stats.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
+        Memory.stats.reactionTypes = _.pick(_.mapValues(reactions, 'deficit'), deficit => deficit >= DEFICIT_START_MIN);
         Memory.state.requests = {};
 
         for(let type in Memory.state.reaction){

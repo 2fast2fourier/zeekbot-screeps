@@ -414,7 +414,6 @@ class Controller {
         if(Game.market.credits < 500000 || Game.cpu.bucket < 7500){
             return;
         }
-        Game.perfAdd();
         var terminals = Game.federation.structures.terminal;
         var requests = {};
         for(var terminal of terminals){
@@ -454,7 +453,6 @@ class Controller {
                 }
             }
         }
-        Game.perfAdd('autobuy');
     }
 }
 
