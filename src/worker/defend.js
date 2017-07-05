@@ -8,13 +8,26 @@ function defendRoom(result, room){
     return result;
 }
 
+function heavyDefendRoom(result, room){
+    var roomData = Game.matrix.rooms[room.name];
+    if(roomData.hostiles.length > 0 && roomData.total.heal >= 80 && roomData.total.heal <= 340){
+        result.push(roomData.hostiles);
+    }
+    return result;
+}
+
+const defendFn = {
+    defend: defendRoom,
+    heavy: heavyDefendRoom
+}
+
 const BaseWorker = require('./base');
 
 class DefendWorker extends BaseWorker {
-    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow' ], critical: true }); }
+    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow', 'heavy' ], critical: true }); }
 
     genTarget(cluster, subtype, id, args){
-        if(subtype == 'defend'){
+        if(subtype == 'defend' || subtype == 'heavy'){
             return super.genTarget(cluster, subtype, id, args);
         }
         var target = _.get(cluster.defense, [subtype, id]);
@@ -22,8 +35,8 @@ class DefendWorker extends BaseWorker {
     }
 
     generateJobsForSubtype(cluster, subtype){
-        if(subtype == 'defend'){
-            return this.defend(cluster, subtype);
+        if(subtype == 'defend' || subtype == 'heavy'){
+            return this.jobsForTargets(cluster, subtype, _.flatten(_.reduce(cluster.rooms, defendFn[subtype], [])));
         }
         return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
             return {
@@ -31,13 +44,6 @@ class DefendWorker extends BaseWorker {
                 pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName)
             };
         }));
-    }
-
-    /// Job ///
-
-    defend(cluster, subtype){
-        let hostiles = _.reduce(cluster.rooms, defendRoom, []);
-        return this.jobsForTargets(cluster, subtype, _.flatten(hostiles));
     }
 
     /// Creep ///
@@ -62,7 +68,7 @@ class DefendWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(job.subtype != 'defend'){
+        if(job.subtype != 'defend' && job.subtype != 'heavy'){
             return this.processRampart(cluster, creep, opts, job, target);
         }
         let attack = creep.getActiveBodyparts('attack');
@@ -70,16 +76,23 @@ class DefendWorker extends BaseWorker {
         let dist = creep.pos.getRangeTo(target);
         if(attack > 0){
             this.orMove(creep, target, creep.attack(target));
-        }else if(ranged > 0){
+        }else if(job.subtype == 'heavy'){
+            this.move(creep, target);
+        }else{
             if(dist < 3){
+                //TODO better flee
                 var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
                 creep.move(creep.pos.getDirectionTo(result.path[0]));
             }else if(dist > 3){
                 this.move(creep, target);
             }
         }
-        if(ranged > 0 && dist <= 3){
-            creep.rangedAttack(target);
+        if(ranged > 0){
+            if(dist == 1){
+                creep.rangedMassAttack();
+            }else if(dist > 1 && dist <= 3){
+                creep.rangedAttack(target);
+            }
         }
     }
 

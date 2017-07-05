@@ -7,6 +7,7 @@ var Defend = require('./defend');
 var Energy = require('./energy');
 var MinecartAction = require('./minecart');
 var Rampart = require('./rampart');
+var Recycle = require('./recycle');
 var Repair = require('./repair');
 var SelfHeal = require('./selfheal');
 
@@ -19,6 +20,7 @@ module.exports = function(){
         energy: new Energy(),
         minecart: new MinecartAction(),
         rampart: new Rampart(),
+        recycle: new Recycle(),
         repair: new Repair(),
         selfheal: new SelfHeal()
     };

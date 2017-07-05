@@ -28,6 +28,19 @@ var template = {
                 },
                 work: { defend: { subtype: 'rampart' } },
                 behavior: { rampart: { range: 1 } }
+            },
+            heavy: {
+                quota: 'heavy-defend',
+                allocation: 5,
+                maxQuota: 10,
+                boost: {
+                    milli: { fatigue: 5, rangedAttack: 10, heal: 5 }
+                },
+                parts: {
+                    milli: { tough: 5, move: 5, ranged_attack: 10, heal: 5 }
+                },
+                work: { defend: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
+                behavior: { selfheal: { auto: true }, boost: {}, recycle: {} }
             }
         }
     },
@@ -161,13 +174,10 @@ var template = {
         quota: 'keep',
         assignRoom: 'keep',
         parts: {
-            milli: { move: 25, ranged_attack: 2, attack: 18, heal: 5 },
-            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
-            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
-            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
+            milli: { move: 25, ranged_attack: 20, heal: 5 }
         },
-        work: { keep: { local: true } },//, defend: {}//TODO defend tooo
-        behavior: { selfheal: {} }
+        work: { keep: { local: true } },
+        behavior: { selfheal: { auto: true } }
     },
     builderworker: {
         quota: 'build',
@@ -215,8 +225,8 @@ var template = {
     },
     repairworker: {
         quota: 'repair-repair',
-        allocation: 5,
-        maxQuota: 20,
+        allocation: 3,
+        maxQuota: 21,
         parts: {
             kilo: { carry: 10, work: 10, move: 10 },
             milli: { carry: 7, work: 5, move: 6 },//1150
@@ -238,7 +248,7 @@ var template = {
                     femto: { carry: 1, work: 1, move: 16 }
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
-                behavior: { avoid: {}, boost: {}, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 5 } }
+                behavior: { avoid: {} }//, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 4 }
             },
             bunker: {
                 quota: 'bunker-repair',
@@ -255,7 +265,7 @@ var template = {
                     femto: { move: 2, carry: 1, work: 1 }
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
-                behavior: { avoid: {}, boost: {} }
+                behavior: { avoid: {} }
             }
         }
     },
@@ -271,17 +281,6 @@ var template = {
                 work: { observe: { subtype: 'poke' } }
             }
         }
-    },
-    healer: {
-        quota: 'heal',
-        maxQuota: 1,
-        parts: {
-            micro: { move: 4, heal: 4 },
-            nano: { move: 2, heal: 2 },
-            pico: { move: 1, heal: 1 }
-        },
-        work: { heal: {} },
-        behavior: { avoid: {} }
     },
     mineralminer: {
         quota: 'mineral-mine',
@@ -325,17 +324,44 @@ var template = {
         behavior: { avoid: {} }
     },
     attacker: {
-        quota: 'attack',
-        maxQuota: 6,
+        quota: 'attack-squad',
+        maxQuota: 4,
         critical: true,
-        boost: {
-            milli: { fatigue: 10, damage: 5, rangedAttack: 25, heal: 10 }
-        },
         parts: {
-            milli: { tough: 5, ranged_attack: 25, move: 10, heal: 10 }
+            pico: { tough: 1, attack: 1, move: 2 }
         },
-        work: { attack: {} },
-        behavior: { selfheal: { auto: true }, rampart: { range: 3 }, boost: {} }
+        work: { squad: { subtype: 'attack' } },
+        behavior: { boost: {} }
+    },
+    healer: {
+        quota: 'heal-squad',
+        maxQuota: 4,
+        critical: true,
+        parts: {
+            pico: { tough: 1, heal: 1, move: 2 }
+        },
+        work: { squad: { subtype: 'heal' } },
+        behavior: { boost: {} }
+    },
+    ranger: {
+        quota: 'ranged-squad',
+        maxQuota: 4,
+        critical: true,
+        parts: {
+            pico: { tough: 1, ranged_attack: 1, move: 2 }
+        },
+        work: { squad: { subtype: 'ranged' } },
+        behavior: { boost: {} }
+    },
+    breakthrough: {
+        quota: 'dismantle-squad',
+        maxQuota: 4,
+        critical: true,
+        parts: {
+            pico: { tough: 1, work: 1, move: 2 }
+        },
+        work: { squad: { subtype: 'dismantle' } },
+        behavior: { boost: {} }
     }
 }
 

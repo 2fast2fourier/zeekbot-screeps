@@ -133,7 +133,7 @@ class Production {
         }
         var components = Production.findReaction(type);
         var inventory = _.map(components, component => resources[component].total);
-        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], (deficit - amount) + 500, output, false, resources));
+        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], (deficit - amount) + 1000, output, false, resources));
 
         if(deficit > 0){
             if(output[type]){

@@ -6,7 +6,7 @@ class IdleWorker extends BaseWorker {
     constructor(){ super('idle', { priority: 99, critical: true }); }
 
     genTarget(cluster, subtype, id, args){
-        if(subtype == 'gather'){
+        if(subtype == 'gather' || subtype == 'idle'){
             return { id: id, pos: RoomPosition.fromStr(id) };
         }else{
             return super.genTarget(cluster, subtype, id, args);
@@ -14,7 +14,7 @@ class IdleWorker extends BaseWorker {
     }
 
     createId(cluster, subtype, target, args){
-        if(subtype == 'gather'){
+        if(subtype == 'gather' || subtype == 'idle'){
             return target.pos.str;
         }else{
             return super.createId(cluster, subtype, target, args);
@@ -27,7 +27,7 @@ class IdleWorker extends BaseWorker {
     }
 
     generateJobsForSubtype(cluster, subtype){
-        if(subtype == 'gather'){
+        if(subtype == 'gather' || subtype == 'idle'){
             var points = _.map(cluster.getGatherPoints(), point => {
                 return { id: point.str, pos: point };
             });
@@ -47,7 +47,7 @@ class IdleWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, target){
-        if(creep.pos.getRangeTo(target) > 2){
+        if(job.subtype != 'idle' && creep.pos.getRangeTo(target) > 2){
             this.move(creep, target);
         }
     }

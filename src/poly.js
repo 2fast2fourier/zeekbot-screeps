@@ -114,6 +114,14 @@ module.exports = function(){
         return roomMemory ? Game.clusters[roomMemory.cluster] : undefined;
     };
 
+    Game.message = function(type, message){
+        Memory.messages.push({
+            tick: Game.time,
+            message,
+            type
+        });
+    }
+
     /// Tag Helpers
 
     Structure.prototype.hasTag = function(tag){

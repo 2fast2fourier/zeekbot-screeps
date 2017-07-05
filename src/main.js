@@ -12,6 +12,7 @@ var Spawner = require('./spawner');
 var Worker = require('./worker');
 var Production = require('./production');
 var Pathing = require('./pathing');
+var Squad = require('./squad');
 
 var REPAIR_CAP = 10000000;
 
@@ -44,6 +45,7 @@ module.exports.loop = function () {
     const allocated = {};
 
     Game.matrix.startup();
+    Squad.init();
 
     //// Process ////
 
@@ -108,9 +110,9 @@ module.exports.loop = function () {
             cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
             ix+= 100;
         }catch(e){
-            console.log(name, e);
-            Game.notify(name + ' - ' + e.toString());
-            throw e;
+            console.log(name, e, JSON.stringify(e.stack));
+            Game.notify(name + ' - ' + e.toString()+' - '+JSON.stringify(e.stack));
+            // throw e;
         }
     }
     
@@ -118,13 +120,14 @@ module.exports.loop = function () {
 
     try{
         Game.perfAdd();
+        Squad.process();
         Production.process();
         Controller.federation(allocated);
         Game.perfAdd('federation');
     }catch(e){
-        console.log('federation', e);
-        Game.notify('federation: ' + e.toString());
-        throw e;
+        console.log('federation', e, JSON.stringify(e.stack));
+        Game.notify('federation: ' + e.toString()+' - '+JSON.stringify(e.stack));
+        // throw e;
     }
 
     // AutoBuilder.processRoadFlags();

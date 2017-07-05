@@ -24,7 +24,7 @@ class UpgradeWorker extends BaseWorker {
         }
         if(Memory.levelroom == target.pos.roomName){
             let energy = _.get(target, 'room.storage.store.energy', 0);
-            return energy > 200000 ? 30 : 15;
+            return Math.max(1, Math.floor(energy / 150000)) * 15;
         }
         return 15;
     }

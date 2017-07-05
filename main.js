@@ -57,8 +57,9 @@ module.exports =
 	var Controller = __webpack_require__(12);
 	var Spawner = __webpack_require__(6);
 	var Worker = __webpack_require__(13);
-	var Production = __webpack_require__(42);
+	var Production = __webpack_require__(47);
 	var Pathing = __webpack_require__(2);
+	var Squad = __webpack_require__(30);
 
 	var REPAIR_CAP = 10000000;
 
@@ -91,6 +92,7 @@ module.exports =
 	    const allocated = {};
 
 	    Game.matrix.startup();
+	    Squad.init();
 
 	    //// Process ////
 
@@ -155,9 +157,9 @@ module.exports =
 	            cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
 	            ix+= 100;
 	        }catch(e){
-	            console.log(name, e);
-	            Game.notify(name + ' - ' + e.toString());
-	            throw e;
+	            console.log(name, e, JSON.stringify(e.stack));
+	            Game.notify(name + ' - ' + e.toString()+' - '+JSON.stringify(e.stack));
+	            // throw e;
 	        }
 	    }
 	    
@@ -165,13 +167,14 @@ module.exports =
 
 	    try{
 	        Game.perfAdd();
+	        Squad.process();
 	        Production.process();
 	        Controller.federation(allocated);
 	        Game.perfAdd('federation');
 	    }catch(e){
-	        console.log('federation', e);
-	        Game.notify('federation: ' + e.toString());
-	        throw e;
+	        console.log('federation', e, JSON.stringify(e.stack));
+	        Game.notify('federation: ' + e.toString()+' - '+JSON.stringify(e.stack));
+	        // throw e;
 	    }
 
 	    // AutoBuilder.processRoadFlags();
@@ -343,6 +346,14 @@ module.exports =
 	        var roomMemory = Memory.rooms[roomName];
 	        return roomMemory ? Game.clusters[roomMemory.cluster] : undefined;
 	    };
+
+	    Game.message = function(type, message){
+	        Memory.messages.push({
+	            tick: Game.time,
+	            message,
+	            type
+	        });
+	    }
 
 	    /// Tag Helpers
 
@@ -822,8 +833,8 @@ module.exports =
 	        return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
 	    }
 
-	    static attackMove(creep, target){
-	        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true });
+	    static attackMove(creep, target, range){
+	        return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, range });
 	    }
 	}
 
@@ -1774,6 +1785,19 @@ module.exports =
 	                },
 	                work: { defend: { subtype: 'rampart' } },
 	                behavior: { rampart: { range: 1 } }
+	            },
+	            heavy: {
+	                quota: 'heavy-defend',
+	                allocation: 5,
+	                maxQuota: 10,
+	                boost: {
+	                    milli: { fatigue: 5, rangedAttack: 10, heal: 5 }
+	                },
+	                parts: {
+	                    milli: { tough: 5, move: 5, ranged_attack: 10, heal: 5 }
+	                },
+	                work: { defend: { subtype: 'heavy' }, idle: { subtype: 'spawn' } },
+	                behavior: { selfheal: { auto: true }, boost: {}, recycle: {} }
 	            }
 	        }
 	    },
@@ -1907,13 +1931,10 @@ module.exports =
 	        quota: 'keep',
 	        assignRoom: 'keep',
 	        parts: {
-	            milli: { move: 25, ranged_attack: 2, attack: 18, heal: 5 },
-	            micro: { tough: 6, move: 25, attack: 15, heal: 4 },
-	            nano: { tough: 14, move: 17, attack: 15, heal: 4 }
-	            // pico: { tough: 15, move: 15, attack: 15 }//TODO enable RCL6 SK?
+	            milli: { move: 25, ranged_attack: 20, heal: 5 }
 	        },
-	        work: { keep: { local: true } },//, defend: {}//TODO defend tooo
-	        behavior: { selfheal: {} }
+	        work: { keep: { local: true } },
+	        behavior: { selfheal: { auto: true } }
 	    },
 	    builderworker: {
 	        quota: 'build',
@@ -1961,8 +1982,8 @@ module.exports =
 	    },
 	    repairworker: {
 	        quota: 'repair-repair',
-	        allocation: 5,
-	        maxQuota: 20,
+	        allocation: 3,
+	        maxQuota: 21,
 	        parts: {
 	            kilo: { carry: 10, work: 10, move: 10 },
 	            milli: { carry: 7, work: 5, move: 6 },//1150
@@ -1984,7 +2005,7 @@ module.exports =
 	                    femto: { carry: 1, work: 1, move: 16 }
 	                },
 	                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
-	                behavior: { avoid: {}, boost: {}, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 5 } }
+	                behavior: { avoid: {} }//, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 4 }
 	            },
 	            bunker: {
 	                quota: 'bunker-repair',
@@ -2001,7 +2022,7 @@ module.exports =
 	                    femto: { move: 2, carry: 1, work: 1 }
 	                },
 	                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
-	                behavior: { avoid: {}, boost: {} }
+	                behavior: { avoid: {} }
 	            }
 	        }
 	    },
@@ -2017,17 +2038,6 @@ module.exports =
 	                work: { observe: { subtype: 'poke' } }
 	            }
 	        }
-	    },
-	    healer: {
-	        quota: 'heal',
-	        maxQuota: 1,
-	        parts: {
-	            micro: { move: 4, heal: 4 },
-	            nano: { move: 2, heal: 2 },
-	            pico: { move: 1, heal: 1 }
-	        },
-	        work: { heal: {} },
-	        behavior: { avoid: {} }
 	    },
 	    mineralminer: {
 	        quota: 'mineral-mine',
@@ -2071,17 +2081,44 @@ module.exports =
 	        behavior: { avoid: {} }
 	    },
 	    attacker: {
-	        quota: 'attack',
-	        maxQuota: 6,
+	        quota: 'attack-squad',
+	        maxQuota: 4,
 	        critical: true,
-	        boost: {
-	            milli: { fatigue: 10, damage: 5, rangedAttack: 25, heal: 10 }
-	        },
 	        parts: {
-	            milli: { tough: 5, ranged_attack: 25, move: 10, heal: 10 }
+	            pico: { tough: 1, attack: 1, move: 2 }
 	        },
-	        work: { attack: {} },
-	        behavior: { selfheal: { auto: true }, rampart: { range: 3 }, boost: {} }
+	        work: { squad: { subtype: 'attack' } },
+	        behavior: { boost: {} }
+	    },
+	    healer: {
+	        quota: 'heal-squad',
+	        maxQuota: 4,
+	        critical: true,
+	        parts: {
+	            pico: { tough: 1, heal: 1, move: 2 }
+	        },
+	        work: { squad: { subtype: 'heal' } },
+	        behavior: { boost: {} }
+	    },
+	    ranger: {
+	        quota: 'ranged-squad',
+	        maxQuota: 4,
+	        critical: true,
+	        parts: {
+	            pico: { tough: 1, ranged_attack: 1, move: 2 }
+	        },
+	        work: { squad: { subtype: 'ranged' } },
+	        behavior: { boost: {} }
+	    },
+	    breakthrough: {
+	        quota: 'dismantle-squad',
+	        maxQuota: 4,
+	        critical: true,
+	        parts: {
+	            pico: { tough: 1, work: 1, move: 2 }
+	        },
+	        work: { squad: { subtype: 'dismantle' } },
+	        behavior: { boost: {} }
 	    }
 	}
 
@@ -2790,7 +2827,7 @@ module.exports =
 	            return 'friendly';
 	        }
 	        var owner = creep.owner.username;
-	        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare'){
+	        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare' || owner == 'xaq'){
 	            return 'friendly';
 	        }
 	        if(owner == 'Source Keeper'){
@@ -2895,7 +2932,7 @@ module.exports =
 	                targetted: false
 	            };
 	            if(data.underSiege && (room.memory.defend || room.memory.tripwire)){
-	                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(matrix.creeps, 'player[0].owner.username', 'Unknown');
+	                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(data.creeps, 'player[0].owner.username', 'Unknown');
 	                Game.note('playerWarn'+room.name, message);
 	                if(room.cluster){
 	                    room.cluster.state.defcon = Game.time + 500;
@@ -3596,10 +3633,10 @@ module.exports =
 	                }
 	            }
 
+	            Controller.emptyTerminals(allocated);
 	            Controller.fillRequests(allocated);
 	            Controller.levelTerminals(allocated);
 	            Controller.terminalEnergy(allocated);
-	            // Controller.emptyTerminals();
 	        }
 
 	        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
@@ -3853,16 +3890,17 @@ module.exports =
 	        }
 	    }
 
-	    static emptyTerminals(){
-	        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.room.matrix.underSiege && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+	    static emptyTerminals(allocated){
+	        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
 	        if(terminals.length){
-	            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.room.matrix.underSiege && terminal.getStored() < terminal.getCapacity() * 0.8);
+	            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
 	            terminals.forEach(terminal => {
 	                let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
 	                let sending = _.first(_.keys(resources));
 	                let target = Util.closest(terminal, targets);
-	                if(target && terminal.send(sending, resources[sending], target.pos.roomName) == OK){
-	                    console.log('Emptying terminal', terminal.pos.roomName, terminal.room.cluster.id, 'sending', sending, resources[sending], target.pos.roomName);
+	                if(target && terminal.send(sending, Math.min(resources[sending], target.getAvailableCapacity() * 0.75), target.pos.roomName) == OK){
+	                    allocated[terminal.id] = true;
+	                    console.log('Emptying terminal', terminal.pos.roomName, terminal.room.cluster.id, 'sending', sending, Math.min(resources[sending], target.getAvailableCapacity() * 0.75), target.pos.roomName);
 	                }
 	            });
 	        }
@@ -3981,7 +4019,7 @@ module.exports =
 	        var requests = {};
 	        for(var terminal of terminals){
 	            for(var resource in autobuyPriceLimit){
-	                if(terminal.getResource(resource) < 2000 && terminal.getResource(RESOURCE_ENERGY) > 10000){// && !terminal.room.matrix.underSiege){
+	                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000 && !terminal.hasTag('empty')){
 	                    if(!requests[resource]){
 	                        requests[resource] = [];
 	                    }
@@ -4044,11 +4082,12 @@ module.exports =
 	    pickup: __webpack_require__(26),
 	    repair: __webpack_require__(27),
 	    reserve: __webpack_require__(28),
-	    transfer: __webpack_require__(29),
-	    upgrade: __webpack_require__(30)
+	    squad: __webpack_require__(29),
+	    transfer: __webpack_require__(33),
+	    upgrade: __webpack_require__(34)
 	};
 
-	const Behavior = __webpack_require__(31);
+	const Behavior = __webpack_require__(35);
 
 	class Worker {
 
@@ -4272,9 +4311,8 @@ module.exports =
 	    }
 
 	    calculateCapacity(cluster, subtype, id, target, args){
-	        var parts = target.name.split('-');
-	        if(parts.length > 1){
-	            return parseInt(parts[1]);
+	        if(target.parts.length > 1){
+	            return parseInt(target.parts[1]);
 	        }
 	        return 1;
 	    }
@@ -4294,26 +4332,29 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, flag){
-	        var matrix = Game.matrix.rooms[creep.room.name];
-	        var target = false;
-	        if(!target){
-	            target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
+	        if(creep.pos.getRangeTo(flag) > 1){
+	            creep.moveTo(flag);
+	            // this.attackMove(creep, flag);
+	            // console.log(creep, this.attackMove(creep, flag));
 	        }
-	        if(target){
-	            let dist = creep.pos.getRangeTo(target);
-	            target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
-	            target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
-	            if(dist < 3){
-	                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-	                creep.move(creep.pos.getDirectionTo(result.path[0]));
-	            }else if(dist > 3){
-	                this.attackMove(creep, target);
-	            }
-	        }else if(creep.pos.getRangeTo(flag) > 3){
-	            this.attackMove(creep, flag);
-	        }else if(!flag.name.includes('stage')){
-	           flag.remove();
-	        }
+	        // var matrix = Game.matrix.rooms[creep.room.name];
+	        // var target = false;
+	        // if(!target){
+	        //     target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
+	        // }
+	        // if(target){
+	        //     let dist = creep.pos.getRangeTo(target);
+	        //     target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
+	        //     target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
+	        //     if(dist < 3){
+	        //         var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
+	        //         creep.move(creep.pos.getDirectionTo(result.path[0]));
+	        //     }else if(dist > 3){
+	        //         this.attackMove(creep, target);
+	        //     }
+	        // }else if(creep.pos.getRangeTo(flag) > 3){
+	        //     this.attackMove(creep, flag);
+	        // }
 	    }
 
 	}
@@ -4630,13 +4671,26 @@ module.exports =
 	    return result;
 	}
 
+	function heavyDefendRoom(result, room){
+	    var roomData = Game.matrix.rooms[room.name];
+	    if(roomData.hostiles.length > 0 && roomData.total.heal >= 80 && roomData.total.heal <= 340){
+	        result.push(roomData.hostiles);
+	    }
+	    return result;
+	}
+
+	const defendFn = {
+	    defend: defendRoom,
+	    heavy: heavyDefendRoom
+	}
+
 	const BaseWorker = __webpack_require__(15);
 
 	class DefendWorker extends BaseWorker {
-	    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow' ], critical: true }); }
+	    constructor(){ super('defend', { quota: [ 'defend', 'rampart', 'longbow', 'heavy' ], critical: true }); }
 
 	    genTarget(cluster, subtype, id, args){
-	        if(subtype == 'defend'){
+	        if(subtype == 'defend' || subtype == 'heavy'){
 	            return super.genTarget(cluster, subtype, id, args);
 	        }
 	        var target = _.get(cluster.defense, [subtype, id]);
@@ -4644,8 +4698,8 @@ module.exports =
 	    }
 
 	    generateJobsForSubtype(cluster, subtype){
-	        if(subtype == 'defend'){
-	            return this.defend(cluster, subtype);
+	        if(subtype == 'defend' || subtype == 'heavy'){
+	            return this.jobsForTargets(cluster, subtype, _.flatten(_.reduce(cluster.rooms, defendFn[subtype], [])));
 	        }
 	        return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
 	            return {
@@ -4653,13 +4707,6 @@ module.exports =
 	                pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName)
 	            };
 	        }));
-	    }
-
-	    /// Job ///
-
-	    defend(cluster, subtype){
-	        let hostiles = _.reduce(cluster.rooms, defendRoom, []);
-	        return this.jobsForTargets(cluster, subtype, _.flatten(hostiles));
 	    }
 
 	    /// Creep ///
@@ -4684,7 +4731,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(job.subtype != 'defend'){
+	        if(job.subtype != 'defend' && job.subtype != 'heavy'){
 	            return this.processRampart(cluster, creep, opts, job, target);
 	        }
 	        let attack = creep.getActiveBodyparts('attack');
@@ -4692,16 +4739,23 @@ module.exports =
 	        let dist = creep.pos.getRangeTo(target);
 	        if(attack > 0){
 	            this.orMove(creep, target, creep.attack(target));
-	        }else if(ranged > 0){
+	        }else if(job.subtype == 'heavy'){
+	            this.move(creep, target);
+	        }else{
 	            if(dist < 3){
+	                //TODO better flee
 	                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
 	                creep.move(creep.pos.getDirectionTo(result.path[0]));
 	            }else if(dist > 3){
 	                this.move(creep, target);
 	            }
 	        }
-	        if(ranged > 0 && dist <= 3){
-	            creep.rangedAttack(target);
+	        if(ranged > 0){
+	            if(dist == 1){
+	                creep.rangedMassAttack();
+	            }else if(dist > 1 && dist <= 3){
+	                creep.rangedAttack(target);
+	            }
 	        }
 	    }
 
@@ -4933,9 +4987,10 @@ module.exports =
 	    /// Job ///
 
 	    heal(cluster, subtype){
-	        let healrooms = _.filter(cluster.rooms, room => room.memory.role != 'core' || _.get(room, 'controller.level', 0) < 3);
-	        let targets = _.filter(cluster.findIn(healrooms, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax);
-	        return this.jobsForTargets(cluster, subtype, targets);
+	        // let healrooms = _.filter(cluster.rooms, room => room.memory.role != 'core' || _.get(room, 'controller.level', 0) < 3);
+	        // let targets = _.filter(cluster.findIn(healrooms, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax);
+	        // return this.jobsForTargets(cluster, subtype, targets);
+	        return [];
 	    }
 
 	    jobValid(cluster, job){
@@ -4976,7 +5031,7 @@ module.exports =
 	    constructor(){ super('idle', { priority: 99, critical: true }); }
 
 	    genTarget(cluster, subtype, id, args){
-	        if(subtype == 'gather'){
+	        if(subtype == 'gather' || subtype == 'idle'){
 	            return { id: id, pos: RoomPosition.fromStr(id) };
 	        }else{
 	            return super.genTarget(cluster, subtype, id, args);
@@ -4984,7 +5039,7 @@ module.exports =
 	    }
 
 	    createId(cluster, subtype, target, args){
-	        if(subtype == 'gather'){
+	        if(subtype == 'gather' || subtype == 'idle'){
 	            return target.pos.str;
 	        }else{
 	            return super.createId(cluster, subtype, target, args);
@@ -4997,7 +5052,7 @@ module.exports =
 	    }
 
 	    generateJobsForSubtype(cluster, subtype){
-	        if(subtype == 'gather'){
+	        if(subtype == 'gather' || subtype == 'idle'){
 	            var points = _.map(cluster.getGatherPoints(), point => {
 	                return { id: point.str, pos: point };
 	            });
@@ -5017,7 +5072,7 @@ module.exports =
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        if(creep.pos.getRangeTo(target) > 2){
+	        if(job.subtype != 'idle' && creep.pos.getRangeTo(target) > 2){
 	            this.move(creep, target);
 	        }
 	    }
@@ -5373,6 +5428,12 @@ module.exports =
 	        return super.jobValid(cluster, job) && job.target.getDamage() > 0;
 	    }
 
+	    calculateQuota(cluster, quota){
+	        quota['repair-repair'] = 3 + (Math.ceil(cluster.work.repair.damage.moderate / 100000) * 3);
+	        quota['heavy-repair'] = Math.min(_.size(cluster.work.repair.heavy), Math.ceil(cluster.work.repair.damage.heavy / 250000) * 3);
+	        quota['bunker-repair'] = cluster.state.repair ? _.size(cluster.state.repair) : 0;
+	    }
+
 	    /// Creep ///
 
 	    calculateBid(cluster, creep, opts, job, distance){
@@ -5457,6 +5518,434 @@ module.exports =
 
 /***/ },
 /* 29 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	const BaseWorker = __webpack_require__(15);
+	const Squad = __webpack_require__(30);
+
+	class SquadWorker extends BaseWorker {
+	    constructor(){ super('squad', { quota: ['heal', 'attack', 'ranged', 'dismantle'], ignoreDistance: true }); }
+
+	    /// Job ///
+
+	    genTarget(cluster, subtype, id, args){
+	        return {
+	            id,
+	            squad: Squad.getSquad(id)
+	        };
+	    }
+
+	    calculateCapacity(cluster, subtype, id, target, args){
+	        return _.get(Squad.getSquad(id), ['spawn', cluster.id, subtype], 0);
+	    }
+
+	    generateJobsForSubtype(cluster, subtype){
+	        var squads = _.pick(Squad.getRecruitingSquads(), squad => _.get(squad, ['spawn', cluster.id, subtype], 0) > 0);
+	        var jobs = _.map(squads, (squad, id) => {
+	            return {
+	                capacity: _.get(squad, ['spawn', cluster.id, subtype], 0),
+	                allocation: 0,
+	                id,
+	                type: 'squad',
+	                subtype,
+	                target: {
+	                    id,
+	                    squad
+	                }
+	            };
+	        });
+	        return this.jobsForTargets(cluster, subtype, jobs);
+	    }
+
+	    jobValid(cluster, job){
+	        return Squad.isValid(job.id);
+	    }
+
+	    calculateQuota(cluster, quota){
+	        super.calculateQuota(cluster, quota);
+	        Squad.updateQuotaAllocations(cluster);
+	    }
+
+	    /// Creep ///
+
+	    continueJob(cluster, creep, opts, job){
+	        return Squad.isValid(job.id);
+	    }
+
+	    canBid(cluster, creep, opts){
+	        if(creep.ticksToLive < 1000){
+	            creep.suicide();
+	            console.log('Creep too old for new assignment.', creep.name, creep.ticksToLive);
+	            return false;
+	        }
+	        return true;
+	    }
+
+	    calculateBid(cluster, creep, opts, job, distance){
+	        return Squad.isRecruiting(job.id) ? 0 : false;
+	    }
+
+	    start(cluster, creep, opts, job){
+	        console.log(creep.name, 'Joined wave:', job.id);
+	    }
+
+	    process(cluster, creep, opts, job, target){
+	        Squad.registerCreep(job.id, creep);
+	        // work is done in squad processing
+	    }
+
+	    end(cluster, creep, opts, job){
+	        console.log('Wave ended:', job.id, 'Released:', creep.name);
+	        if(creep.ticksToLive < 1000){
+	            console.log('Ending unit:', creep.name);
+	            creep.suicide();
+	        }
+	    }
+
+	}
+
+	module.exports = SquadWorker;
+
+/***/ },
+/* 30 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+
+	const Util = __webpack_require__(10);
+	const Pathing = __webpack_require__(2);
+
+	const Combat = __webpack_require__(31);
+	const Movement = __webpack_require__(32);
+
+	let creeps = {};
+
+	class Squad {
+	    static init(){
+	        creeps = {};
+
+	        if(!Memory.squads || !Memory.squads.waves){
+	            Memory.squads = {
+	                config: {},
+	                waves: {}
+	            }
+	        }
+	    }
+
+	    static process(){
+	        Squad.processFlags();
+
+	        _.forEach(Memory.squads.waves, Squad.processStart);
+	    }
+
+	    static processStart(wave, squadId){
+	        var config = Squad.getConfig(wave.config);
+	        if(!config){
+	            Squad.endWave(squadId);
+	            return;
+	        }
+	        var creeps = Squad.getCreeps(squadId);
+	        if(wave.recruiting){
+	            if(Game.interval(5) && creeps && creeps.length > 0){
+	                var counts = {};
+	                for(let creep of creeps){
+	                    let subtype = creep.memory.jobSubType;
+	                    if(!counts[subtype]){
+	                        counts[subtype] = 0;
+	                    }
+	                    counts[subtype]++;
+	                }
+	                wave.recruiting = !_.all(wave.units, (ideal, type) => ideal <= counts[type]);
+	                if(!wave.recruiting){
+	                    console.log('Wave finished recruiting:', squadId);
+	                }
+	            }
+	        }else{
+	            if(!creeps || creeps.length == 0){
+	                console.log('No creeps left, ending wave!', squadId);
+	                Squad.endWave(squadId);
+	                return;
+	            }
+	        }
+	        if(creeps && creeps.length > 0){
+	            // console.log(creeps);
+	            var waypoint = Squad.getWaypoint(squadId, wave, config);
+	            if(waypoint){
+	                var arrived = true;
+	                for(let creep of creeps){
+	                    var dist = creep.pos.getRangeTo(waypoint);
+	                    if(dist > 3){
+	                        Pathing.attackMove(creep, { pos: waypoint }, 3);
+	                        arrived = false;
+	                    }
+	                }
+	                if(arrived && !wave.recruiting){
+	                    console.log(squadId, 'Arrived at waypoint:', waypoint);
+	                    if((wave.waypoint + 1) < config.waypoints.length){
+	                        wave.waypoint++;
+	                        console.log(squadId, 'Moving to next waypoint...');
+	                    }else{
+	                        wave.waypoint = false;
+	                        console.log(squadId, 'Reached final waypoint!');
+	                    }
+	                }
+	            }
+	        }
+	    }
+
+	    static processFlags(){
+	        var flags = Flag.prefix.squad;
+	        if(flags){
+	            for(var flag of flags){
+	                let id = flag.parts[2];
+	                let arg = flag.parts[3];
+	                let arg2 = flag.parts[4];
+	                let flagCluster = Game.clusterForRoom(flag.pos.roomName);
+	                if(!id){
+	                    console.log('Squad flag missing argument!', flag.name);
+	                    flag.remove();
+	                    continue;
+	                }
+	                switch(flag.parts[1]){
+	                    case 'config':
+	                        console.log('Added new squad config:', id);
+	                        Squad.addConfig(id);
+	                        break;
+	                    case 'delete':
+	                        console.log('Removed squad config:', id);
+	                        Squad.removeConfig(id);
+	                        break;
+	                    case 'spawn':
+	                        //squad-spawn-patrol-attack-1
+	                        if(!arg || !arg2 || !flagCluster){
+	                            console.log('Missing arguments!', flag.name);
+	                        }else{
+	                            console.log('Added squad units:', id, arg, arg2, 'spawning from', flagCluster.id);
+	                            Squad.addSpawn(id, arg, _.parseInt(arg2), flagCluster.id);
+	                        }
+	                        break;
+	                    case 'start':
+	                        Squad.spawnWave(id);
+	                        break;
+	                    case 'end':
+	                        Squad.endWave(id);
+	                        break;
+	                    case 'endall':
+	                        _.forEach(Memory.squads.waves, (wave, squadId) => {
+	                            if(wave.config == id){
+	                                Squad.endWave(id);
+	                            }
+	                        });
+	                        break;
+	                    case 'waypoint':
+	                        if(arg == 'clear'){
+	                            Squad.clearWaypoints(id);
+	                        }else if(arg == 'remove'){
+	                            Squad.removeWaypointsInRoom(id, flag.pos.roomName);
+	                        }else if(arg == 'set'){
+	                            Squad.setWaypoint(id, _.parseInt(arg2), flag.pos);
+	                        }else{
+	                            Squad.addWaypoint(id, flag.pos);
+	                        }
+	                        break;
+	                }
+	                flag.remove();
+	            }
+	        }
+	    }
+
+	    static addConfig(configId){
+	        Memory.squads.config[configId] = {
+	            units: {},
+	            waypoints: [],
+	            uid: 1
+	        };
+	    }
+
+	    static removeConfig(configId){
+	        delete Memory.squads.config[configId];
+	        Memory.squads.waves = _.pick(Memory.squads.waves, squad => squad.config != configId);
+	    }
+
+	    static addSpawn(configId, type, count, clusterId){
+	        var config = Squad.getConfig(configId);
+	        if(!config || !Game.clusters[clusterId]){
+	            console.log('Invalid config!', configId, clusterId);
+	            return;
+	        }
+	        if(!config.units[clusterId]){
+	            config.units[clusterId] = {};
+	        }
+	        config.units[clusterId][type] = count;
+	        _.forEach(Memory.squads.waves, (squad, squadId) => {
+	            if(Squad.isRecruiting(squadId)){
+	                Squad.updateUnitList(squadId);
+	            }
+	        });
+	    }
+
+	    static addWaypoint(configId, pos){
+	        var config = Squad.getConfig(configId);
+	        if(config){
+	            config.waypoints.push({
+	                pos: pos.str
+	            });
+	            console.log(configId, 'Added waypoint:', pos.str);
+	        }
+	    }
+
+	    static setWaypoint(configId, num, pos){
+	        var config = Squad.getConfig(configId);
+	        if(config){
+	            if(config.waypoints[num]){
+	                var oldPos = config.waypoints[num].pos;
+	                config.waypoints[num] = {
+	                    pos: pos.str
+	                };
+	                console.log(configId, 'Replaced waypoint', num, oldPos);
+	            }else{
+	                Squad.addWaypoint(configId, pos);
+	            }
+	        }
+	    }
+
+	    static removeWaypointsInRoom(configId, roomName){
+	        var config = Squad.getConfig(configId);
+	        if(config){
+	            config.waypoints = _.filter(config.waypoints, waypoint => waypoint.pos.roomName != roomName);
+	        }
+	    }
+
+	    static clearWaypoints(configId){
+	        var config = Squad.getConfig(configId);
+	        if(config){
+	            config.waypoints = {};
+	            _.forEach(Memory.squads.waves, wave => {
+	                if(wave.config == configId){
+	                    wave.waypoint = 0;
+	                }
+	            });
+	        }
+	    }
+
+	    static getConfig(configId){
+	        return Memory.squads.config[configId];
+	    }
+
+	    static spawnWave(configId){
+	        var config = Squad.getConfig(configId);
+	        if(!config){
+	            console.log('Invalid squad config!', configId);
+	            return;
+	        }
+	        var squadId = configId + '-wave-' + config.uid;
+	        config.uid++;
+	        Memory.squads.waves[squadId] = {
+	            id: squadId,
+	            config: configId,
+	            units: {},
+	            spawn: config.units,
+	            recruiting: true,
+	            waypoint: 0
+	        };
+	        Squad.updateUnitList(squadId);
+	        console.log('Spawning wave:', squadId);
+	    }
+
+	    static isValid(squadId){
+	        return Squad.getSquad(squadId) != undefined;
+	    }
+
+	    static isRecruiting(squadId){
+	        return Squad.getSquad(squadId).recruiting;
+	    }
+
+	    static isActive(squadId){
+	        return !Squad.getSquad(squadId).recruiting;
+	    }
+
+	    static getSquad(squadId){
+	        return Memory.squads.waves[squadId];
+	    }
+
+	    static getAllSquads(){
+	        return Memory.squads.waves;
+	    }
+
+	    static getActiveSquads(){
+	        return _.pick(Memory.squads.waves, wave => !wave.recruiting);
+	    }
+
+	    static getRecruitingSquads(){
+	        return _.pick(Memory.squads.waves, wave => wave.recruiting);
+	    }
+
+	    static endWave(squadId){
+	        delete Memory.squads.waves[squadId];
+	    }
+
+	    static registerCreep(squadId, creep){
+	        if(!creeps[squadId]){
+	            creeps[squadId] = [];
+	        }
+	        creeps[squadId].push(creep);
+	    }
+
+	    static getCreeps(squadId){
+	        return creeps[squadId] || [];
+	    }
+
+	    static getWaypoint(squadId, wave, config){
+	        if(wave.waypoint === false){
+	            return;
+	        }
+	        var data = config.waypoints[wave.waypoint];
+	        if(data){
+	            return RoomPosition.fromStr(data.pos);
+	        }
+	    }
+
+	    static updateQuotaAllocations(cluster){
+	        _.forEach(creeps, (list, squadId)=>{
+	            if(!Squad.isRecruiting(squadId)){
+	                for(let creep of list){
+	                    creep.memory.quotaAlloc = 0;
+	                }
+	            }
+	        });
+	    }
+
+	    static updateUnitList(squadId){
+	        var squad = Squad.getSquad(squadId);
+	        var config = Squad.getConfig(squad.config);
+	        var units = _.reduce(config.units, (result, clusterUnits) => {
+	            return _.forEach(clusterUnits, (count, type)=>{
+	                _.set(result, type, _.get(result, type, 0) + count);
+	            });
+	        }, {});
+	        squad.spawn = config.units;
+	        squad.units = units;
+	    }
+	}
+
+	module.exports = Squad;
+
+/***/ },
+/* 31 */
+/***/ function(module, exports) {
+
+	
+
+/***/ },
+/* 32 */
+/***/ function(module, exports) {
+
+	
+
+/***/ },
+/* 33 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -5760,7 +6249,7 @@ module.exports =
 	module.exports = TransferWorker;
 
 /***/ },
-/* 30 */
+/* 34 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -5789,7 +6278,7 @@ module.exports =
 	        }
 	        if(Memory.levelroom == target.pos.roomName){
 	            let energy = _.get(target, 'room.storage.store.energy', 0);
-	            return energy > 200000 ? 30 : 15;
+	            return Math.max(1, Math.floor(energy / 150000)) * 15;
 	        }
 	        return 15;
 	    }
@@ -5829,20 +6318,21 @@ module.exports =
 	module.exports = UpgradeWorker;
 
 /***/ },
-/* 31 */
+/* 35 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var Avoid = __webpack_require__(32);
-	var Boost = __webpack_require__(34);
-	var Convert = __webpack_require__(35);
-	var Defend = __webpack_require__(36);
-	var Energy = __webpack_require__(37);
-	var MinecartAction = __webpack_require__(38);
-	var Rampart = __webpack_require__(39);
-	var Repair = __webpack_require__(40);
-	var SelfHeal = __webpack_require__(41);
+	var Avoid = __webpack_require__(36);
+	var Boost = __webpack_require__(38);
+	var Convert = __webpack_require__(39);
+	var Defend = __webpack_require__(40);
+	var Energy = __webpack_require__(41);
+	var MinecartAction = __webpack_require__(42);
+	var Rampart = __webpack_require__(43);
+	var Recycle = __webpack_require__(44);
+	var Repair = __webpack_require__(45);
+	var SelfHeal = __webpack_require__(46);
 
 	module.exports = function(){
 	    return {
@@ -5853,18 +6343,19 @@ module.exports =
 	        energy: new Energy(),
 	        minecart: new MinecartAction(),
 	        rampart: new Rampart(),
+	        recycle: new Recycle(),
 	        repair: new Repair(),
 	        selfheal: new SelfHeal()
 	    };
 	};
 
 /***/ },
-/* 32 */
+/* 36 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 
 	class AvoidAction extends BaseAction {
 	    constructor(){
@@ -5944,7 +6435,7 @@ module.exports =
 	module.exports = AvoidAction;
 
 /***/ },
-/* 33 */
+/* 37 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -5995,12 +6486,12 @@ module.exports =
 	module.exports = BaseAction;
 
 /***/ },
-/* 34 */
+/* 38 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	const BaseAction = __webpack_require__(33);
+	const BaseAction = __webpack_require__(37);
 	const Util = __webpack_require__(10);
 	const creepsConfig = __webpack_require__(5);
 
@@ -6090,12 +6581,12 @@ module.exports =
 	module.exports = BoostAction;
 
 /***/ },
-/* 35 */
+/* 39 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 
 	class ConvertAction extends BaseAction {
 	    constructor(){
@@ -6125,12 +6616,12 @@ module.exports =
 	module.exports = ConvertAction;
 
 /***/ },
-/* 36 */
+/* 40 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 	var Util = __webpack_require__(10);
 
 	var range = 5;
@@ -6165,12 +6656,12 @@ module.exports =
 	module.exports = DefendAction;
 
 /***/ },
-/* 37 */
+/* 41 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 
 	var offsets = {
 	    container: -1,
@@ -6216,12 +6707,12 @@ module.exports =
 	module.exports = EnergyAction;
 
 /***/ },
-/* 38 */
+/* 42 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 
 	var offsets = {
 	    container: 0.5,
@@ -6277,12 +6768,12 @@ module.exports =
 	module.exports = MinecartAction;
 
 /***/ },
-/* 39 */
+/* 43 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
 	var Util = __webpack_require__(10);
 
 	class RampartAction extends BaseAction {
@@ -6327,12 +6818,62 @@ module.exports =
 	module.exports = RampartAction;
 
 /***/ },
-/* 40 */
+/* 44 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
+	var Util = __webpack_require__(10);
+
+	class RecycleAction extends BaseAction {
+	    constructor(){
+	        super('recycle');
+	    }
+
+	    shouldBlock(cluster, creep, opts){
+	        if(creep.memory.jobType == 'idle'){
+	            if(creep.memory.idleTime === undefined){
+	                creep.memory.idleTime = 0;
+	            }
+	            creep.memory.idleTime++;
+	            if(creep.memory.idleTime > 100){
+	                if(!creep.memory.recycle){
+	                    creep.memory.recycle = _.get(Util.closest(creep, cluster.structures.spawn), 'id');
+	                }
+	                return { type: this.type, data: creep.memory.recycle };
+	            }
+	        }
+	        return false;
+	    }
+
+	    blocked(cluster, creep, opts, recycleId){
+	        var target = Game.getObjectById(recycleId);
+	        if(target){
+	            if(creep.pos.getRangeTo(target) > 1){
+	                this.move(creep, target);
+	            }else{
+	                target.recycleCreep(creep);
+	                Game.message('recycle', 'Recycled '+creep.name+' - '+creep.pos);
+	            }
+	        }else{
+	            Game.notify('No recycle target in cluster: ' + cluster.id);
+	            creep.suicide();
+	        }
+	    }
+
+	}
+
+
+	module.exports = RecycleAction;
+
+/***/ },
+/* 45 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var BaseAction = __webpack_require__(37);
 
 	class RepairAction extends BaseAction {
 	    constructor(){
@@ -6357,12 +6898,13 @@ module.exports =
 	module.exports = RepairAction;
 
 /***/ },
-/* 41 */
+/* 46 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var BaseAction = __webpack_require__(33);
+	var BaseAction = __webpack_require__(37);
+	var Util = __webpack_require__(10);
 
 	class SelfHealAction extends BaseAction {
 	    constructor(){
@@ -6371,6 +6913,13 @@ module.exports =
 
 	    shouldBlock(cluster, creep, opts){
 	        if(opts.auto){
+	            if(opts.crossheal && creep.hits == creep.hitsMax && creep.room.matrix.damaged.length > 0){
+	                var closest = Util.closest(creep, creep.room.matrix.damaged);
+	                if(closest && creep.pos.getRangeTo(closest) == 1){
+	                    creep.heal(closest);
+	                    return false;
+	                }
+	            }
 	            if(creep.hits < creep.hitsMax || creep.room.matrix.hostiles.length > 0 || creep.room.hostile){
 	                creep.heal(creep);
 	            }
@@ -6400,7 +6949,7 @@ module.exports =
 	module.exports = SelfHealAction;
 
 /***/ },
-/* 42 */
+/* 47 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -6538,7 +7087,7 @@ module.exports =
 	        }
 	        var components = Production.findReaction(type);
 	        var inventory = _.map(components, component => resources[component].total);
-	        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], (deficit - amount) + 500, output, false, resources));
+	        _.forEach(inventory, (amount, ix) =>  Production.generateReactions(components[ix], (deficit - amount) + 1000, output, false, resources));
 
 	        if(deficit > 0){
 	            if(output[type]){

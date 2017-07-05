@@ -34,7 +34,7 @@ class DefenseMatrix {
             return 'friendly';
         }
         var owner = creep.owner.username;
-        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare'){
+        if(owner == 'likeafox' || owner == 'Vlahn' || owner == 'NobodysNightmare' || owner == 'xaq'){
             return 'friendly';
         }
         if(owner == 'Source Keeper'){
@@ -139,7 +139,7 @@ class DefenseMatrix {
                 targetted: false
             };
             if(data.underSiege && (room.memory.defend || room.memory.tripwire)){
-                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(matrix.creeps, 'player[0].owner.username', 'Unknown');
+                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(data.creeps, 'player[0].owner.username', 'Unknown');
                 Game.note('playerWarn'+room.name, message);
                 if(room.cluster){
                     room.cluster.state.defcon = Game.time + 500;

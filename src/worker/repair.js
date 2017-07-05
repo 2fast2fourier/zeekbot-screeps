@@ -37,6 +37,12 @@ class RepairWorker extends BaseWorker {
         return super.jobValid(cluster, job) && job.target.getDamage() > 0;
     }
 
+    calculateQuota(cluster, quota){
+        quota['repair-repair'] = 3 + (Math.ceil(cluster.work.repair.damage.moderate / 100000) * 3);
+        quota['heavy-repair'] = Math.min(_.size(cluster.work.repair.heavy), Math.ceil(cluster.work.repair.damage.heavy / 250000) * 3);
+        quota['bunker-repair'] = cluster.state.repair ? _.size(cluster.state.repair) : 0;
+    }
+
     /// Creep ///
 
     calculateBid(cluster, creep, opts, job, distance){

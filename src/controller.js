@@ -33,10 +33,10 @@ class Controller {
                 }
             }
 
+            Controller.emptyTerminals(allocated);
             Controller.fillRequests(allocated);
             Controller.levelTerminals(allocated);
             Controller.terminalEnergy(allocated);
-            // Controller.emptyTerminals();
         }
 
         var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
@@ -290,16 +290,17 @@ class Controller {
         }
     }
 
-    static emptyTerminals(){
-        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.room.matrix.underSiege && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
+    static emptyTerminals(allocated){
+        let terminals = _.filter(Game.federation.structures.terminal, terminal => terminal.hasTag('empty') && terminal.getResource(RESOURCE_ENERGY) > 5000 && terminal.getStored() > terminal.getResource(RESOURCE_ENERGY));
         if(terminals.length){
-            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.room.matrix.underSiege && terminal.getStored() < terminal.getCapacity() * 0.8);
+            let targets = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty') && terminal.getStored() < terminal.getCapacity() * 0.8);
             terminals.forEach(terminal => {
                 let resources = _.pick(terminal.getResourceList(), (amount, type) => amount > 100 && type != RESOURCE_ENERGY);
                 let sending = _.first(_.keys(resources));
                 let target = Util.closest(terminal, targets);
-                if(target && terminal.send(sending, resources[sending], target.pos.roomName) == OK){
-                    console.log('Emptying terminal', terminal.pos.roomName, terminal.room.cluster.id, 'sending', sending, resources[sending], target.pos.roomName);
+                if(target && terminal.send(sending, Math.min(resources[sending], target.getAvailableCapacity() * 0.75), target.pos.roomName) == OK){
+                    allocated[terminal.id] = true;
+                    console.log('Emptying terminal', terminal.pos.roomName, terminal.room.cluster.id, 'sending', sending, Math.min(resources[sending], target.getAvailableCapacity() * 0.75), target.pos.roomName);
                 }
             });
         }
@@ -418,7 +419,7 @@ class Controller {
         var requests = {};
         for(var terminal of terminals){
             for(var resource in autobuyPriceLimit){
-                if(terminal.getResource(resource) < 2000 && terminal.getResource(RESOURCE_ENERGY) > 10000){// && !terminal.room.matrix.underSiege){
+                if(terminal.getResource(resource) < 1000 && terminal.getResource(RESOURCE_ENERGY) > 10000 && !terminal.hasTag('empty')){
                     if(!requests[resource]){
                         requests[resource] = [];
                     }

@@ -17,6 +17,7 @@ const workerCtors = {
     pickup: require('./pickup'),
     repair: require('./repair'),
     reserve: require('./reserve'),
+    squad: require('./squad'),
     transfer: require('./transfer'),
     upgrade: require('./upgrade')
 };

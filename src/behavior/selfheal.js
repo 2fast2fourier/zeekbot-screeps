@@ -1,6 +1,7 @@
 "use strict";
 
 var BaseAction = require('./base');
+var Util = require('../util');
 
 class SelfHealAction extends BaseAction {
     constructor(){
@@ -9,6 +10,13 @@ class SelfHealAction extends BaseAction {
 
     shouldBlock(cluster, creep, opts){
         if(opts.auto){
+            if(opts.crossheal && creep.hits == creep.hitsMax && creep.room.matrix.damaged.length > 0){
+                var closest = Util.closest(creep, creep.room.matrix.damaged);
+                if(closest && creep.pos.getRangeTo(closest) == 1){
+                    creep.heal(closest);
+                    return false;
+                }
+            }
             if(creep.hits < creep.hitsMax || creep.room.matrix.hostiles.length > 0 || creep.room.hostile){
                 creep.heal(creep);
             }

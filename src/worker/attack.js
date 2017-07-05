@@ -21,9 +21,8 @@ class AttackWorker extends BaseWorker {
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
-        var parts = target.name.split('-');
-        if(parts.length > 1){
-            return parseInt(parts[1]);
+        if(target.parts.length > 1){
+            return parseInt(target.parts[1]);
         }
         return 1;
     }
@@ -43,26 +42,29 @@ class AttackWorker extends BaseWorker {
     }
 
     process(cluster, creep, opts, job, flag){
-        var matrix = Game.matrix.rooms[creep.room.name];
-        var target = false;
-        if(!target){
-            target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
+        if(creep.pos.getRangeTo(flag) > 1){
+            creep.moveTo(flag);
+            // this.attackMove(creep, flag);
+            // console.log(creep, this.attackMove(creep, flag));
         }
-        if(target){
-            let dist = creep.pos.getRangeTo(target);
-            target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
-            target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
-            if(dist < 3){
-                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-                creep.move(creep.pos.getDirectionTo(result.path[0]));
-            }else if(dist > 3){
-                this.attackMove(creep, target);
-            }
-        }else if(creep.pos.getRangeTo(flag) > 3){
-            this.attackMove(creep, flag);
-        }else if(!flag.name.includes('stage')){
-           flag.remove();
-        }
+        // var matrix = Game.matrix.rooms[creep.room.name];
+        // var target = false;
+        // if(!target){
+        //     target = _.first(_.sortBy(matrix.hostiles, target => creep.pos.getRangeTo(target)));
+        // }
+        // if(target){
+        //     let dist = creep.pos.getRangeTo(target);
+        //     target.room.visual.circle(target.pos, { radius: 0.5, opacity: 0.25 });
+        //     target.room.visual.text('HP: '+target.hits, target.pos.x + 5, target.pos.y, { color: '#CCCCCC', background: '#000000' });
+        //     if(dist < 3){
+        //         var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
+        //         creep.move(creep.pos.getDirectionTo(result.path[0]));
+        //     }else if(dist > 3){
+        //         this.attackMove(creep, target);
+        //     }
+        // }else if(creep.pos.getRangeTo(flag) > 3){
+        //     this.attackMove(creep, flag);
+        // }
     }
 
 }
