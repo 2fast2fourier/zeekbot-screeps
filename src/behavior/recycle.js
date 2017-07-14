@@ -31,7 +31,7 @@ class RecycleAction extends BaseAction {
                 this.move(creep, target);
             }else{
                 target.recycleCreep(creep);
-                Game.message('recycle', 'Recycled '+creep.name+' - '+creep.pos);
+                // Game.message('recycle', 'Recycled '+creep.name+' - '+creep.pos);
             }
         }else{
             Game.notify('No recycle target in cluster: ' + cluster.id);

@@ -7,10 +7,7 @@ class UpgradeWorker extends BaseWorker {
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
-        if(cluster.totalEnergy < 2000 && target.ticksToDowngrade > 5000){
-            return 5;
-        }
-        if(target.level >= 8){
+        if(subtype == 'upgrade'){
             return 15;
         }
         if(cluster.maxRCL <= 2){
@@ -19,30 +16,25 @@ class UpgradeWorker extends BaseWorker {
         if(cluster.maxRCL < 4){
             return 15;
         }
-        if(target.level < 4){
+        if(target.level < 6){
             return 30;
         }
         if(Memory.levelroom == target.pos.roomName){
+            let divisor = Memory.state.energy > 0.5 ? 100000 : 150000;
             let energy = _.get(target, 'room.storage.store.energy', 0);
-            return Math.max(1, Math.floor(energy / 150000)) * 15;
+            return Math.max(1, Math.floor(energy / divisor)) * 15;
         }
         return 15;
     }
 
     upgrade(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => Memory.state.levelroom != target.room.name &&
-                (!Memory.siegemode || target.level < 8 || target.ticksToDowngrade < 145000 || cluster.totalEnergy > 400000 * cluster.structures.storage.length)));
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && target.level == 8));
     }
 
     levelroom(cluster, subtype){
-        if(Memory.state.levelroom){
-            var room = Game.rooms[Memory.state.levelroom];
-            if(room && room.memory.cluster == cluster.id){
-                return [this.createJob(cluster, subtype, room.controller)];
-            }
-        }
-        return [];
+        let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && target.level < 8));
     }
 
     /// Creep ///

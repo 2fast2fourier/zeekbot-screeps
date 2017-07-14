@@ -67,6 +67,7 @@ class SquadWorker extends BaseWorker {
 
     start(cluster, creep, opts, job){
         console.log(creep.name, 'Joined wave:', job.id);
+        creep.memory.squadRole = job.subtype;
     }
 
     process(cluster, creep, opts, job, target){

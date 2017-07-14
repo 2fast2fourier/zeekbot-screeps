@@ -7,7 +7,7 @@ var CAPACITY_END_MIN = 500;
 
 class Production {
     static process(){
-        if(!Game.interval(25)){
+        if(!Game.intervalOffset(25, 8)){
             return;
         }
         if(!Memory.state.reaction){
@@ -19,16 +19,11 @@ class Production {
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
         quota.G = targetAmount;
         quota.OH = targetAmount;
-        // quota.XUH2O = targetAmount * 2;
-        quota.XKHO2 = targetAmount + 5000;
-        // quota.XLHO2 = targetAmount * 2;
-        // quota.XZHO2 = targetAmount * 2;
-        // quota.XGHO2 = targetAmount * 2;
 
         var allocated = {};
         var reactions = {};
         _.forEach(quota, (amount, type) => {
-            Production.generateReactions(type, amount - resources[type].total, reactions, true, resources);
+            Production.generateReactions(type, amount - resources[type].totals.terminal, reactions, true, resources);
         });
 
         Memory.stats.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
@@ -77,7 +72,7 @@ class Production {
     }
 
     static checkAllocations(reaction, allocated, resources){
-        return _.all(reaction.components, comp => resources[comp].total - _.get(allocated, comp, 0) > DEFICIT_START_MIN);
+        return _.all(reaction.components, comp => resources[comp].totals.terminal - _.get(allocated, comp, 0) > DEFICIT_START_MIN);
     }
 
     static getOpenRooms(){

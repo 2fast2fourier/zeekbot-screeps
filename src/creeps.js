@@ -97,11 +97,12 @@ var template = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
-            kilo: { move: 6, carry: 4, work: 6 },
-            milli: { move: 4, carry: 2, work: 6 },//standard 1100
-            micro: { move: 3, carry: 1, work: 6 },//800
-            nano: { move: 2, carry: 2, work: 3 },//550
-            pico: { move: 1, carry: 1, work: 2 }//300
+            mega: { carry: 4, work: 10, move: 5 },//1450
+            kilo: { carry: 4, work: 6, move: 6 },
+            milli: { carry: 2, work: 6, move: 4 },//standard 1100
+            micro: { carry: 1, work: 6, move: 3 },//800
+            nano: { carry: 2, work: 3, move: 2 },//550
+            pico: { carry: 1, work: 2, move: 1 }//300
         },
         emergency: 'pico',
         work: { mine: { subtype: 'energy' } },
@@ -114,7 +115,7 @@ var template = {
         parts: haulerParts,
         assignRoom: 'harvest',
         work: {
-            pickup: { subtype: 'harvest', local: true },
+            pickup: { subtype: 'harvest', local: true, priority: 0 },
             deliver: { subtype: 'storage' }
         },
         behavior: { avoid: {} },
@@ -122,7 +123,7 @@ var template = {
             stockpile: {
                 quota: 'stockpile-deliver',
                 allocationMulti: 50,
-                allocationMax: Infinity,
+                allocationMax: 4000,
                 work: { 
                     pickup: {},
                     deliver: { subtype: 'stockpile' },
@@ -255,17 +256,17 @@ var template = {
                 allocation: 1,
                 maxQuota: 4,
                 boost: {
-                    milli: { repair: 20 }
+                    milli: { repair: 20, capacity: 10 }
                 },
                 parts: {
-                    milli: { move: 16, carry: 12, work: 20 },
-                    micro: { move: 16, carry: 12, work: 20 },
+                    milli: { move: 15, carry: 10, work: 20 },
+                    micro: { move: 13, carry: 10, work: 15 },
                     nano: { move: 10, carry: 10, work: 10 },
                     pico: { move: 6, carry: 7, work: 5 },
                     femto: { move: 2, carry: 1, work: 1 }
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
-                behavior: { avoid: {} }
+                behavior: { avoid: {}, boost: {} }
             }
         }
     },
@@ -327,8 +328,11 @@ var template = {
         quota: 'attack-squad',
         maxQuota: 4,
         critical: true,
+        boost: {
+            pico: { fatigue: 10, attack: 30, damage: 10 }
+        },
         parts: {
-            pico: { tough: 1, attack: 1, move: 2 }
+            pico: { tough: 10, attack: 30, move: 10 }
         },
         work: { squad: { subtype: 'attack' } },
         behavior: { boost: {} }
@@ -337,8 +341,11 @@ var template = {
         quota: 'heal-squad',
         maxQuota: 4,
         critical: true,
+        boost: {
+            pico: { fatigue: 10, heal: 30, damage: 10 }
+        },
         parts: {
-            pico: { tough: 1, heal: 1, move: 2 }
+            pico: { tough: 10, heal: 30, move: 10 }
         },
         work: { squad: { subtype: 'heal' } },
         behavior: { boost: {} }
@@ -347,8 +354,11 @@ var template = {
         quota: 'ranged-squad',
         maxQuota: 4,
         critical: true,
+        boost: {
+            pico: { fatigue: 10, rangedAttack: 30, damage: 10 }
+        },
         parts: {
-            pico: { tough: 1, ranged_attack: 1, move: 2 }
+            pico: { tough: 10, ranged_attack: 30, move: 10 }
         },
         work: { squad: { subtype: 'ranged' } },
         behavior: { boost: {} }
@@ -357,8 +367,11 @@ var template = {
         quota: 'dismantle-squad',
         maxQuota: 4,
         critical: true,
+        boost: {
+            pico: { fatigue: 10, dismantle: 30, damage: 10 }
+        },
         parts: {
-            pico: { tough: 1, work: 1, move: 2 }
+            pico: { tough: 10, work: 30, move: 10 }
         },
         work: { squad: { subtype: 'dismantle' } },
         behavior: { boost: {} }

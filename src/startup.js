@@ -69,6 +69,11 @@ class Startup {
                 }
             });
         }
+
+        if(Game.intervalOffset(100, 8)){
+            let total = _.sum(_.map(Game.federation.structures.storage, 'store.energy'));
+            Memory.state.energy = (total / Game.federation.structures.storage.length) / 600000;
+        }
     }
 
     static migrate(ver){
@@ -184,7 +189,7 @@ class Startup {
                     break;
                 case 'towers':
                     if(flag.room){
-                        var towers = _.filter(flag.room.find(FIND_MY_STRUCTURES), tower => tower.structureType == STRUCTURE_TOWER);
+                        var towers = _.filter(flag.room.find(FIND_STRUCTURES), tower => tower.structureType == STRUCTURE_TOWER);
                         for(var tower of towers){
                             flag.room.visual.rect(tower.pos.x - 5.5, tower.pos.y - 5.5, 11, 11, {
                                 fill: '#00ff00',

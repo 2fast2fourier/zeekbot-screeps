@@ -46,6 +46,9 @@ class RepairWorker extends BaseWorker {
     /// Creep ///
 
     calculateBid(cluster, creep, opts, job, distance){
+        if(job.subtype == 'bunker'){
+            return job.target.hits / _.get(cluster.repair, job.target.id, cluster.opts.repair);
+        }
         return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);
     }
 

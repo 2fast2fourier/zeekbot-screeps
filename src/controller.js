@@ -2,7 +2,6 @@
 
 const Util = require('./util');
 const roomRegex = /([WE])(\d+)([NS])(\d+)/;
-const ENERGY_TRANSFER_AMOUNT = 20000;
 
 const autobuyPriceLimit = {
     H: 0.31,
@@ -23,7 +22,7 @@ class Controller {
                 }
             });
         }
-        if(Game.interval(20)){
+        if(Game.intervalOffset(20, 3)){
             var buildFlags = Flag.getByPrefix('Build');
             _.forEach(buildFlags, flag => Controller.buildFlag(flag));
 
@@ -163,7 +162,7 @@ class Controller {
                     action = tower.attack(hostile) == OK;
                 }
                 if(!action && !hostile){
-                    if(Game.interval(20)){
+                    if(Game.intervalOffset(20, 6)){
                         let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
                         if(critStruct){
                             tower.repair(critStruct);
@@ -178,7 +177,7 @@ class Controller {
                 }
             }
         });
-        if(Game.interval(500)){
+        if(Game.intervalOffset(500, 6)){
             Controller.scanForNukes(cluster);
         }
 
@@ -216,13 +215,15 @@ class Controller {
     //// Links ////
 
     static linkTransfer(cluster){
+        let allocated = {};
         let linkInput = _.groupBy(cluster.tagged.input, 'pos.roomName');
         _.forEach(_.without(cluster.structures.link, cluster.tagged.input), target => {
             if(target.energy < target.energyCapacity - 50){
-                let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0);
+                let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0 && !allocated[link.id]);
                 if(sources.length > 0){
                     let source = _.first(_.sortBy(sources, src => -src.energy));
                     source.transferEnergy(target, Math.min(source.energy, target.energyCapacity - target.energy));
+                    allocated[source.id] = true;
                 }
             }
         });
@@ -257,34 +258,20 @@ class Controller {
     }
 
     static terminalEnergy(allocated){
-        let overfill = _.filter(Game.federation.structures.terminal, terminal => terminal.store.energy < 100000 && _.get(terminal, 'room.storage.store.energy', 999999999) < (terminal.pos.roomName == Memory.levelroom ? 325000 : 250000));
-        let sourceTerminals = _.filter(Game.federation.structures.terminal, terminal => !allocated[terminal.id] && terminal.store.energy > ENERGY_TRANSFER_AMOUNT + 10000 && _.get(terminal, 'room.storage.store.energy', 0) > 350000 && terminal.pos.roomName != Memory.levelroom);
-        let targetClusters = _.filter(Game.clusters, cluster => cluster.totalEnergy < 100000 && cluster.structures.terminal.length > 0);
-        if(sourceTerminals.length > 0){
-            if(targetClusters.length > 0){
-                for(let destCluster of targetClusters){
-                    let targetTerminal = _.first(Util.sort.resource(RESOURCE_ENERGY, destCluster.structures.terminal));
-                    if(targetTerminal.getResource(RESOURCE_ENERGY) < 100000 && sourceTerminals.length > 0){
-                        let closest = Util.closest(targetTerminal, sourceTerminals);
-                        if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, targetTerminal.pos.roomName) == OK){
-                            console.log('Transferred', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', destCluster.id);
-                            closest.room.cluster.profileAdd('transfer', -ENERGY_TRANSFER_AMOUNT);
-                            targetTerminal.room.cluster.profileAdd('transfer', ENERGY_TRANSFER_AMOUNT);
-                            allocated[closest.id] = true;
-                            _.pull(sourceTerminals, closest);
-                        }
-                    }
-                }
-            }else if(overfill.length > 0){
-                for(let target of overfill){
-                    let closest = Util.closest(target, sourceTerminals);
-                    if(closest && closest.send(RESOURCE_ENERGY, ENERGY_TRANSFER_AMOUNT, target.pos.roomName) == OK){
-                        console.log('Overfilled', ENERGY_TRANSFER_AMOUNT, 'energy from', closest.room.memory.cluster, closest.pos.roomName, 'to', target.room.memory.cluster);
-                        closest.room.cluster.profileAdd('transfer', -ENERGY_TRANSFER_AMOUNT);
-                        target.room.cluster.profileAdd('transfer', ENERGY_TRANSFER_AMOUNT);
-                        allocated[closest.id] = true;
-                        _.pull(sourceTerminals, closest);
-                    }
+        let transferAmount = 20000;
+        let average = Game.federation.resources.energy.totals.storage / Game.federation.structures.storage.length;
+        Memory.stats.energyStores = average;
+        let targets = _.filter(Game.federation.structures.terminal, terminal => _.get(terminal, 'room.storage.store.energy', 999999999) < average - (transferAmount * 2) && terminal.store.energy < 100000);
+        targets = _.sortBy(targets, target => _.get(target, 'room.storage.store.energy', 999999999));
+        let sources = _.filter(Game.federation.structures.terminal, terminal => !allocated[terminal.id] && terminal.store.energy > transferAmount * 2 && _.get(terminal, 'room.storage.store.energy', 0) > (average + transferAmount * 2));
+
+        if(targets.length > 0 && sources.length > 0){
+            for(let target of targets){
+                var source = Util.closest(target, sources);
+                if(source && source.send(RESOURCE_ENERGY, transferAmount, target.pos.roomName) == OK){
+                    console.log('Transferred', transferAmount, 'energy from', source.room.cluster.id, 'to', target.room.cluster.id);
+                    allocated[source.id] = true;
+                    _.pull(sources, source);
                 }
             }
         }
@@ -307,18 +294,19 @@ class Controller {
     }
 
     static levelTerminals(allocated){
-        let terminals = Game.federation.structures.terminal;
+        let terminals = _.filter(Game.federation.structures.terminal, terminal => !terminal.hasTag('empty'));
+        let resources = Game.federation.resources;
         let terminalCount = terminals.length;
-        let ideal = 5000;
-        let idealTotal = ideal * terminalCount;
 
-        _.forEach(Game.federation.resources, (data, type)=>{
-            if(type == RESOURCE_ENERGY || data.stored < ideal){
+        _.forEach(resources, (data, type)=>{
+            if(type == RESOURCE_ENERGY || data.totals.terminal < 1000 * terminalCount){
                 return;
             }
+            let ideal = Math.floor(data.totals.terminal / terminalCount);
 
-            let needed = _.filter(terminals, terminal => terminal.getResource(type) < ideal - 100 && !terminal.hasTag('empty'));
-            let excess = _.filter(terminals, terminal => !allocated[terminal.id] && terminal.getResource(type) > ideal + 100 && terminal.getResource(RESOURCE_ENERGY) > 20000);
+            let excess = _.filter(terminals, terminal => !allocated[terminal.id] && terminal.getResource(type) >= ideal + 250 && terminal.getResource(RESOURCE_ENERGY) > 5000);
+            let needed = _.filter(terminals, terminal => terminal.getResource(type) <= ideal - 250);
+
             if(needed.length > 0 && excess.length > 0){
                 let source = _.last(Util.sort.resource(type, excess));
                 let destination = _.first(Util.sort.resource(type, needed));
@@ -327,7 +315,9 @@ class Controller {
                 var sending = Math.min(sourceAmount - ideal, ideal - destinationAmount);
                 if(sending >= 100){
                     console.log('Transferring', sending, type, 'from', source.pos.roomName, 'to', destination.pos.roomName);
-                    allocated[source.id] = source.send(type, sending, destination.pos.roomName) == OK;
+                    if(source.send(type, sending, destination.pos.roomName) == OK){
+                        allocated[source.id] = true;
+                    }
                     return;
                 }
             }
@@ -407,7 +397,7 @@ class Controller {
             }
         }
         cluster.state.nukes = targets;
-        cluster.state.repair = repair;
+        cluster.state.repair = _.pick(repair, (amount, id) => Game.getObjectById(id).hits < amount);
         cluster.update('repair', repair);
     }
 

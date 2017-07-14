@@ -17,8 +17,12 @@ class DeliverWorker extends BaseWorker {
     }
 
     stockpile(cluster, subtype){
-        var tagged = cluster.getTaggedStructures();
-        return this.jobsForTargets(cluster, subtype, tagged.stockpile, { resource: RESOURCE_ENERGY });
+        if(cluster.tagged.stockpile){
+            var stockpile = _.filter(cluster.tagged.stockpile, target => target.getResource(RESOURCE_ENERGY) < 300000);
+            return this.jobsForTargets(cluster, subtype, stockpile, { resource: RESOURCE_ENERGY });
+        }else{
+            return [];
+        }
     }
 
     storage(cluster, subtype){

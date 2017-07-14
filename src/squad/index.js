@@ -56,28 +56,7 @@ class Squad {
             }
         }
         if(creeps && creeps.length > 0){
-            // console.log(creeps);
-            var waypoint = Squad.getWaypoint(squadId, wave, config);
-            if(waypoint){
-                var arrived = true;
-                for(let creep of creeps){
-                    var dist = creep.pos.getRangeTo(waypoint);
-                    if(dist > 3){
-                        Pathing.attackMove(creep, { pos: waypoint }, 3);
-                        arrived = false;
-                    }
-                }
-                if(arrived && !wave.recruiting){
-                    console.log(squadId, 'Arrived at waypoint:', waypoint);
-                    if((wave.waypoint + 1) < config.waypoints.length){
-                        wave.waypoint++;
-                        console.log(squadId, 'Moving to next waypoint...');
-                    }else{
-                        wave.waypoint = false;
-                        console.log(squadId, 'Reached final waypoint!');
-                    }
-                }
-            }
+            Movement.process(squadId, config, wave, creeps);
         }
     }
 
@@ -136,6 +115,9 @@ class Squad {
                             Squad.addWaypoint(id, flag.pos);
                         }
                         break;
+                    case 'set':
+                        Squad.setField(id, arg, arg2);
+                        break;
                 }
                 flag.remove();
             }
@@ -146,7 +128,9 @@ class Squad {
         Memory.squads.config[configId] = {
             units: {},
             waypoints: [],
-            uid: 1
+            uid: 1,
+            movement: 'pairs',
+            pos: {}
         };
     }
 
@@ -216,6 +200,11 @@ class Squad {
         }
     }
 
+    static setField(configId, field, value){
+        var config = Squad.getConfig(configId);
+        config[field] = value;
+    }
+
     static getConfig(configId){
         return Memory.squads.config[configId];
     }
@@ -234,7 +223,9 @@ class Squad {
             units: {},
             spawn: config.units,
             recruiting: true,
-            waypoint: 0
+            waypoint: 0,
+            stage: 'gather',
+            pairs: {}
         };
         Squad.updateUnitList(squadId);
         console.log('Spawning wave:', squadId);
@@ -281,16 +272,6 @@ class Squad {
 
     static getCreeps(squadId){
         return creeps[squadId] || [];
-    }
-
-    static getWaypoint(squadId, wave, config){
-        if(wave.waypoint === false){
-            return;
-        }
-        var data = config.waypoints[wave.waypoint];
-        if(data){
-            return RoomPosition.fromStr(data.pos);
-        }
     }
 
     static updateQuotaAllocations(cluster){

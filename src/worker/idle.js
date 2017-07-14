@@ -39,7 +39,7 @@ class IdleWorker extends BaseWorker {
     /// Creep ///
 
     continueJob(cluster, creep, opts, job){
-        return super.continueJob(cluster, creep, opts, job) && !Game.interval(10);
+        return super.continueJob(cluster, creep, opts, job) && !Game.intervalOffset(10, 2);
     }
 
     calculateBid(cluster, creep, opts, job, distance){

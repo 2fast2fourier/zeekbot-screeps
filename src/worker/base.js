@@ -156,7 +156,7 @@ class BaseWorker {
         return 1;
     }
 
-    allocate(cluster, creep, opts){
+    allocate(cluster, creep, opts, job){
         return 1;
     }
 

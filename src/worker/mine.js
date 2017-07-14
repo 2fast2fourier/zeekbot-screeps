@@ -48,12 +48,11 @@ class MineWorker extends BaseWorker {
     process(cluster, creep, opts, job, target){
         if(creep.pos.getRangeTo(target) > 1){
             this.move(creep, target);
-        }else{
+        }else if(target.energy > 0){
+            creep.harvest(target);
+        }else if(target.mineralAmount > 0 && Game.interval(6)){
             creep.harvest(target);
         }
-        // else if(creep.harvest(target) == OK && job.subtype == 'energy'){
-        //     cluster.longtermAdd('mine', Math.min(target.energy, creep.memory.mining));
-        // }
     }
 
 }

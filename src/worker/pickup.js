@@ -3,7 +3,7 @@
 const BaseWorker = require('./base');
 
 class PickupWorker extends BaseWorker {
-    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'], minCPU: 4500 }); }
+    constructor(){ super('pickup', { args: ['id', 'resource'], critical: 'pickup', quota: ['mineral'], minCPU: 4500, priority: 0.25 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
@@ -73,7 +73,7 @@ class PickupWorker extends BaseWorker {
         if(job.target.id == creep.memory.lastDeliver){
             return false;
         }
-        return 0.25 + distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity);
+        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity);
     }
 
     process(cluster, creep, opts, job, target){
