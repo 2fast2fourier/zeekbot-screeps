@@ -49,6 +49,17 @@ class DeliverWorker extends BaseWorker {
         }
         return jobs;
     }
+    
+    generateAssignments(cluster, assignments, quota){
+        assignments.spawn = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
+        assignments.tower = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
+
+        quota.spawnhauler = _.sum(_.map(cluster.roles.core, room => Math.min(1650, room.energyCapacityAvailable)));
+
+        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
+            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
+        }
+    }
 
     /// Creep ///
 

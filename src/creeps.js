@@ -182,10 +182,14 @@ var template = {
     },
     builderworker: {
         quota: 'build',
-        maxQuota: 20000,
+        maxQuota: 24000,
         allocation: 'work',
         allocationMulti: 1000,
+        boost: {
+            giga: { repair: 12 }
+        },
         parts: {
+            giga: { move: 16, carry: 20, work: 12 },
             mega: { move: 15, carry: 20, work: 10 },
             kilo: { move: 17, carry: 12, work: 5 },//1700
             milli: { move: 10, carry: 6, work: 4 },//1200
@@ -194,7 +198,7 @@ var template = {
             pico: { move: 2, carry: 1, work: 1 }//300
         },
         work: { pickup: { priority: 5 }, build: {}, repair: { priority: 99 } },
-        behavior: { avoid: {} }
+        behavior: { avoid: {}, boost: {} }
     },
     upgradeworker: {
         quota: 'upgrade-upgrade',
@@ -242,14 +246,18 @@ var template = {
                 quota: 'heavy-repair',
                 allocation: 3,
                 maxQuota: 20,
+                boost: {
+                    milli: { repair: 20 }
+                },
                 parts: {
-                    micro: { carry: 12, work: 20, move: 16 },
+                    milli: { carry: 12, work: 20, move: 16 },
+                    micro: { carry: 10, work: 20, move: 15 },
                     nano: { carry: 10, work: 10, move: 16 },
                     pico: { carry: 7, work: 5, move: 16 },
                     femto: { carry: 1, work: 1, move: 16 }
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
-                behavior: { avoid: {} }//, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 4 }
+                behavior: { avoid: {}, boost: {} }
             },
             bunker: {
                 quota: 'bunker-repair',

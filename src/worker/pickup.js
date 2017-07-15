@@ -13,6 +13,7 @@ class PickupWorker extends BaseWorker {
     pickup(cluster, subtype){
         if(!cluster.cache.pickup || cluster.cache.pickupUpdate < Game.time){
             var structs = cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]);
+            structs = _.filter(structs, struct => struct.structureType != STRUCTURE_LINK || !cluster.state.links.sources[struct.id]);
             cluster.cache.pickup = _.map(structs, 'id');
             cluster.cache.pickupUpdate = Game.time + 500;
         }
@@ -24,7 +25,9 @@ class PickupWorker extends BaseWorker {
 
     harvest(cluster, subtype){
         if(!cluster.cache.harvest || cluster.cache.harvestUpdate < Game.time){
-            var containers = _.map(cluster.roomflags.harvest, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+            var rooms = cluster.roles.core.concat(cluster.roles.harvest);
+            var containers = _.map(rooms, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+            containers.push(_.compact(Game.getObjects(cluster.state.links.storage)));
             cluster.cache.harvest = _.map(_.flatten(containers), 'id');
             cluster.cache.harvestUpdate = Game.time + 500;
         }
@@ -49,6 +52,18 @@ class PickupWorker extends BaseWorker {
             });
         }
         return jobs.concat(_.map(resources, resource => this.createJob(cluster, subtype, resource, { resource: resource.resourceType })));
+    }
+
+    generateAssignments(cluster, assignments, quota){
+        assignments.harvest = _.zipObject(_.map(cluster.roles.harvest, 'name'),
+                                          _.map(cluster.roles.harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
+
+        for(let coreRoom of cluster.roles.core){
+            assignments.harvest[coreRoom.name] = 1;
+        }
+        if(_.size(cluster.structures.storage) > 0){
+            quota.harvesthauler = _.sum(assignments.harvest) * 24;
+        }
     }
 
     /// Creep ///

@@ -1944,10 +1944,14 @@ module.exports =
 	    },
 	    builderworker: {
 	        quota: 'build',
-	        maxQuota: 20000,
+	        maxQuota: 24000,
 	        allocation: 'work',
 	        allocationMulti: 1000,
+	        boost: {
+	            giga: { repair: 12 }
+	        },
 	        parts: {
+	            giga: { move: 16, carry: 20, work: 12 },
 	            mega: { move: 15, carry: 20, work: 10 },
 	            kilo: { move: 17, carry: 12, work: 5 },//1700
 	            milli: { move: 10, carry: 6, work: 4 },//1200
@@ -1956,7 +1960,7 @@ module.exports =
 	            pico: { move: 2, carry: 1, work: 1 }//300
 	        },
 	        work: { pickup: { priority: 5 }, build: {}, repair: { priority: 99 } },
-	        behavior: { avoid: {} }
+	        behavior: { avoid: {}, boost: {} }
 	    },
 	    upgradeworker: {
 	        quota: 'upgrade-upgrade',
@@ -2004,14 +2008,18 @@ module.exports =
 	                quota: 'heavy-repair',
 	                allocation: 3,
 	                maxQuota: 20,
+	                boost: {
+	                    milli: { repair: 20 }
+	                },
 	                parts: {
-	                    micro: { carry: 12, work: 20, move: 16 },
+	                    milli: { carry: 12, work: 20, move: 16 },
+	                    micro: { carry: 10, work: 20, move: 15 },
 	                    nano: { carry: 10, work: 10, move: 16 },
 	                    pico: { carry: 7, work: 5, move: 16 },
 	                    femto: { carry: 1, work: 1, move: 16 }
 	                },
 	                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
-	                behavior: { avoid: {} }//, convert: { type: 'repairworker', quota: 'repair-repair', quotaAlloc: 4 }
+	                behavior: { avoid: {}, boost: {} }
 	            },
 	            bunker: {
 	                quota: 'bunker-repair',
@@ -3779,27 +3787,45 @@ module.exports =
 	                if(!action && hostile && (tower.energy > 500 || hardTarget || hostile.hits < hostile.maxHits * 0.5) && !energySaver){
 	                    action = tower.attack(hostile) == OK;
 	                }
-	                if(!action && !hostile){
-	                    if(Game.intervalOffset(20, 6)){
-	                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
-	                        if(critStruct){
-	                            tower.repair(critStruct);
-	                        }
-	                    }else if(Game.cpu.bucket > 9750 && tower.energy > tower.energyCapacity * 0.75 && _.get(tower, 'room.storage.store.energy', 0) > 300000){
-	                        var ramparts = _.filter(cluster.structures.rampart, rampart => rampart.pos.roomName == tower.pos.roomName && rampart.getDamage() > 0);
-	                        var target = Util.closest(tower, ramparts);
-	                        if(target && target.pos.getRangeTo(tower) < 10){
-	                            tower.repair(target);
-	                        }
-	                    }
-	                }
 	            }
 	        });
 	        if(Game.intervalOffset(500, 6)){
 	            Controller.scanForNukes(cluster);
 	        }
 
-	        if(Game.intervalOffset(10, 1)){
+	        if(Game.intervalOffset(1000, 16) || !cluster.state.links){
+	            let linkData = {
+	                sources: {},
+	                storage: []
+	            };
+	            for(let link of cluster.structures.link){
+	                let roomData = linkData[link.pos.roomName];
+	                if(!roomData){
+	                    roomData = {
+	                        sources: [],
+	                        targets: []
+	                    };
+	                    linkData[link.pos.roomName] = roomData;
+	                }
+	                let sources = link.pos.findInRange(FIND_SOURCES, 2);
+	                if(sources.length > 0){
+	                    roomData.sources.push(link.id);
+	                    linkData.sources[link.id] = true;
+	                }else{
+	                    roomData.targets.push(link);
+	                    if(link.pos.getRangeTo(link.room.storage) < 4){
+	                        linkData.storage.push(link.id);
+	                    }
+	                }
+	            }
+	            for(let room in linkData){
+	                let data = linkData[room];
+	                data.targets = _.map(_.sortBy(data.targets, target => -target.pos.getRangeTo(target.room.storage) || Infinity), 'id');
+	            }
+	            cluster.state.links = linkData;
+	        }
+
+	        if(Game.intervalOffset(10, 3)){
 	            Controller.linkTransfer(cluster);
 	        }
 	    }
@@ -3833,18 +3859,24 @@ module.exports =
 	    //// Links ////
 
 	    static linkTransfer(cluster){
-	        let allocated = {};
-	        let linkInput = _.groupBy(cluster.tagged.input, 'pos.roomName');
-	        _.forEach(_.without(cluster.structures.link, cluster.tagged.input), target => {
-	            if(target.energy < target.energyCapacity - 50){
-	                let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0 && !allocated[link.id]);
-	                if(sources.length > 0){
-	                    let source = _.first(_.sortBy(sources, src => -src.energy));
-	                    source.transferEnergy(target, Math.min(source.energy, target.energyCapacity - target.energy));
-	                    allocated[source.id] = true;
+	        var linkData = cluster.state.links;
+	        for(let roomName in linkData){
+	            if(roomName == 'sources' || roomName == 'storage'){
+	                continue;
+	            }
+	            let data = linkData[roomName];
+	            let targets = Game.getObjects(data.targets);
+	            for(let sourceId of data.sources){
+	                let sourceLink = Game.getObjectById(sourceId);
+	                if(!sourceLink || sourceLink.energy < 50 || sourceLink.cooldown > 0){
+	                    continue;
+	                }
+	                let target = _.find(targets, target => target && target.energy < target.energyCapacity - 100);
+	                if(target){
+	                    sourceLink.transferEnergy(target, Math.min(sourceLink.energy, target.energyCapacity - target.energy));
 	                }
 	            }
-	        });
+	        }
 	    }
 
 	    //// Terminals ////
@@ -4139,24 +4171,25 @@ module.exports =
 	        if(id && type){
 	            const opts = _.get(config, [creep.memory.type, 'work', type], false);
 	            let work = workers[type];
-	            var profStart;
-	            if(work.profile){
-	                profStart = Game.cpu.getUsed();
-	            }
 	            let job = work.hydrateJob(cluster, creep.memory.jobSubType, id, creep.memory.jobAllocation);
 	            let endJob = (job.killed && !work.keepDeadJob(cluster, creep, opts, job)) || !work.continueJob(cluster, creep, opts, job);
 	            if(endJob){
-	                work.end(cluster, creep, opts, job);
-	                creep.memory.job = false;
-	                creep.memory.jobType = false;
-	                creep.memory.jobSubType = false;
-	                creep.memory.jobAllocation = 0;
-	                creep.job = null;
+	                var replacement = work.end(cluster, creep, opts, job);
+	                if(replacement){
+	                    creep.memory.job = replacement.target.id;
+	                    creep.memory.jobType = replacement.type;
+	                    creep.memory.jobSubType = replacement.subtype;
+	                    creep.memory.jobAllocation = replacement.allocation || 1;
+	                    creep.job = workers[replacement.type].hydrateJob(cluster, creep.memory.jobSubType, replacement.target.id, creep.memory.jobAllocation);
+	                }else{
+	                    creep.memory.job = false;
+	                    creep.memory.jobType = false;
+	                    creep.memory.jobSubType = false;
+	                    creep.memory.jobAllocation = 0;
+	                    creep.job = null;
+	                }
 	            }else{
 	                creep.job = job;
-	            }
-	            if(work.profile){
-	                Game.profileAdd('valid-'+type, Game.cpu.getUsed() - profStart);
 	            }
 	        }else{
 	            creep.job = null;
@@ -4207,47 +4240,9 @@ module.exports =
 	    static generateQuota(workers, cluster){
 	        var quota = {};
 	        var assignments = {};
-	        let cores = cluster.getRoomsByRole('core');
-	        let keeper = cluster.getRoomsByRole('keep');
-	        let harvest = cluster.getRoomsByRole('harvest');
 
 	        _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-
-	        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
-	        assignments.tower = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
-	        assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
-	        for(let keepRoom of keeper){
-	            let sources = cluster.find(keepRoom, FIND_SOURCES);
-	            let harvestFactor = 1.5;
-	            let closest = cluster.findClosestCore(_.first(sources));
-	            if(closest){
-	                harvestFactor = Math.max(1, 0.5 + Math.min(2, closest.distance / 75));
-	            }
-	            assignments.harvest[keepRoom.name] = Math.ceil(sources.length * harvestFactor);
-	        }
-	        for(let coreRoom of cores){
-	            if(coreRoom.memory.harvest){
-	                assignments.harvest[coreRoom.name] = 1;
-	            }
-	        }
-
-	        quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
-
-	        if(_.size(cluster.structures.storage) > 0){
-	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
-	        }
-
-	        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
-	            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
-	        }
-
-	        if(cluster.maxRCL >= 7){
-	            assignments.keep = _.zipObject(_.map(keeper, 'name'), new Array(keeper.length).fill(1));
-	            quota.keep = _.sum(assignments.keep);
-	            if(quota.keep > 0){
-	                quota.keep++;
-	            }
-	        }
+	        _.forEach(workers, worker => worker.generateAssignments(cluster, assignments, quota));
 
 	        cluster.update('quota', quota);
 	        cluster.update('assignments', assignments);
@@ -4490,6 +4485,10 @@ module.exports =
 	        }
 	    }
 
+	    generateAssignments(cluster, assignments, quota){
+
+	    }
+
 	    //// Lifecycle ////
 	    calculateCapacity(cluster, subtype, id, target, args){
 	        return 1;
@@ -4596,7 +4595,8 @@ module.exports =
 	    spawn: -1,
 	    extension: -0.5,
 	    tower: -0.5,
-	    container: -0.25
+	    container: -0.25,
+	    lab: 1
 	}
 
 	class BuildWorker extends BaseWorker {
@@ -4623,8 +4623,27 @@ module.exports =
 
 	    process(cluster, creep, opts, job, target){
 	        this.orMove(creep, target, creep.build(target));
+	        if(target.structureType == 'rampart'){
+	            creep.memory.rampart = target.pos.str;
+	        }
 	    }
 
+	    end(cluster, creep, opts, job){
+	        if(creep.memory.rampart){
+	            var pos = RoomPosition.fromStr(creep.memory.rampart);
+	            var target = _.find(pos.lookFor(LOOK_STRUCTURES), { structureType: 'rampart' });
+	            delete creep.memory.rampart;
+	            if(target && target.hits < 10000){
+	                console.log(cluster.id, creep.name, 'Built rampart at', pos, 'repairing...');
+	                return {
+	                    target,
+	                    type: 'repair',
+	                    subtype: 'repair',
+	                    allocation: 1
+	                };
+	            }
+	        }
+	    }
 	}
 
 	module.exports = BuildWorker;
@@ -4789,6 +4808,17 @@ module.exports =
 	            }
 	        }
 	        return jobs;
+	    }
+	    
+	    generateAssignments(cluster, assignments, quota){
+	        assignments.spawn = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
+	        assignments.tower = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
+
+	        quota.spawnhauler = _.sum(_.map(cluster.roles.core, room => Math.min(1650, room.energyCapacityAvailable)));
+
+	        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
+	            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
+	        }
 	    }
 
 	    /// Creep ///
@@ -5281,6 +5311,7 @@ module.exports =
 	    pickup(cluster, subtype){
 	        if(!cluster.cache.pickup || cluster.cache.pickupUpdate < Game.time){
 	            var structs = cluster.getAllStructures([STRUCTURE_STORAGE, STRUCTURE_CONTAINER, STRUCTURE_LINK]);
+	            structs = _.filter(structs, struct => struct.structureType != STRUCTURE_LINK || !cluster.state.links.sources[struct.id]);
 	            cluster.cache.pickup = _.map(structs, 'id');
 	            cluster.cache.pickupUpdate = Game.time + 500;
 	        }
@@ -5292,7 +5323,9 @@ module.exports =
 
 	    harvest(cluster, subtype){
 	        if(!cluster.cache.harvest || cluster.cache.harvestUpdate < Game.time){
-	            var containers = _.map(cluster.roomflags.harvest, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+	            var rooms = cluster.roles.core.concat(cluster.roles.harvest);
+	            var containers = _.map(rooms, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
+	            containers.push(_.compact(Game.getObjects(cluster.state.links.storage)));
 	            cluster.cache.harvest = _.map(_.flatten(containers), 'id');
 	            cluster.cache.harvestUpdate = Game.time + 500;
 	        }
@@ -5317,6 +5350,18 @@ module.exports =
 	            });
 	        }
 	        return jobs.concat(_.map(resources, resource => this.createJob(cluster, subtype, resource, { resource: resource.resourceType })));
+	    }
+
+	    generateAssignments(cluster, assignments, quota){
+	        assignments.harvest = _.zipObject(_.map(cluster.roles.harvest, 'name'),
+	                                          _.map(cluster.roles.harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
+
+	        for(let coreRoom of cluster.roles.core){
+	            assignments.harvest[coreRoom.name] = 1;
+	        }
+	        if(_.size(cluster.structures.storage) > 0){
+	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
+	        }
 	    }
 
 	    /// Creep ///

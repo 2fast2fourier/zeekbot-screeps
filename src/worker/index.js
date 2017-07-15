@@ -66,24 +66,25 @@ class Worker {
         if(id && type){
             const opts = _.get(config, [creep.memory.type, 'work', type], false);
             let work = workers[type];
-            var profStart;
-            if(work.profile){
-                profStart = Game.cpu.getUsed();
-            }
             let job = work.hydrateJob(cluster, creep.memory.jobSubType, id, creep.memory.jobAllocation);
             let endJob = (job.killed && !work.keepDeadJob(cluster, creep, opts, job)) || !work.continueJob(cluster, creep, opts, job);
             if(endJob){
-                work.end(cluster, creep, opts, job);
-                creep.memory.job = false;
-                creep.memory.jobType = false;
-                creep.memory.jobSubType = false;
-                creep.memory.jobAllocation = 0;
-                creep.job = null;
+                var replacement = work.end(cluster, creep, opts, job);
+                if(replacement){
+                    creep.memory.job = replacement.target.id;
+                    creep.memory.jobType = replacement.type;
+                    creep.memory.jobSubType = replacement.subtype;
+                    creep.memory.jobAllocation = replacement.allocation || 1;
+                    creep.job = workers[replacement.type].hydrateJob(cluster, creep.memory.jobSubType, replacement.target.id, creep.memory.jobAllocation);
+                }else{
+                    creep.memory.job = false;
+                    creep.memory.jobType = false;
+                    creep.memory.jobSubType = false;
+                    creep.memory.jobAllocation = 0;
+                    creep.job = null;
+                }
             }else{
                 creep.job = job;
-            }
-            if(work.profile){
-                Game.profileAdd('valid-'+type, Game.cpu.getUsed() - profStart);
             }
         }else{
             creep.job = null;
@@ -134,47 +135,9 @@ class Worker {
     static generateQuota(workers, cluster){
         var quota = {};
         var assignments = {};
-        let cores = cluster.getRoomsByRole('core');
-        let keeper = cluster.getRoomsByRole('keep');
-        let harvest = cluster.getRoomsByRole('harvest');
 
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-
-        assignments.spawn = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
-        assignments.tower = _.zipObject(_.map(cores, 'name'), new Array(cores.length).fill(1));
-        assignments.harvest = _.zipObject(_.map(harvest, 'name'), _.map(harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
-        for(let keepRoom of keeper){
-            let sources = cluster.find(keepRoom, FIND_SOURCES);
-            let harvestFactor = 1.5;
-            let closest = cluster.findClosestCore(_.first(sources));
-            if(closest){
-                harvestFactor = Math.max(1, 0.5 + Math.min(2, closest.distance / 75));
-            }
-            assignments.harvest[keepRoom.name] = Math.ceil(sources.length * harvestFactor);
-        }
-        for(let coreRoom of cores){
-            if(coreRoom.memory.harvest){
-                assignments.harvest[coreRoom.name] = 1;
-            }
-        }
-
-        quota.spawnhauler = _.sum(_.map(cores, room => Math.min(1650, room.energyCapacityAvailable)));
-
-        if(_.size(cluster.structures.storage) > 0){
-            quota.harvesthauler = _.sum(assignments.harvest) * 24;
-        }
-
-        if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
-            quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);
-        }
-
-        if(cluster.maxRCL >= 7){
-            assignments.keep = _.zipObject(_.map(keeper, 'name'), new Array(keeper.length).fill(1));
-            quota.keep = _.sum(assignments.keep);
-            if(quota.keep > 0){
-                quota.keep++;
-            }
-        }
+        _.forEach(workers, worker => worker.generateAssignments(cluster, assignments, quota));
 
         cluster.update('quota', quota);
         cluster.update('assignments', assignments);

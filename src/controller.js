@@ -161,27 +161,45 @@ class Controller {
                 if(!action && hostile && (tower.energy > 500 || hardTarget || hostile.hits < hostile.maxHits * 0.5) && !energySaver){
                     action = tower.attack(hostile) == OK;
                 }
-                if(!action && !hostile){
-                    if(Game.intervalOffset(20, 6)){
-                        let critStruct = _.first(_.sortBy(_.filter(cluster.find(tower.room, FIND_STRUCTURES), struct => struct.hits < 400), target => tower.pos.getRangeTo(target)));
-                        if(critStruct){
-                            tower.repair(critStruct);
-                        }
-                    }else if(Game.cpu.bucket > 9750 && tower.energy > tower.energyCapacity * 0.75 && _.get(tower, 'room.storage.store.energy', 0) > 300000){
-                        var ramparts = _.filter(cluster.structures.rampart, rampart => rampart.pos.roomName == tower.pos.roomName && rampart.getDamage() > 0);
-                        var target = Util.closest(tower, ramparts);
-                        if(target && target.pos.getRangeTo(tower) < 10){
-                            tower.repair(target);
-                        }
-                    }
-                }
             }
         });
         if(Game.intervalOffset(500, 6)){
             Controller.scanForNukes(cluster);
         }
 
-        if(Game.intervalOffset(10, 1)){
+        if(Game.intervalOffset(1000, 16) || !cluster.state.links){
+            let linkData = {
+                sources: {},
+                storage: []
+            };
+            for(let link of cluster.structures.link){
+                let roomData = linkData[link.pos.roomName];
+                if(!roomData){
+                    roomData = {
+                        sources: [],
+                        targets: []
+                    };
+                    linkData[link.pos.roomName] = roomData;
+                }
+                let sources = link.pos.findInRange(FIND_SOURCES, 2);
+                if(sources.length > 0){
+                    roomData.sources.push(link.id);
+                    linkData.sources[link.id] = true;
+                }else{
+                    roomData.targets.push(link);
+                    if(link.pos.getRangeTo(link.room.storage) < 4){
+                        linkData.storage.push(link.id);
+                    }
+                }
+            }
+            for(let room in linkData){
+                let data = linkData[room];
+                data.targets = _.map(_.sortBy(data.targets, target => -target.pos.getRangeTo(target.room.storage) || Infinity), 'id');
+            }
+            cluster.state.links = linkData;
+        }
+
+        if(Game.intervalOffset(10, 3)){
             Controller.linkTransfer(cluster);
         }
     }
@@ -215,18 +233,24 @@ class Controller {
     //// Links ////
 
     static linkTransfer(cluster){
-        let allocated = {};
-        let linkInput = _.groupBy(cluster.tagged.input, 'pos.roomName');
-        _.forEach(_.without(cluster.structures.link, cluster.tagged.input), target => {
-            if(target.energy < target.energyCapacity - 50){
-                let sources = _.filter(linkInput[target.pos.roomName] || [], link => link.energy > 50 && link.cooldown == 0 && !allocated[link.id]);
-                if(sources.length > 0){
-                    let source = _.first(_.sortBy(sources, src => -src.energy));
-                    source.transferEnergy(target, Math.min(source.energy, target.energyCapacity - target.energy));
-                    allocated[source.id] = true;
+        var linkData = cluster.state.links;
+        for(let roomName in linkData){
+            if(roomName == 'sources' || roomName == 'storage'){
+                continue;
+            }
+            let data = linkData[roomName];
+            let targets = Game.getObjects(data.targets);
+            for(let sourceId of data.sources){
+                let sourceLink = Game.getObjectById(sourceId);
+                if(!sourceLink || sourceLink.energy < 50 || sourceLink.cooldown > 0){
+                    continue;
+                }
+                let target = _.find(targets, target => target && target.energy < target.energyCapacity - 100);
+                if(target){
+                    sourceLink.transferEnergy(target, Math.min(sourceLink.energy, target.energyCapacity - target.energy));
                 }
             }
-        });
+        }
     }
 
     //// Terminals ////

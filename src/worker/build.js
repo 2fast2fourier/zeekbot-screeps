@@ -6,7 +6,8 @@ const offsets = {
     spawn: -1,
     extension: -0.5,
     tower: -0.5,
-    container: -0.25
+    container: -0.25,
+    lab: 1
 }
 
 class BuildWorker extends BaseWorker {
@@ -33,8 +34,27 @@ class BuildWorker extends BaseWorker {
 
     process(cluster, creep, opts, job, target){
         this.orMove(creep, target, creep.build(target));
+        if(target.structureType == 'rampart'){
+            creep.memory.rampart = target.pos.str;
+        }
     }
 
+    end(cluster, creep, opts, job){
+        if(creep.memory.rampart){
+            var pos = RoomPosition.fromStr(creep.memory.rampart);
+            var target = _.find(pos.lookFor(LOOK_STRUCTURES), { structureType: 'rampart' });
+            delete creep.memory.rampart;
+            if(target && target.hits < 10000){
+                console.log(cluster.id, creep.name, 'Built rampart at', pos, 'repairing...');
+                return {
+                    target,
+                    type: 'repair',
+                    subtype: 'repair',
+                    allocation: 1
+                };
+            }
+        }
+    }
 }
 
 module.exports = BuildWorker;

@@ -151,6 +151,10 @@ class BaseWorker {
         }
     }
 
+    generateAssignments(cluster, assignments, quota){
+
+    }
+
     //// Lifecycle ////
     calculateCapacity(cluster, subtype, id, target, args){
         return 1;
