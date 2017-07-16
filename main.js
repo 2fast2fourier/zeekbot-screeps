@@ -936,6 +936,12 @@ module.exports =
 	                };
 	                Memory.clusters = {};
 	                Memory.avoidRoom = {};
+	                Cluster.createCluster('Main');
+	                _.forEach(Game.rooms, room => {
+	                    if(room.controller && room.controller.my && !room.memory.cluster){
+	                        Cluster.addRoom('Main', room.name, 'core', true);
+	                    }
+	                });
 	            case 1:
 	                _.forEach(Memory.clusters, cluster => {
 	                    cluster.opts = {
@@ -946,7 +952,6 @@ module.exports =
 	                _.forEach(Memory.clusters, cluster => {
 	                    delete cluster.observe;
 	                    cluster.stats = {};
-	                    cluster.stats.count = {};
 	                });
 	                Memory.stats.longterm = {};
 	                Memory.stats.longterm.count = {};
@@ -1321,6 +1326,10 @@ module.exports =
 	                let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
 	                cluster.update('labs', _.values(labs));
 	                cluster.state.labs = labs;
+	            }
+
+	            if(!cluster.work.repair){
+	                console.log('init damage:', cluster.damaged);
 	            }
 	        });
 	    }

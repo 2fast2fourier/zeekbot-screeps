@@ -123,6 +123,10 @@ class Cluster {
                 cluster.update('labs', _.values(labs));
                 cluster.state.labs = labs;
             }
+
+            if(!cluster.work.repair){
+                console.log('init damage:', cluster.damaged);
+            }
         });
     }
 

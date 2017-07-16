@@ -90,6 +90,12 @@ class Startup {
                 };
                 Memory.clusters = {};
                 Memory.avoidRoom = {};
+                Cluster.createCluster('Main');
+                _.forEach(Game.rooms, room => {
+                    if(room.controller && room.controller.my && !room.memory.cluster){
+                        Cluster.addRoom('Main', room.name, 'core', true);
+                    }
+                });
             case 1:
                 _.forEach(Memory.clusters, cluster => {
                     cluster.opts = {
@@ -100,7 +106,6 @@ class Startup {
                 _.forEach(Memory.clusters, cluster => {
                     delete cluster.observe;
                     cluster.stats = {};
-                    cluster.stats.count = {};
                 });
                 Memory.stats.longterm = {};
                 Memory.stats.longterm.count = {};
