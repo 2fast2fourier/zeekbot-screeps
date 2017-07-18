@@ -28,21 +28,14 @@ class AvoidAction extends BaseAction {
             return false;
         }
         var hostiles = roomData.armed;
-        if(roomData.keeper){
-            let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
-            if(keeps.length > 0){
-                hostiles = hostiles.concat(keeps);
-            }
-        }
-        if(hostiles.length > 0){
-            if(roomData.fleeTo){
-                creep.memory.gather = roomData.fleeTo;
-                creep.memory.gatherRange = roomData.fleeToRange;
-                creep.memory.fleeFrom = creep.room.name;
-                return { type: this.type, data: { gather: true, target: roomData.fleeTo, range: roomData.fleeToRange } };
-            }
+        if(hostiles.length > 0 && roomData.fleeTo){
+            creep.memory.gather = roomData.fleeTo;
+            creep.memory.gatherRange = roomData.fleeToRange;
+            creep.memory.fleeFrom = creep.room.name;
+            return { type: this.type, data: { gather: true, target: roomData.fleeTo, range: roomData.fleeToRange } };
+        }else if(roomData.avoid.length > 0 && !opts.fleeOnly){
             let avoidTargets = [];
-            for(var enemy of hostiles){
+            for(var enemy of roomData.avoid){
                 let distance = creep.pos.getRangeTo(enemy);
                 if(distance == this.range){
                     idle = true;

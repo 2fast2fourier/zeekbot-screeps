@@ -1,25 +1,6 @@
 "use strict";
 
-function defendRoom(result, room){
-    var roomData = Game.matrix.rooms[room.name];
-    if(roomData.hostiles.length > 0 && roomData.total.heal < 80 && roomData.total.ranged_attack < 300){
-        result.push(roomData.hostiles);
-    }
-    return result;
-}
-
-function heavyDefendRoom(result, room){
-    var roomData = Game.matrix.rooms[room.name];
-    if(roomData.hostiles.length > 0 && roomData.total.heal >= 80 && roomData.total.heal <= 340){
-        result.push(roomData.hostiles);
-    }
-    return result;
-}
-
-const defendFn = {
-    defend: defendRoom,
-    heavy: heavyDefendRoom
-}
+const Util = require('../util');
 
 const BaseWorker = require('./base');
 
@@ -28,7 +9,7 @@ class DefendWorker extends BaseWorker {
 
     genTarget(cluster, subtype, id, args){
         if(subtype == 'defend' || subtype == 'heavy'){
-            return super.genTarget(cluster, subtype, id, args);
+            return { id, pos: new RoomPosition(25, 25, id) };
         }
         var target = _.get(cluster.defense, [subtype, id]);
         return target ? { id, pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName) } : undefined;
@@ -36,7 +17,9 @@ class DefendWorker extends BaseWorker {
 
     generateJobsForSubtype(cluster, subtype){
         if(subtype == 'defend' || subtype == 'heavy'){
-            return this.jobsForTargets(cluster, subtype, _.flatten(_.reduce(cluster.rooms, defendFn[subtype], [])));
+            var defendRooms = _.filter(cluster.roomflags.defend, room => room.matrix.hostiles.length > 0
+                && ((room.matrix.total.heal == 0 && subtype == 'defend') || (room.matrix.total.heal > 0 && subtype == 'heavy')));
+            return _.map(defendRooms, room => this.createJob(cluster, subtype, { id: room.name, pos: new RoomPosition(25, 25, room.name)}));
         }
         return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
             return {
@@ -47,6 +30,15 @@ class DefendWorker extends BaseWorker {
     }
 
     /// Creep ///
+    
+    continueJob(cluster, creep, opts, job){
+        if(job.subtype == 'defend' || job.subtype == 'heavy'){
+            var room = Game.rooms[job.id];
+            return !room || room.matrix.hostiles.length > 0;
+        }else{
+            return super.continueJob(cluster, creep, opts, job);
+        }
+    }
 
     calculateBid(cluster, creep, opts, job, distance){
         return distance / 50;
@@ -71,28 +63,23 @@ class DefendWorker extends BaseWorker {
         if(job.subtype != 'defend' && job.subtype != 'heavy'){
             return this.processRampart(cluster, creep, opts, job, target);
         }
-        let attack = creep.getActiveBodyparts('attack');
-        let ranged = creep.getActiveBodyparts('ranged_attack');
-        let dist = creep.pos.getRangeTo(target);
-        if(attack > 0){
-            this.orMove(creep, target, creep.attack(target));
-        }else if(job.subtype == 'heavy'){
+        if(creep.room.name == target.pos.roomName){
+            var nearest = Util.closest(creep, creep.room.matrix.hostiles);
+            if(nearest){
+                let distance = creep.pos.getRangeTo(nearest);
+                if(distance > 3){
+                    this.move(creep, nearest);
+                }else if(job.subtype != 'heavy' && distance < 3){
+                    this.moveAway(creep, nearest, 3);
+                }
+                if(distance == 1){
+                    creep.rangedMassAttack();
+                }else if(distance <= 3){
+                    creep.rangedAttack(nearest);
+                }
+            }
+        }else if(creep.pos.getRangeTo(target) > 10){
             this.move(creep, target);
-        }else{
-            if(dist < 3){
-                //TODO better flee
-                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-                creep.move(creep.pos.getDirectionTo(result.path[0]));
-            }else if(dist > 3){
-                this.move(creep, target);
-            }
-        }
-        if(ranged > 0){
-            if(dist == 1){
-                creep.rangedMassAttack();
-            }else if(dist > 1 && dist <= 3){
-                creep.rangedAttack(target);
-            }
         }
     }
 

@@ -61,6 +61,9 @@ class PickupWorker extends BaseWorker {
         for(let coreRoom of cluster.roles.core){
             assignments.harvest[coreRoom.name] = 1;
         }
+        for(let keepRoom of cluster.roles.keep){
+            assignments.harvest[keepRoom.name] = _.size(cluster.find(keepRoom, FIND_SOURCES)) + 1;
+        }
         if(_.size(cluster.structures.storage) > 0){
             quota.harvesthauler = _.sum(assignments.harvest) * 24;
         }

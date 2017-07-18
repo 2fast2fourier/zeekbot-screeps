@@ -54,7 +54,7 @@ class DefenseMatrix {
             ranged_attack: 0,
             work: 0,
             ownerType,
-            hostile: !creep.my && ownerType != 'friendly'
+            hostile: !creep.my && ownerType != 'friendly' && ownerType != 'keeper'
         };
         for(let part of creep.body){
             if(part.hits > 0){
@@ -130,7 +130,8 @@ class DefenseMatrix {
                 hostiles: enemy,
                 damaged: [],
                 safemode: _.get(room, 'controller.safeMode', false),
-                keeper: false,
+                keeper: room.memory.keep,
+                keeps: [],
                 target: _.first(enemy),
                 towers: [],
                 creeps,
@@ -138,6 +139,18 @@ class DefenseMatrix {
                 total: totals,
                 targetted: false
             };
+            if(room.memory.keep){
+                data.keeps = _.filter(room.find(FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
+                if(creeps.keeper){
+                    data.avoid = data.keeps.concat(creeps.keeper);
+                }else{
+                    data.avoid = data.keeps;
+                }
+            }else if(room.memory.role == 'core'){
+                data.avoid = enemy;
+            }else{
+                data.avoid = [];
+            }
             if(data.underSiege && (room.memory.defend || room.memory.tripwire)){
                 var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(data.creeps, 'player[0].owner.username', 'Unknown');
                 Game.note('playerWarn'+room.name, message);

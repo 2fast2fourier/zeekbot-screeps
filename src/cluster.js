@@ -249,7 +249,7 @@ class Cluster {
             defend: true,
             observe: true,
             reserve: role != 'keep',
-            autobuild: role != 'reserve' && autobuild,
+            autobuild: role != 'reserve' && role != 'keep' && autobuild,
             keep: role == 'keep',
             harvest: role != 'reserve'
         });

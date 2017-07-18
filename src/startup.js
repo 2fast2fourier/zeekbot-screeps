@@ -73,6 +73,7 @@ class Startup {
         if(Game.intervalOffset(100, 8)){
             let total = _.sum(_.map(Game.federation.structures.storage, 'store.energy'));
             Memory.state.energy = (total / Game.federation.structures.storage.length) / 600000;
+            Memory.stats.build = _.sum(Game.constructionSites, site => site.progressTotal - site.progress);
         }
     }
 

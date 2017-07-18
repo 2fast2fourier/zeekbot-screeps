@@ -38,7 +38,7 @@ class Controller {
             Controller.terminalEnergy(allocated);
         }
 
-        var observers = _.filter(Game.federation.structures.observer, struct => !_.includes(allocated, struct.id));
+        var observers = _.filter(Game.federation.structures.observer, struct => !allocated[struct.id]);
         var portalWatch = Flag.getByPrefix('PortalWatch');
         if(portalWatch.length && observers.length > 0){
             for(var flag of portalWatch){
@@ -121,7 +121,7 @@ class Controller {
                         Memory.avoidRoom[scanRoom.name] = true;
                     }else if(!scanRoom.controller){
                         let buildings = scanRoom.find(FIND_HOSTILE_STRUCTURES);
-                        if(buildings.length > 3){
+                        if(buildings.length > 3 && !scanRoom.memory.keep){
                             Memory.avoidRoom[scanRoom.name] = true;
                         }else{
                             delete Memory.avoidRoom[scanRoom.name];

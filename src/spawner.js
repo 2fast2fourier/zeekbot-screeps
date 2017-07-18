@@ -94,7 +94,8 @@ class Spawner {
     static calculateQuotaAllocation(targetCluster){
         var allocation = {};
         _.forEach(targetCluster.creeps, creep =>{
-            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3)){
+            var offset = creep.memory.spawnOffset || 0;
+            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3 + offset)){
                 var quota = creep.memory.quota;
                 _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
             }
@@ -174,6 +175,10 @@ class Spawner {
         
         if(config.critical){
             memory.critical = true;
+        }
+        
+        if(config.offset > 0){
+            memory.spawnOffset = config.offset;
         }
 
         if(config.boost && config.boost[version]){

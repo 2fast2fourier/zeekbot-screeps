@@ -919,6 +919,7 @@ module.exports =
 	        if(Game.intervalOffset(100, 8)){
 	            let total = _.sum(_.map(Game.federation.structures.storage, 'store.energy'));
 	            Memory.state.energy = (total / Game.federation.structures.storage.length) / 600000;
+	            Memory.stats.build = _.sum(Game.constructionSites, site => site.progressTotal - site.progress);
 	        }
 	    }
 
@@ -1453,7 +1454,7 @@ module.exports =
 	            defend: true,
 	            observe: true,
 	            reserve: role != 'keep',
-	            autobuild: role != 'reserve' && autobuild,
+	            autobuild: role != 'reserve' && role != 'keep' && autobuild,
 	            keep: role == 'keep',
 	            harvest: role != 'reserve'
 	        });
@@ -1802,8 +1803,8 @@ module.exports =
 	            },
 	            heavy: {
 	                quota: 'heavy-defend',
-	                allocation: 5,
-	                maxQuota: 10,
+	                allocation: 1,
+	                maxQuota: 1,
 	                boost: {
 	                    milli: { fatigue: 5, rangedAttack: 10, heal: 5 }
 	                },
@@ -1948,8 +1949,9 @@ module.exports =
 	        parts: {
 	            milli: { move: 25, ranged_attack: 20, heal: 5 }
 	        },
+	        offset: 50,
 	        work: { keep: { local: true } },
-	        behavior: { selfheal: { auto: true } }
+	        behavior: { avoid: { fleeOnly: true } }
 	    },
 	    builderworker: {
 	        quota: 'build',
@@ -2067,7 +2069,7 @@ module.exports =
 	        allocation: 'work',
 	        allocationMax: 6,
 	        parts: {
-	            milli: { move: 12, carry: 4, work: 24 },
+	            milli: { carry: 4, work: 24, move: 12 },
 	            nano: { move: 8, carry: 4, work: 16 },
 	            pico: { move: 4, carry: 4, work: 8 }
 	        },
@@ -2101,6 +2103,16 @@ module.exports =
 	            pico: { work: 2, move: 2 }
 	        },
 	        work: { dismantle: {} },
+	        behavior: { avoid: {} }
+	    },
+	    keephealer: {
+	        quota: 'heal',
+	        maxQuota: 1,
+	        critical: true,
+	        parts: {
+	            pico: { heal: 5, move: 5 }
+	        },
+	        work: { heal: {} },
 	        behavior: { avoid: {} }
 	    },
 	    attacker: {
@@ -2273,7 +2285,8 @@ module.exports =
 	    static calculateQuotaAllocation(targetCluster){
 	        var allocation = {};
 	        _.forEach(targetCluster.creeps, creep =>{
-	            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3)){
+	            var offset = creep.memory.spawnOffset || 0;
+	            if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3 + offset)){
 	                var quota = creep.memory.quota;
 	                _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
 	            }
@@ -2353,6 +2366,10 @@ module.exports =
 	        
 	        if(config.critical){
 	            memory.critical = true;
+	        }
+	        
+	        if(config.offset > 0){
+	            memory.spawnOffset = config.offset;
 	        }
 
 	        if(config.boost && config.boost[version]){
@@ -2882,7 +2899,7 @@ module.exports =
 	            ranged_attack: 0,
 	            work: 0,
 	            ownerType,
-	            hostile: !creep.my && ownerType != 'friendly'
+	            hostile: !creep.my && ownerType != 'friendly' && ownerType != 'keeper'
 	        };
 	        for(let part of creep.body){
 	            if(part.hits > 0){
@@ -2958,7 +2975,8 @@ module.exports =
 	                hostiles: enemy,
 	                damaged: [],
 	                safemode: _.get(room, 'controller.safeMode', false),
-	                keeper: false,
+	                keeper: room.memory.keep,
+	                keeps: [],
 	                target: _.first(enemy),
 	                towers: [],
 	                creeps,
@@ -2966,6 +2984,18 @@ module.exports =
 	                total: totals,
 	                targetted: false
 	            };
+	            if(room.memory.keep){
+	                data.keeps = _.filter(room.find(FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
+	                if(creeps.keeper){
+	                    data.avoid = data.keeps.concat(creeps.keeper);
+	                }else{
+	                    data.avoid = data.keeps;
+	                }
+	            }else if(room.memory.role == 'core'){
+	                data.avoid = enemy;
+	            }else{
+	                data.avoid = [];
+	            }
 	            if(data.underSiege && (room.memory.defend || room.memory.tripwire)){
 	                var message = 'Warning: Player creeps detected in our territory: ' + room.name + ' - ' + _.get(data.creeps, 'player[0].owner.username', 'Unknown');
 	                Game.note('playerWarn'+room.name, message);
@@ -3756,7 +3786,7 @@ module.exports =
 	                        Memory.avoidRoom[scanRoom.name] = true;
 	                    }else if(!scanRoom.controller){
 	                        let buildings = scanRoom.find(FIND_HOSTILE_STRUCTURES);
-	                        if(buildings.length > 3){
+	                        if(buildings.length > 3 && !scanRoom.memory.keep){
 	                            Memory.avoidRoom[scanRoom.name] = true;
 	                        }else{
 	                            delete Memory.avoidRoom[scanRoom.name];
@@ -4663,26 +4693,7 @@ module.exports =
 
 	"use strict";
 
-	function defendRoom(result, room){
-	    var roomData = Game.matrix.rooms[room.name];
-	    if(roomData.hostiles.length > 0 && roomData.total.heal < 80 && roomData.total.ranged_attack < 300){
-	        result.push(roomData.hostiles);
-	    }
-	    return result;
-	}
-
-	function heavyDefendRoom(result, room){
-	    var roomData = Game.matrix.rooms[room.name];
-	    if(roomData.hostiles.length > 0 && roomData.total.heal >= 80 && roomData.total.heal <= 340){
-	        result.push(roomData.hostiles);
-	    }
-	    return result;
-	}
-
-	const defendFn = {
-	    defend: defendRoom,
-	    heavy: heavyDefendRoom
-	}
+	const Util = __webpack_require__(10);
 
 	const BaseWorker = __webpack_require__(15);
 
@@ -4691,7 +4702,7 @@ module.exports =
 
 	    genTarget(cluster, subtype, id, args){
 	        if(subtype == 'defend' || subtype == 'heavy'){
-	            return super.genTarget(cluster, subtype, id, args);
+	            return { id, pos: new RoomPosition(25, 25, id) };
 	        }
 	        var target = _.get(cluster.defense, [subtype, id]);
 	        return target ? { id, pos: new RoomPosition(target.pos.x, target.pos.y, target.pos.roomName) } : undefined;
@@ -4699,7 +4710,9 @@ module.exports =
 
 	    generateJobsForSubtype(cluster, subtype){
 	        if(subtype == 'defend' || subtype == 'heavy'){
-	            return this.jobsForTargets(cluster, subtype, _.flatten(_.reduce(cluster.rooms, defendFn[subtype], [])));
+	            var defendRooms = _.filter(cluster.roomflags.defend, room => room.matrix.hostiles.length > 0
+	                && ((room.matrix.total.heal == 0 && subtype == 'defend') || (room.matrix.total.heal > 0 && subtype == 'heavy')));
+	            return _.map(defendRooms, room => this.createJob(cluster, subtype, { id: room.name, pos: new RoomPosition(25, 25, room.name)}));
 	        }
 	        return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
 	            return {
@@ -4710,6 +4723,15 @@ module.exports =
 	    }
 
 	    /// Creep ///
+	    
+	    continueJob(cluster, creep, opts, job){
+	        if(job.subtype == 'defend' || job.subtype == 'heavy'){
+	            var room = Game.rooms[job.id];
+	            return !room || room.matrix.hostiles.length > 0;
+	        }else{
+	            return super.continueJob(cluster, creep, opts, job);
+	        }
+	    }
 
 	    calculateBid(cluster, creep, opts, job, distance){
 	        return distance / 50;
@@ -4734,28 +4756,23 @@ module.exports =
 	        if(job.subtype != 'defend' && job.subtype != 'heavy'){
 	            return this.processRampart(cluster, creep, opts, job, target);
 	        }
-	        let attack = creep.getActiveBodyparts('attack');
-	        let ranged = creep.getActiveBodyparts('ranged_attack');
-	        let dist = creep.pos.getRangeTo(target);
-	        if(attack > 0){
-	            this.orMove(creep, target, creep.attack(target));
-	        }else if(job.subtype == 'heavy'){
+	        if(creep.room.name == target.pos.roomName){
+	            var nearest = Util.closest(creep, creep.room.matrix.hostiles);
+	            if(nearest){
+	                let distance = creep.pos.getRangeTo(nearest);
+	                if(distance > 3){
+	                    this.move(creep, nearest);
+	                }else if(job.subtype != 'heavy' && distance < 3){
+	                    this.moveAway(creep, nearest, 3);
+	                }
+	                if(distance == 1){
+	                    creep.rangedMassAttack();
+	                }else if(distance <= 3){
+	                    creep.rangedAttack(nearest);
+	                }
+	            }
+	        }else if(creep.pos.getRangeTo(target) > 10){
 	            this.move(creep, target);
-	        }else{
-	            if(dist < 3){
-	                //TODO better flee
-	                var result = PathFinder.search(creep.pos, { pos: target.pos, range: 3 }, { flee: true });
-	                creep.move(creep.pos.getDirectionTo(result.path[0]));
-	            }else if(dist > 3){
-	                this.move(creep, target);
-	            }
-	        }
-	        if(ranged > 0){
-	            if(dist == 1){
-	                creep.rangedMassAttack();
-	            }else if(dist > 1 && dist <= 3){
-	                creep.rangedAttack(target);
-	            }
 	        }
 	    }
 
@@ -5002,10 +5019,8 @@ module.exports =
 	    /// Job ///
 
 	    heal(cluster, subtype){
-	        // let healrooms = _.filter(cluster.rooms, room => room.memory.role != 'core' || _.get(room, 'controller.level', 0) < 3);
-	        // let targets = _.filter(cluster.findIn(healrooms, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax);
-	        // return this.jobsForTargets(cluster, subtype, targets);
-	        return [];
+	        let creeps = _.flatten(_.map(cluster.roles.keep, 'matrix.damaged'));
+	        return this.jobsForTargets(cluster, subtype, _.filter(creeps, creep => creep.getActiveBodyparts('heal') == 0));
 	    }
 
 	    jobValid(cluster, job){
@@ -5110,48 +5125,60 @@ module.exports =
 	    /// Job ///
 
 	    keep(cluster, subtype){
-	        if(cluster.maxRCL < 7){
+	        if(cluster.maxRCL < 8){
 	            return [];
 	        }
 	        let keeps = cluster.findIn(cluster.roomflags.keep, FIND_HOSTILE_STRUCTURES);
-	        return this.jobsForTargets(cluster, subtype, _.reject(keeps, keep => keep.ticksToSpawn > 75));
+	        return this.jobsForTargets(cluster, subtype, _.reject(keeps, keep => keep.ticksToSpawn > 50));
 	    }
 
 	    jobValid(cluster, job){
-	        return super.jobValid(cluster, job) && !(job.target.ticksToSpawn > 75 && job.target.ticksToSpawn < 280);
+	        return super.jobValid(cluster, job) && !(job.target.ticksToSpawn > 50 && job.target.ticksToSpawn < 275);
 	    }
 
 	    /// Creep ///
 
-	    continueJob(cluster, creep, opts, job){
-	        return super.continueJob(cluster, creep, opts, job);
+	    keepDeadJob(cluster, creep, opts, job){
+	        return _.some(creep.room.matrix.creeps.keeper, target => creep.pos.getRangeTo(target) < 7);
 	    }
 
 	    canBid(cluster, creep, opts){
-	        return creep.hits > creep.hitsMax * 0.8 && creep.ticksToLive > 25;
+	        return creep.hits > creep.hitsMax * 0.5 && creep.ticksToLive > 50;
 	    }
 
 	    calculateBid(cluster, creep, opts, job, distance){
-	        if(job.target.ticksToSpawn > creep.ticksToLive){
+	        if(job.target.ticksToSpawn > creep.ticksToLive - 20){
 	            return false;
 	        }
-	        return (job.target.ticksToSpawn || 0) / 300 + distance / 500;
+	        return (job.target.ticksToSpawn || 0) / 300 + distance / 100;
 	    }
 
 	    process(cluster, creep, opts, job, target){
-	        let idleRange = target.ticksToSpawn < 10 ? 1 : 2;
-	        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS, { filter: target => creep.pos.getRangeTo(target) < 10 || _.get(target, 'owner.username', false) != 'Source Keeper' });
-	        if(hostiles.length > 0){
-	            var enemy = _.first(_.sortBy(hostiles, hostile => creep.pos.getRangeTo(hostile)));
-	            if(creep.getActiveBodyparts(RANGED_ATTACK) > 0 && creep.pos.getRangeTo(enemy) <= 3){
-	                creep.rangedAttack(enemy);
+	        let nearest = _.min(creep.room.matrix.creeps.keeper, keeper => creep.pos.getRangeTo(keeper));
+	        let range = creep.pos.getRangeTo(nearest);
+	        if(range <= 8){
+	            let targetRange = creep.hits > creep.hitsMax * 0.6 ? 3 : 5;
+	            if(range < targetRange){
+	                this.moveAway(creep, nearest, targetRange);
+	            }else if(range > targetRange){
+	                this.move(creep, nearest);
 	            }
-	            return this.orMove(creep, enemy, creep.attack(enemy)) == OK;
-	        }else if(creep.pos.getRangeTo(target) > idleRange){
+	            if(range <= 3){
+	                creep.rangedAttack(nearest);
+	            }
+	        }else if(creep.pos.getRangeTo(target) < 3){
+	            this.moveAway(creep, target, 3);
+	        }else if(creep.pos.getRangeTo(target) > 3){
 	            this.move(creep, target);
-	        }else if(creep.pos.getRangeTo(target) < idleRange){
-	            this.moveAway(creep, target, idleRange);
 	        }
+	        if(creep.hits < creep.hitsMax){
+	            creep.heal(creep);
+	        }
+	    }
+
+	    generateAssignments(cluster, assignments, quota){
+	        assignments.keep = _.zipObject(_.map(cluster.roles.keep, 'name'), new Array(cluster.roles.keep.length).fill(1));
+	        quota.keep = _.sum(assignments.keep);
 	    }
 
 	}
@@ -5239,7 +5266,7 @@ module.exports =
 	    genTarget(cluster, subtype, id, args){
 	        if(id.indexOf('-') > 0){
 	            let parts = id.split('-');
-	            let pos = { pos: new RoomPosition(parseInt(parts[1]), parseInt(parts[2]), parts[0]), range: 15 };
+	            let pos = { pos: new RoomPosition(parseInt(parts[1]), parseInt(parts[2]), parts[0]), range: 20 };
 	            return _.get(Game.rooms, [parts[0], 'controller'], pos);
 	        }else{
 	            return Game.getObjectById(id);
@@ -5260,7 +5287,7 @@ module.exports =
 	                }
 	                let target;
 	                if(!targetRoom || !targetRoom.controller){
-	                    target = { pos: new RoomPosition(25, 25, name), range: 15 };
+	                    target = { pos: new RoomPosition(25, 25, name), range: 20 };
 	                }else{
 	                    target = targetRoom.controller;
 	                }
@@ -5367,6 +5394,9 @@ module.exports =
 
 	        for(let coreRoom of cluster.roles.core){
 	            assignments.harvest[coreRoom.name] = 1;
+	        }
+	        for(let keepRoom of cluster.roles.keep){
+	            assignments.harvest[keepRoom.name] = _.size(cluster.find(keepRoom, FIND_SOURCES));
 	        }
 	        if(_.size(cluster.structures.storage) > 0){
 	            quota.harvesthauler = _.sum(assignments.harvest) * 24;
@@ -6486,21 +6516,14 @@ module.exports =
 	            return false;
 	        }
 	        var hostiles = roomData.armed;
-	        if(roomData.keeper){
-	            let keeps = _.filter(cluster.find(creep.room, FIND_HOSTILE_STRUCTURES), keep => keep.ticksToSpawn < 10);
-	            if(keeps.length > 0){
-	                hostiles = hostiles.concat(keeps);
-	            }
-	        }
-	        if(hostiles.length > 0){
-	            if(roomData.fleeTo){
-	                creep.memory.gather = roomData.fleeTo;
-	                creep.memory.gatherRange = roomData.fleeToRange;
-	                creep.memory.fleeFrom = creep.room.name;
-	                return { type: this.type, data: { gather: true, target: roomData.fleeTo, range: roomData.fleeToRange } };
-	            }
+	        if(hostiles.length > 0 && roomData.fleeTo){
+	            creep.memory.gather = roomData.fleeTo;
+	            creep.memory.gatherRange = roomData.fleeToRange;
+	            creep.memory.fleeFrom = creep.room.name;
+	            return { type: this.type, data: { gather: true, target: roomData.fleeTo, range: roomData.fleeToRange } };
+	        }else if(roomData.avoid.length > 0 && !opts.fleeOnly){
 	            let avoidTargets = [];
-	            for(var enemy of hostiles){
+	            for(var enemy of roomData.avoid){
 	                let distance = creep.pos.getRangeTo(enemy);
 	                if(distance == this.range){
 	                    idle = true;

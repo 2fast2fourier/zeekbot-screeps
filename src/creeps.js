@@ -31,8 +31,8 @@ var template = {
             },
             heavy: {
                 quota: 'heavy-defend',
-                allocation: 5,
-                maxQuota: 10,
+                allocation: 1,
+                maxQuota: 1,
                 boost: {
                     milli: { fatigue: 5, rangedAttack: 10, heal: 5 }
                 },
@@ -116,7 +116,8 @@ var template = {
         assignRoom: 'harvest',
         work: {
             pickup: { subtype: 'harvest', local: true, priority: 0 },
-            deliver: { subtype: 'storage' }
+            deliver: { subtype: 'storage' },
+            idle: {}
         },
         behavior: { avoid: {} },
         variants: {
@@ -177,8 +178,9 @@ var template = {
         parts: {
             milli: { move: 25, ranged_attack: 20, heal: 5 }
         },
+        offset: 50,
         work: { keep: { local: true } },
-        behavior: { selfheal: { auto: true } }
+        behavior: { avoid: { fleeOnly: true } }
     },
     builderworker: {
         quota: 'build',
@@ -296,7 +298,7 @@ var template = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
-            milli: { move: 12, carry: 4, work: 24 },
+            milli: { carry: 4, work: 24, move: 12 },
             nano: { move: 8, carry: 4, work: 16 },
             pico: { move: 4, carry: 4, work: 8 }
         },
@@ -330,6 +332,16 @@ var template = {
             pico: { work: 2, move: 2 }
         },
         work: { dismantle: {} },
+        behavior: { avoid: {} }
+    },
+    keephealer: {
+        quota: 'heal',
+        maxQuota: 1,
+        critical: true,
+        parts: {
+            pico: { heal: 5, move: 5 }
+        },
+        work: { heal: {} },
         behavior: { avoid: {} }
     },
     attacker: {

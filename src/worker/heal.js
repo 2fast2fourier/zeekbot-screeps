@@ -8,10 +8,8 @@ class HealWorker extends BaseWorker {
     /// Job ///
 
     heal(cluster, subtype){
-        // let healrooms = _.filter(cluster.rooms, room => room.memory.role != 'core' || _.get(room, 'controller.level', 0) < 3);
-        // let targets = _.filter(cluster.findIn(healrooms, FIND_MY_CREEPS), creep => creep.hits < creep.hitsMax);
-        // return this.jobsForTargets(cluster, subtype, targets);
-        return [];
+        let creeps = _.flatten(_.map(cluster.roles.keep, 'matrix.damaged'));
+        return this.jobsForTargets(cluster, subtype, _.filter(creeps, creep => creep.getActiveBodyparts('heal') == 0));
     }
 
     jobValid(cluster, job){
