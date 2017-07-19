@@ -67,10 +67,11 @@ class DefendWorker extends BaseWorker {
             var nearest = Util.closest(creep, creep.room.matrix.hostiles);
             if(nearest){
                 let distance = creep.pos.getRangeTo(nearest);
-                if(distance > 3){
+                let targetRange = job.subtype == 'heavy' ? 1 : 3;
+                if(distance > targetRange){
                     this.move(creep, nearest);
-                }else if(job.subtype != 'heavy' && distance < 3){
-                    this.moveAway(creep, nearest, 3);
+                }else if(distance < targetRange){
+                    this.moveAway(creep, nearest, targetRange);
                 }
                 if(distance == 1){
                     creep.rangedMassAttack();

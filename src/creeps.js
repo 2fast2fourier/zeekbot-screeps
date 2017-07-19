@@ -178,7 +178,7 @@ var template = {
         parts: {
             milli: { move: 25, ranged_attack: 20, heal: 5 }
         },
-        offset: 50,
+        offset: 100,
         work: { keep: { local: true } },
         behavior: { avoid: { fleeOnly: true } }
     },
