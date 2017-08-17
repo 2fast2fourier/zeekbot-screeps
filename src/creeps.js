@@ -72,6 +72,7 @@ var template = {
         variants: {
             fallback: {
                 emergency: false,
+                priorityOffset: 0.5,
                 parts: { pico: { carry: 20, move: 10 } }
             },
             tower: {
@@ -275,6 +276,12 @@ var template = {
                 },
                 work: { pickup: { priority: 1 }, repair: { subtype: 'special' }, idle: { subtype: 'gather' } },
                 behavior: { avoid: {}, boost: {} }
+            },
+            defense: {
+                parts: {
+                    pico: { move: 16, carry: 22, work: 10 }
+                },
+                work: { pickup: { priority: 1, local: true }, repair: { subtype: 'defense', local: true }, idle: { subtype: 'gather' } }
             }
         }
     },

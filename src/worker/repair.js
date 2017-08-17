@@ -17,25 +17,22 @@ class RepairWorker extends BaseWorker {
     }
 
     special(cluster, subtype){
-        let jobs = [];
-        if(cluster.state.repair){
-            _.reduce(cluster.state.repair, (result, repairTarget, repairId) => {
-                var target = Game.getObjectById(repairId);
-                if(target && target.hits < repairTarget){
-                    result.push(this.createJob(cluster, subtype, target));
-                }
-                return result;
-            }, jobs);
-        }
-        return jobs;
+        return _.reduce(cluster.state.repair, (result, repairTarget, repairId) => {
+            var target = Game.getObjectById(repairId);
+            if(target && target.hits < repairTarget){
+                result.push(this.createJob(cluster, subtype, target));
+            }
+            return result;
+        }, []);
     }
 
-    defenses(cluster, subtype){
-        return this.jobsForTargets(cluster, subtype, cluster.structures.rampart);
+    defense(cluster, subtype){
+        let max = _.get(cluster, 'opts.wallLimit', Infinity);
+        return this.jobsForTargets(cluster, subtype, _.filter(cluster.walls, wall => wall.hits < Math.min(max, wall.hitsMax)));
     }
 
     jobValid(cluster, job){
-        if(job.subtype == 'defenses'){
+        if(job.subtype == 'defense'){
             return super.jobValid(cluster, job) && job.target.hits < job.target.hitsMax;
         }
         if(job.subtype == 'special' && job.target){
@@ -53,7 +50,7 @@ class RepairWorker extends BaseWorker {
     /// Creep ///
 
     calculateBid(cluster, creep, opts, job, distance){
-        if(job.subtype == 'defenses'){
+        if(job.subtype == 'defense'){
             return job.target.hits / job.target.hitsMax + (1 - creep.carry.energy / creep.carryCapacity);
         }
         return job.target.hits / (job.target.getMaxHits() * 4) + (1 - creep.carry.energy / creep.carryCapacity);
@@ -75,13 +72,24 @@ class RepairWorker extends BaseWorker {
     //     memory: opts.memory
     // }
     generateAssignments(cluster, assignments, quota, tickets){
-        if(cluster.state.repair){
+        if(_.size(cluster.state.repair) > 0){
             tickets.push({
                 id: cluster.id,
                 tag: 'bunker-repair',
                 type: 'special-repairworker',
                 capacity: Math.min(4, Math.ceil(_.size(cluster.state.repair) / 3))
             });
+        }else{
+            for(let core of cluster.roles.core){
+                if(core.controller.level >= 8 && cluster.state.energy > 0.5){
+                    tickets.push({
+                        id: core.name,
+                        tag: 'defense-boost',
+                        type: 'defense-repairworker',
+                        memory: { room: core.name }
+                    });
+                }
+            }
         }
     }
 

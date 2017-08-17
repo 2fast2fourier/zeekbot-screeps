@@ -315,6 +315,10 @@ class Cluster {
         return _.filter(this.findAll(FIND_STRUCTURES), struct => _.includes(types, struct.structureType));
     }
 
+    getAllStructuresForRole(role, types){
+        return _.filter(this.findIn(this.roles[role], FIND_STRUCTURES), struct => _.includes(types, struct.structureType));
+    }
+
     getTaggedStructures(){
         if(!this._tagged){
             this._tagged = _.mapValues(this.tags, (list, tag)=>_.compact(Game.getObjects(list)));
@@ -386,6 +390,23 @@ class Cluster {
             }, {});
         }
         return this._boostMinerals;
+    }
+    get walls(){
+        if(!this._walls){
+            if(!this.work.walls || this.work.walls.update <= Game.time){
+                let wallStructs = this.getAllStructuresForRole('core', [STRUCTURE_WALL, STRUCTURE_RAMPART]);
+                let hits = _.map(wallStructs, 'hits');
+                this.work.walls = {
+                    data: _.map(wallStructs, 'id'),
+                    avg: _.sum(hits) / Math.max(1, wallStructs.length),
+                    min: _.min(hits),
+                    max: _.max(hits),
+                    update: Game.time + 1000
+                }
+            }
+            this._walls = Game.getObjects(this.work.walls.data);
+        }
+        return this._walls;
     }
 
     get damaged(){

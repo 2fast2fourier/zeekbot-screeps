@@ -110,8 +110,7 @@ module.exports.loop = function () {
             cluster.profile('cpu', Game.cpu.getUsed() - clusterStart);
             ix+= 100;
         }catch(e){
-            console.log(name, e, JSON.stringify(e.stack));
-            Game.notify(name + ' - ' + e.toString()+' - '+JSON.stringify(e.stack));
+            Game.error(e);
             // throw e;
         }
     }
@@ -125,8 +124,7 @@ module.exports.loop = function () {
         Controller.federation(allocated);
         Game.perfAdd('federation');
     }catch(e){
-        console.log('federation', e, JSON.stringify(e.stack));
-        Game.notify('federation: ' + e.toString()+' - '+JSON.stringify(e.stack));
+        Game.error(e);
         // throw e;
     }
 

@@ -47,55 +47,49 @@ class Spawner {
 
         var allocation = Spawner.calculateQuotaAllocation(targetCluster);
 
-        var tickets = targetCluster.state.spawns || [];
+        var tickets = targetCluster.state.spawn || [];
         for(let ticket of tickets){
             let quotaId = 'ticket-'+ticket.tag+'-'+ticket.id;
-            console.log(targetCluster.id, quotaId, allocation[quotaId] || 0);
-            
+            let capacity = ticket.capacity || 1;
+            let allocated = allocation[quotaId] || 0;
+            let need = capacity - allocated;
+            if(need > 0){
+                let config = creepsConfig[ticket.type];
+                let data = Spawner.findVersion(cluster, targetCluster, ticket.type, config, allocation);
+                if(data.version){
+                    totalCost += need * data.maxCost;
+                    let priorityOffset = config.priorityOffset || 0;
+                    let entry = Spawner.generateCreepEntry(data, config, need, (allocated / capacity) + priorityOffset);
+                    entry.quota = quotaId;
+                    entry.memory = ticket.memory;
+                    if(config.critical){
+                        critical.push(entry);
+                    }else{
+                        queue.push(entry);
+                    }
+                }
+            }
         }
 
         _.forEach(creepsConfig, (config, type)=>{
             if(config.deprecated || !config.quota){
                 return;
             }
-            let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
-            let maxCost = 0;
-            let version = false;
-            let partSet = false;
-            if(emergency){
-                let cost = Spawner.calculateCost(config.parts[config.emergency]);
-                maxCost = cost;
-                version = config.emergency;
-                partSet = config.parts[config.emergency];
-            }else{
-                _.forEach(config.parts, (parts, ver) => {
-                    let cost = Spawner.calculateCost(parts);
-                    let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
-                    if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
-                        maxCost = cost;
-                        version = ver;
-                        partSet = parts;
-                    }
-                });
-            }
-            if(version){
-                const limit = Spawner.calculateBoostCapacity(targetCluster, config, version, cluster);
-                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
+            let data = Spawner.findVersion(cluster, targetCluster, type, config, allocation);
+
+            if(data.version){
+                const limit = Spawner.calculateBoostCapacity(targetCluster, config, data.version, cluster);
+                const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, data.version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
-                    totalCost += need * maxCost;
-                    let entry = {
-                        type,
-                        need,
-                        cost: maxCost,
-                        parts: Spawner.partList(partSet),
-                        version,
-                        critical: config.critical,
-                        priority: Spawner.calculatePriority(targetCluster, config, allocation)
-                    };
-                    queue.push(entry);
+                    totalCost += need * data.maxCost;
+                    let totalQuota = Spawner.calculateTotalQuota(targetCluster, config, data.version);
+                    let priorityOffset = config.priorityOffset || 0;
+                    let entry = Spawner.generateCreepEntry(data, config, need, ((totalQuota - quota) / totalQuota) + priorityOffset);
                     if(config.critical){
                         critical.push(entry);
+                    }else{
+                        queue.push(entry);
                     }
                 }
             }
@@ -105,6 +99,48 @@ class Spawner {
             critical: _.sortBy(critical, 'priority'),
             queue: _.sortBy(queue, 'priority'),
             totalCost
+        };
+    }
+
+    static findVersion(cluster, targetCluster, type, config, allocation){
+        let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
+        let maxCost = 0;
+        let version = false;
+        let partSet = false;
+        if(emergency){
+            let cost = Spawner.calculateCost(config.parts[config.emergency]);
+            maxCost = cost;
+            version = config.emergency;
+            partSet = config.parts[config.emergency];
+        }else{
+            _.forEach(config.parts, (parts, ver) => {
+                let cost = Spawner.calculateCost(parts);
+                let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
+                if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
+                    maxCost = cost;
+                    version = ver;
+                    partSet = parts;
+                }
+            });
+        }
+        return {
+            emergency,
+            maxCost,
+            partSet,
+            type,
+            version
+        };
+    }
+
+    static generateCreepEntry(data, config, need, priority){
+        return {
+            type: data.type,
+            need,
+            cost: data.maxCost,
+            parts: Spawner.partList(data.partSet),
+            version: data.version,
+            critical: config.critical,
+            priority
         };
     }
 
@@ -139,13 +175,10 @@ class Spawner {
         return creepsNeeded;
     }
 
-    static calculatePriority(targetCluster, config, allocation){
+    static calculateTotalQuota(targetCluster, config, version){
+        var perCreep = Spawner.getAllocation(config, version);
         var quota = Math.min(_.get(targetCluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
-        var allocated = allocation[config.quota] || 0;
-        if(quota <= 0){
-            return 0.25;
-        }
-        return 0.25 + (allocated / quota) / 2 - (config.priority || 0);
+        return Math.ceil(quota / perCreep);
     }
 
     static calculateSpawnLimit(cluster, type, config, version){
@@ -192,8 +225,8 @@ class Spawner {
             jobType: false,
             jobSubType: false,
             jobAllocation: 0,
-            quota: config.quota,
-            quotaAlloc: Spawner.getAllocation(config, version)
+            quota: entry.quota || config.quota,
+            quotaAlloc: entry.quota ? 1 : Spawner.getAllocation(config, version)
         };
         
         if(config.critical){

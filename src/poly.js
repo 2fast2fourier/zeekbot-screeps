@@ -56,6 +56,11 @@ module.exports = function(){
         _.set(longProfileData, type, _.get(longProfileData, type, 0) + value);
     }
 
+    Game.error = function(err){
+        console.log(err.stack);
+        Game.notify(err.stack);
+    }
+
     Game.perf = function(label){
         var cpu = Game.cpu.getUsed();
         if(label){
