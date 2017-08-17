@@ -1,6 +1,6 @@
 "use strict";
 
-let VERSION = 6;
+let VERSION = 7;
 let STAT_INTERVAL = 100;
 let LONGTERM_STAT_INTERVAL = 5000;
 
@@ -28,12 +28,6 @@ class Startup {
         if(Game.interval(STAT_INTERVAL)){
             Startup.longStats();
             Startup.shortStats();
-            // var heaviestCreep = _.max(Game.creeps, creepCPU);
-            // if(heaviestCreep.getActiveBodyparts(CLAIM) > 0){
-            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (500 - heaviestCreep.ticksToLive));
-            // }else{
-            //     console.log(heaviestCreep.name, heaviestCreep.memory.cluster, heaviestCreep.memory.cpu, heaviestCreep.memory.cpu  / (1500 - heaviestCreep.ticksToLive));
-            // }
         }
         if(Game.interval(LONGTERM_STAT_INTERVAL)){
             var msg = 'Statistics: \n';
@@ -61,7 +55,7 @@ class Startup {
                 if(room.controller && room.controller.my && room.controller.level < 8){
                     var percent = room.controller.progress / room.controller.progressTotal;
                     Memory.stats.rooms[room.name] = room.controller.level + percent;
-                    if(percent > closest && room.controller.level >= 6){
+                    if(percent > closest && room.controller.level >= 4 && room.storage && room.storage.store.energy > 100000){
                         closest = percent;
                         Memory.levelroom = room.name;
                         Memory.state.levelroom = room.name;
@@ -132,8 +126,19 @@ class Startup {
                     }
                 });
             case 6:
-            //TODO add migration
+                delete Memory.stats.profileCount;
+                _.forEach(Memory.clusters, cluster => {
+                    delete cluster.statscount;
+                });
             case 7:
+            //TODO add migration
+            case 8:
+            //TODO add migration
+            case 9:
+            //TODO add migration
+            case 10:
+            //TODO add migration
+            case 11:
             //TODO add migration
 
 
@@ -153,14 +158,7 @@ class Startup {
         if(Game.cpu.bucket < 9500){
             console.log('bucket:', Game.cpu.bucket);
         }
-        var longterm = Memory.stats.longterm;
-        Memory.stats.longterm = null;
-        Memory.stats = {
-            longterm,
-            profile: {},
-            profileCount: {},
-            minerals: _.pick(_.mapValues(Game.federation.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5)
-        }
+        Memory.stats.minerals = _.pick(_.mapValues(Game.federation.resources, 'total'), (amount, type) => type.length == 1 || type.length >= 5);
     }
 
     static longStats(){
@@ -218,6 +216,10 @@ class Startup {
                         value = true;
                     }else if(value == 'false'){
                         value = false;
+                    }else if(/^\d+\.\d+$/.test(value)){
+                        value = parseFloat(value);
+                    }else if(/^\d+$/.test(value)){
+                        value = parseInt(value);
                     }
                     _.set(Memory.rooms, [roomName, target], value);
                     console.log('Updated', roomName, JSON.stringify(Memory.rooms[roomName]));

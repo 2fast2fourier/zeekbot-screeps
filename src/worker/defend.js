@@ -18,7 +18,7 @@ class DefendWorker extends BaseWorker {
     generateJobsForSubtype(cluster, subtype){
         if(subtype == 'defend' || subtype == 'heavy'){
             var defendRooms = _.filter(cluster.roomflags.defend, room => room.matrix.hostiles.length > 0
-                && ((room.matrix.total.heal == 0 && subtype == 'defend') || (room.matrix.total.heal > 0 && subtype == 'heavy')));
+                && ((room.matrix.total.heal < 80 && subtype == 'defend') || (room.matrix.total.heal > 0 && room.matrix.total.heal < 800 && subtype == 'heavy')));
             return _.map(defendRooms, room => this.createJob(cluster, subtype, { id: room.name, pos: new RoomPosition(25, 25, room.name)}));
         }
         return this.jobsForTargets(cluster, subtype, _.map(cluster.defense[subtype], target => {
@@ -71,7 +71,7 @@ class DefendWorker extends BaseWorker {
                 if(distance > targetRange){
                     this.move(creep, nearest);
                 }else if(distance < targetRange){
-                    this.moveAway(creep, nearest, targetRange);
+                    this.moveAway(creep, nearest, targetRange + 3);
                 }
                 if(distance == 1){
                     creep.rangedMassAttack();

@@ -18,9 +18,6 @@ class DowngradeWorker extends BaseWorker {
     }
 
     calculateCapacity(cluster, subtype, id, target, args){
-        if(cluster.totalEnergy > 250000){
-            return 2;
-        }
         return 1;
     }
 

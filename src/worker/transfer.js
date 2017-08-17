@@ -8,7 +8,7 @@ class TransferWorker extends BaseWorker {
 
     generateResourceTransfers(cluster, type, resource, need, exact){
         return cluster.structures[type].reduce((result, struct) => {
-            let amount = struct.getResource(resource);
+            let amount = struct.getResource(resource) || 0;
             if(exact ? amount < need : amount < need - 200){
                 result.push(this.createJob(cluster, 'transfer', struct, { action: 'deliver', resource: resource, amount: need }));
             }

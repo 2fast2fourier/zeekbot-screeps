@@ -134,9 +134,8 @@ class BaseWorker {
         return result;
     }
 
-    moveAway(creep, target, range){
-        var result = PathFinder.search(creep.pos, { pos: target.pos, range }, { flee: true });
-        creep.moveByPath(result.path);
+    moveAway(creep, targets, range){
+        return Pathing.moveAway(creep, _.isArray(targets) ? targets : [targets], { range, debug: true });
     }
 
     calculateQuota(cluster, quota){
@@ -150,8 +149,15 @@ class BaseWorker {
             });
         }
     }
-
-    generateAssignments(cluster, assignments, quota){
+    
+    // ticket: {
+    //     id,
+    //     tag,
+    //     boost: opts.boost || 'none',
+    //     capacity: opts.capacity || 1,
+    //     memory: opts.memory
+    // }
+    generateAssignments(cluster, assignments, quota, tickets){
 
     }
 

@@ -88,7 +88,7 @@ class Pathing {
     }
 
     static moveCreep(creep, target, range, ignoreRoads){
-        if(range > 1 && (target.pos.x < 2 || target.pos.y < 2 || target.pos.x > 47 || target.pos.y > 47)){
+        if(range > 1 && (target.pos.x <= 2 || target.pos.y <= 2 || target.pos.x >= 47 || target.pos.y >= 47)){
             range = 1;
         }
         return creep.travelTo(target, { allowSK: false, ignoreCreeps: false, range, ignoreRoads: ignoreRoads, routeCallback: route });
@@ -96,6 +96,59 @@ class Pathing {
 
     static attackMove(creep, target, range){
         return creep.travelTo(target, { allowSK: true, ignoreCreeps: false, allowHostile: true, range });
+    }
+
+    static weightCallback(roomName){
+        let room = Game.rooms[roomName];
+        let costs = new PathFinder.CostMatrix();
+        if (!room) return costs;
+        for(let structure of room.find(FIND_STRUCTURES)){
+            if (structure.structureType === STRUCTURE_ROAD) {
+                costs.set(structure.pos.x, structure.pos.y, 1);
+            } else if (structure.structureType !== STRUCTURE_CONTAINER && 
+                        (structure.structureType !== STRUCTURE_RAMPART || !structure.my)) {
+                costs.set(structure.pos.x, structure.pos.y, 0xff);
+            }
+        }
+        for(let site of room.find(FIND_MY_CONSTRUCTION_SITES)){
+            if (site.structureType === STRUCTURE_ROAD) {
+                costs.set(site.pos.x, site.pos.y, 1);
+            } else if (site.structureType !== STRUCTURE_CONTAINER && 
+                        (site.structureType !== STRUCTURE_RAMPART)) {
+                costs.set(site.pos.x, site.pos.y, 0xff);
+            }
+        }
+        for(let creep of room.find(FIND_CREEPS)){
+            costs.set(creep.pos.x, creep.pos.y, 0xff);
+        }
+        return costs;
+    }
+    
+    static moveAway(creep, targets, opts){
+        let weights = opts.weights || { plainCost: 2, swampCost: 10, roadCost: 1 };
+        let range = (opts.range || 1);
+        let pathData = PathFinder.search(creep.pos,
+            _.map(targets, function(target){
+                return {
+                    pos: target.pos || target,
+                    range,
+                    maxOps: 10000
+                }
+            }),
+            {
+                plainCost: weights.plainCost,
+                swampCost: weights.swampCost,
+                flee: true,
+                roomCallback: Pathing.weightCallback
+            }
+        );
+        if(opts && opts.debug){
+            var roomPoints = _.groupBy(pathData.path, 'roomName');
+            _.forEach(roomPoints, function(points, roomName){
+                new RoomVisual(roomName).poly(points);
+            });
+        }
+        return creep.moveByPath(pathData.path);
     }
 }
 

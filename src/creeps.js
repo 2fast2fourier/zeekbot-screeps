@@ -59,8 +59,6 @@ var template = {
     },
     spawnhauler: {
         quota: 'spawnhauler',
-        allocation: 'carry',
-        allocationMulti: 50,
         critical: true,
         assignRoom: 'spawn',
         parts: haulerParts,
@@ -74,11 +72,11 @@ var template = {
         variants: {
             fallback: {
                 emergency: false,
-                allocationMulti: 100,
-                parts: { pico: {carry: 4, move: 2 } }
+                parts: { pico: { carry: 20, move: 10 } }
             },
             tower: {
                 emergency: false,
+                allocation: 'carry',
                 allocationMulti: 50,
                 quota: 'tower-deliver',
                 assignRoom: 'tower',
@@ -97,7 +95,7 @@ var template = {
         allocation: 'work',
         allocationMax: 6,
         parts: {
-            mega: { carry: 4, work: 10, move: 5 },//1450
+            mega: { work: 10, carry: 4, move: 5 },//1450
             kilo: { carry: 4, work: 6, move: 6 },
             milli: { carry: 2, work: 6, move: 4 },//standard 1100
             micro: { carry: 1, work: 6, move: 3 },//800
@@ -116,15 +114,15 @@ var template = {
         assignRoom: 'harvest',
         work: {
             pickup: { subtype: 'harvest', local: true, priority: 0 },
-            deliver: { subtype: 'storage' },
+            deliver: { subtype: 'storage', priority: 0.25 },
             idle: {}
         },
         behavior: { avoid: {} },
         variants: {
             stockpile: {
                 quota: 'stockpile-deliver',
-                allocationMulti: 50,
-                allocationMax: 4000,
+                allocation: 1,
+                maxQuota: 3,
                 work: { 
                     pickup: {},
                     deliver: { subtype: 'stockpile' },
@@ -168,7 +166,10 @@ var template = {
                 allocationMax: 4,
                 critical: false,
                 work: { downgrade: { } },
-                parts: { pico: { claim: 5, move: 5 } }
+                parts: {
+                    mega: { claim: 10, move: 10 },
+                    pico: { claim: 5, move: 5 }
+                }
             }
         }
     },
@@ -180,7 +181,7 @@ var template = {
         },
         offset: 100,
         work: { keep: { local: true } },
-        behavior: { avoid: { fleeOnly: true } }
+        behavior: { avoid: { fleeOnly: true, threshold: { heal: 140 } }, defend: { type: 'invader', limit: { heal: 140 }, autoheal: true } }
     },
     builderworker: {
         quota: 'build',
@@ -233,7 +234,7 @@ var template = {
     repairworker: {
         quota: 'repair-repair',
         allocation: 3,
-        maxQuota: 21,
+        maxQuota: 30,
         parts: {
             kilo: { carry: 10, work: 10, move: 10 },
             milli: { carry: 7, work: 5, move: 6 },//1150
@@ -249,7 +250,7 @@ var template = {
                 allocation: 3,
                 maxQuota: 20,
                 boost: {
-                    milli: { repair: 20 }
+                    milli: { repair: 20, capacity: 12 }
                 },
                 parts: {
                     milli: { carry: 12, work: 20, move: 16 },
@@ -258,13 +259,10 @@ var template = {
                     pico: { carry: 7, work: 5, move: 16 },
                     femto: { carry: 1, work: 1, move: 16 }
                 },
-                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' } },
-                behavior: { avoid: {}, boost: {} }
+                work: { pickup: { priority: 1 }, repair: { subtype: 'heavy' }, idle: { subtype: 'gather' }, build: { priority: 50 } },
+                behavior: { avoid: {}, boost: {}, recycle: {} }
             },
-            bunker: {
-                quota: 'bunker-repair',
-                allocation: 1,
-                maxQuota: 4,
+            special: {
                 boost: {
                     milli: { repair: 20, capacity: 10 }
                 },
@@ -275,7 +273,7 @@ var template = {
                     pico: { move: 6, carry: 7, work: 5 },
                     femto: { move: 2, carry: 1, work: 1 }
                 },
-                work: { pickup: { priority: 1 }, repair: { subtype: 'bunker' }, idle: { subtype: 'gather' } },
+                work: { pickup: { priority: 1 }, repair: { subtype: 'special' }, idle: { subtype: 'gather' } },
                 behavior: { avoid: {}, boost: {} }
             }
         }
@@ -308,12 +306,12 @@ var template = {
     transferhauler: {
         quota: 'transfer',
         critical: true,
-        maxQuota: 2,
-        allocation: 1,
+        maxQuota: 6,
+        allocation: 2,
         parts: { milli: { carry: 20, move: 10 } },
         work: {
             transfer: {},
-            deliver: { subtype: 'terminal', priority: 99 },
+            deliver: { subtype: 'terminal', priority: 50 },
             idle: { subtype: 'terminal' }
         },
         behavior: { avoid: {} }
@@ -331,15 +329,15 @@ var template = {
             nano: { work: 5, move: 5 },
             pico: { work: 2, move: 2 }
         },
-        work: { dismantle: {} },
-        behavior: { avoid: {} }
+        work: { dismantle: {}, idle: {} },
+        behavior: { avoid: {}, recycle: {} }
     },
     keephealer: {
         quota: 'heal',
         maxQuota: 1,
         critical: true,
         parts: {
-            pico: { heal: 5, move: 5 }
+            pico: { move: 5, heal: 5 }
         },
         work: { heal: {} },
         behavior: { avoid: {} }
@@ -395,6 +393,20 @@ var template = {
         },
         work: { squad: { subtype: 'dismantle' } },
         behavior: { boost: {} }
+    },
+    holder: {
+        quota: 'attack',
+        maxQuota: 1,
+        critical: true,
+        boost: {
+            pico: { fatigue: 10, rangedAttack: 25, damage: 10, heal: 5 }
+        },
+        parts: {
+            pico: { tough: 10, ranged_attack: 25, move: 10, heal: 5 },
+            femto: { ranged_attack: 25, move: 25 }
+        },
+        work: { attack: { } },
+        behavior: { boost: {}, rampart: { range: 3 }, selfheal: { auto: true } }
     }
 }
 
@@ -402,10 +414,12 @@ function buildCreeplist(creeps){
     var result = _.cloneDeep(creeps);
     for(var type in creeps){
         var config = creeps[type];
+        config.type = type;
         if(config.variants){
             for(var variant in config.variants){
                 var modification = config.variants[variant];
-                result[variant+'-'+type] = _.assign(_.cloneDeep(creeps[type]), modification);
+                var variantType = variant+'-'+type;
+                result[variantType] = _.assign(_.cloneDeep(creeps[type]), modification, { type: variantType });
             }
         }
     }

@@ -25,7 +25,7 @@ class PickupWorker extends BaseWorker {
 
     harvest(cluster, subtype){
         if(!cluster.cache.harvest || cluster.cache.harvestUpdate < Game.time){
-            var rooms = cluster.roles.core.concat(cluster.roles.harvest);
+            var rooms = cluster.roles.core.concat(cluster.roles.harvest).concat(cluster.roles.keep);
             var containers = _.map(rooms, room => _.filter(cluster.getStructuresByType(room, STRUCTURE_CONTAINER), struct => !struct.hasTag('stockpile')));
             containers.push(_.compact(Game.getObjects(cluster.state.links.storage)));
             cluster.cache.harvest = _.map(_.flatten(containers), 'id');
@@ -54,15 +54,15 @@ class PickupWorker extends BaseWorker {
         return jobs.concat(_.map(resources, resource => this.createJob(cluster, subtype, resource, { resource: resource.resourceType })));
     }
 
-    generateAssignments(cluster, assignments, quota){
+    generateAssignments(cluster, assignments, quota, tickets){
         assignments.harvest = _.zipObject(_.map(cluster.roles.harvest, 'name'),
-                                          _.map(cluster.roles.harvest, room => _.size(cluster.find(room, FIND_SOURCES))));
+                                          _.map(cluster.roles.harvest, room => _.size(cluster.find(room, FIND_SOURCES)) + _.get(room, 'memory.extraHaulers', 0)));
 
         for(let coreRoom of cluster.roles.core){
             assignments.harvest[coreRoom.name] = 1;
         }
         for(let keepRoom of cluster.roles.keep){
-            assignments.harvest[keepRoom.name] = _.size(cluster.find(keepRoom, FIND_SOURCES)) + 2;
+            assignments.harvest[keepRoom.name] = _.size(cluster.find(keepRoom, FIND_SOURCES)) + _.get(keepRoom, 'memory.extraHaulers', 1);
         }
         if(_.size(cluster.structures.storage) > 0){
             quota.harvesthauler = _.sum(assignments.harvest) * 24;
@@ -91,18 +91,19 @@ class PickupWorker extends BaseWorker {
         if(job.target.id == creep.memory.lastDeliver){
             return false;
         }
-        return distance / 50 + Math.max(0, 1 - job.capacity / creep.carryCapacity);
+        var distanceRatio = job.subtype == 'harvest' ? 150 : 50;
+        return distance / distanceRatio + Math.max(0, 1 - job.capacity / (creep.carryCapacity - _.sum(creep.carry)));
     }
 
     process(cluster, creep, opts, job, target){
-        var result;
-        if(target.resourceType){
-            result = creep.pickup(target);
-        }else{
-            result = creep.withdraw(target, job.args.resource);
-        }
-        if(result == ERR_NOT_IN_RANGE){
+        if(creep.pos.getRangeTo(target) > 1){
             this.move(creep, target);
+        }else{
+            if(target.resourceType){
+                creep.pickup(target);
+            }else{
+                creep.withdraw(target, job.args.resource);
+            }
         }
     }
 

@@ -23,6 +23,10 @@ class BaseAction {
         return Pathing.moveCreep(creep, target, 1, false);
     }
 
+    moveAway(creep, targets, range){
+        return Pathing.moveAway(creep, _.isArray(targets) ? targets : [targets], { range, debug: true });
+    }
+
     orMove(creep, target, result){
         if(result == ERR_NOT_IN_RANGE){
             this.move(creep, target);

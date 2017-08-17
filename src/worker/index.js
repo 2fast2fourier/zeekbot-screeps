@@ -135,12 +135,14 @@ class Worker {
     static generateQuota(workers, cluster){
         var quota = {};
         var assignments = {};
+        var tickets = [];
 
         _.forEach(workers, worker => worker.calculateQuota(cluster, quota));
-        _.forEach(workers, worker => worker.generateAssignments(cluster, assignments, quota));
+        _.forEach(workers, worker => worker.generateAssignments(cluster, assignments, quota, tickets));
 
         cluster.update('quota', quota);
         cluster.update('assignments', assignments);
+        cluster.state.spawn = tickets;
     }
 }
 

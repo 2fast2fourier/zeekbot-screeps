@@ -29,6 +29,18 @@ class AvoidAction extends BaseAction {
         }
         var hostiles = roomData.armed;
         if(hostiles.length > 0 && roomData.fleeTo){
+            if(opts.threshold){
+                let exceeded = false;
+                for(let type in opts.threshold){
+                    let threshold = opts.threshold[type];
+                    if(roomData.total[type] > threshold){
+                        exceeded = true;
+                    }
+                }
+                if(!exceeded){
+                    return false;
+                }
+            }
             creep.memory.gather = roomData.fleeTo;
             creep.memory.gatherRange = roomData.fleeToRange;
             creep.memory.fleeFrom = creep.room.name;
@@ -40,12 +52,12 @@ class AvoidAction extends BaseAction {
                 if(distance == this.range){
                     idle = true;
                 }else if(distance < this.range){
-                    avoidTargets.push({ pos: enemy.pos, range: this.range + 2, enemy });
+                    avoidTargets.push(enemy);
                 }
             }
             if(avoidTargets.length > 0){
                 return { type: this.type, data: avoidTargets };
-            }else if(idle && !Game.interval(5)){
+            }else if(idle){
                 return { type: this.type, data: 'idle' };
             }
         }
@@ -62,8 +74,7 @@ class AvoidAction extends BaseAction {
                 creep.memory.snuggled = true;
             }
         }else if(block != 'idle'){
-            var result = PathFinder.search(creep.pos, block, { flee: true, range: this.range });
-            creep.moveByPath(result.path);
+            this.moveAway(creep, block, this.range + 2);
         }
     }
 

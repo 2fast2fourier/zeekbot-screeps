@@ -2,6 +2,8 @@
 //contains polyfill-style helper injections to the base game classes.
 var roomRegex = /([WE])(\d+)([NS])(\d+)/;
 
+const PROFILE_WINDOW = 100;
+
 var profileData = {};
 var longProfileData = {};
 var profileStart = 0;
@@ -38,13 +40,11 @@ module.exports = function(){
     };
 
     Game.profile = function(type, value){
-        if(!_.has(Memory.stats.profile, type)){
+        var current = Memory.stats.profile[type];
+        if(current === undefined){
             Memory.stats.profile[type] = value;
-            Memory.stats.profileCount[type] = 1;
         }else{
-            var count = Memory.stats.profileCount[type];
-            Memory.stats.profile[type] = (Memory.stats.profile[type] * count + value)/(count + 1);
-            Memory.stats.profileCount[type]++;
+            Memory.stats.profile[type] = (current * (PROFILE_WINDOW - 1) + value)/PROFILE_WINDOW;
         }
     };
 
@@ -231,7 +231,7 @@ module.exports = function(){
     //TODO add overrides for nuker and lab to allow type in getStored + getCapacity
 
     Creep.prototype.getResource = function(type){
-        return _.get(this.carry, type, 0);
+        return this.carry[type] || 0;
     }
 
     Creep.prototype.getResourceList = function(type){
@@ -240,7 +240,7 @@ module.exports = function(){
 
     Structure.prototype.getResource = function(type){
         if(this.storeCapacity > 0){
-            return _.get(this.store, type, 0);
+            return this.store[type] || 0;
         }else if(this.mineralCapacity > 0 && type === this.mineralType){
             return this.mineralAmount;
         }else if(this.energyCapacity > 0 && type === RESOURCE_ENERGY){
@@ -339,7 +339,7 @@ module.exports = function(){
             enumerable: false,
             configurable: true,
             get: function(){
-                return this.controller && this.controller.owner && !this.controller.my;
+                return this.controller && this.controller.owner && !this.controller.my && this.controller.level > 1;
             }
         });
     }

@@ -225,7 +225,6 @@ class Cluster {
             },
             boost: {},
             stats: {},
-            statscount: {},
             longstats: {},
             longcount: {},
             state: {},
@@ -482,13 +481,11 @@ class Cluster {
     }
 
     profile(type, value){
-        var count = this.statscount[type];
-        if(count === undefined){
+        var current = this.stats[type];
+        if(current === undefined){
             this.stats[type] = value;
-            this.statscount[type] = 1;
         }else{
-            this.stats[type] = (this.stats[type] * count + value)/(count + 1);
-            this.statscount[type]++;
+            this.stats[type] = (current * 99 + value)/100;
         }
     }
 
@@ -517,10 +514,6 @@ class Cluster {
     }
 
     processStats(){
-        if(!this.longstats){
-            this.update('longstats', {});
-            this.update('longcount', {});
-        }
         var output = this.id + ':';
         output += ' damage: ' + _.get(this, 'work.repair.damage.heavy', 0) + ' / ' + _.get(this, 'work.repair.damage.moderate', 0) + '\n';
         _.forEach(this.stats, (value, type)=>{
@@ -528,8 +521,6 @@ class Cluster {
             this.longterm(type, value);
         });
         console.log(output);
-        this.update('stats', {});
-        this.update('statscount', {});
     }
 
     processLongterm(){

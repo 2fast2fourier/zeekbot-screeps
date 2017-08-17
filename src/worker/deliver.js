@@ -50,11 +50,12 @@ class DeliverWorker extends BaseWorker {
         return jobs;
     }
     
-    generateAssignments(cluster, assignments, quota){
-        assignments.spawn = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
+    generateAssignments(cluster, assignments, quota, tickets){
+        var spawns = _.groupBy(cluster.structures.spawn, 'room.name');
+        assignments.spawn = _.mapValues(spawns, (list, roomName) => _.get(Game.rooms, [roomName, 'controller', 'level'], 0) == 8 ? 2 : 1 );
         assignments.tower = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
 
-        quota.spawnhauler = _.sum(_.map(cluster.roles.core, room => Math.min(1650, room.energyCapacityAvailable)));
+        quota.spawnhauler = _.sum(assignments.spawn);
 
         if(cluster.maxRCL < 5 && cluster.structures.spawn.length > 0){
             quota['stockpile-deliver'] = Math.min(quota['stockpile-deliver'], 250 * cluster.maxRCL);

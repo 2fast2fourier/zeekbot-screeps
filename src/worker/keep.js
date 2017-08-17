@@ -59,7 +59,7 @@ class KeepWorker extends BaseWorker {
         }
     }
 
-    generateAssignments(cluster, assignments, quota){
+    generateAssignments(cluster, assignments, quota, tickets){
         assignments.keep = _.zipObject(_.map(cluster.roles.keep, 'name'), new Array(cluster.roles.keep.length).fill(1));
         quota.keep = _.sum(assignments.keep);
     }

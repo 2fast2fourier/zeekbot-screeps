@@ -12,24 +12,28 @@ class Spawner {
         if(spawnlist.totalCost == 0){
             return;
         }
+        var spawners = _.sortBy(_.filter(cluster.structures.spawn, spawnFreeCheck), spawn => spawn.room.energyAvailable);
 
         let result = false;
-        if(_.size(spawnlist.critical) > 0){
-            result = _.find(spawnlist.critical, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
+        if(spawnlist.critical.length > 0){
+            result = _.find(spawnlist.critical, Spawner.attemptSpawn.bind(Spawner, cluster, targetCluster, spawners));
         }else{
-            result = _.find(spawnlist.count, (count, type)=>Spawner.attemptSpawn(cluster, spawnlist, type, count, targetCluster));
+            result = _.find(spawnlist.queue, Spawner.attemptSpawn.bind(Spawner, cluster, targetCluster, spawners));
         }
         return !!result;
     }
 
-    static attemptSpawn(cluster, spawnlist, type, count, targetCluster){
-        var spawned = false;
-        _.find(cluster.structures.spawn, spawn =>{
-            if(!spawned && Spawner.canSpawn(spawn, spawnlist.parts[type], spawnlist.costs[type])){
-                spawned = Spawner.spawnCreep(targetCluster, spawn, spawnlist, type, cluster);
+    static attemptSpawn(cluster, targetCluster, spawners, entry){
+        for(let spawner of spawners){
+            if(Spawner.canSpawn(spawner, entry.parts, entry.cost)){
+                let result = Spawner.spawnCreep(targetCluster, cluster, spawner, entry);
+                if(result){
+                    _.pull(spawners, spawner);
+                    return true;
+                }
             }
-        });
-        return spawned;
+        }
+        return false;
     }
 
     static hasFreeSpawn(cluster){
@@ -37,18 +41,21 @@ class Spawner {
     }
 
     static generateSpawnList(cluster, targetCluster){
-        var spawnlist = {
-            costs: {},
-            critical: {},
-            count: {},
-            parts: {},
-            version: {},
-            totalCost: 0
-        };
+        var critical = [];
+        var queue = [];
+        var totalCost = 0;
+
         var allocation = Spawner.calculateQuotaAllocation(targetCluster);
 
+        var tickets = targetCluster.state.spawns || [];
+        for(let ticket of tickets){
+            let quotaId = 'ticket-'+ticket.tag+'-'+ticket.id;
+            console.log(targetCluster.id, quotaId, allocation[quotaId] || 0);
+            
+        }
+
         _.forEach(creepsConfig, (config, type)=>{
-            if(config.deprecated){
+            if(config.deprecated || !config.quota){
                 return;
             }
             let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
@@ -76,19 +83,29 @@ class Spawner {
                 const quota = Spawner.calculateRemainingQuota(targetCluster, type, config, allocation, version);
                 const need = Math.min(limit, quota);
                 if(need > 0){
-                    spawnlist.costs[type] = maxCost;
-                    spawnlist.parts[type] = Spawner.partList(partSet);
-                    spawnlist.version[type] = version;
+                    totalCost += need * maxCost;
+                    let entry = {
+                        type,
+                        need,
+                        cost: maxCost,
+                        parts: Spawner.partList(partSet),
+                        version,
+                        critical: config.critical,
+                        priority: Spawner.calculatePriority(targetCluster, config, allocation)
+                    };
+                    queue.push(entry);
                     if(config.critical){
-                        spawnlist.critical[type] = need;
+                        critical.push(entry);
                     }
-                    spawnlist.count[type] = need;
-                    spawnlist.totalCost += need * spawnlist.costs[type];
                 }
             }
         });
 
-        return spawnlist;
+        return {
+            critical: _.sortBy(critical, 'priority'),
+            queue: _.sortBy(queue, 'priority'),
+            totalCost
+        };
     }
 
     static calculateQuotaAllocation(targetCluster){
@@ -97,7 +114,7 @@ class Spawner {
             var offset = creep.memory.spawnOffset || 0;
             if(creep.spawning || !creep.ticksToLive || (creep.ticksToLive >= _.size(creep.body) * 3 + offset)){
                 var quota = creep.memory.quota;
-                _.set(allocation, quota, _.get(allocation, quota, 0) + creep.memory.quotaAlloc);
+                allocation[quota] = (allocation[quota] || 0) + creep.memory.quotaAlloc;
             }
         });
 
@@ -122,6 +139,15 @@ class Spawner {
         return creepsNeeded;
     }
 
+    static calculatePriority(targetCluster, config, allocation){
+        var quota = Math.min(_.get(targetCluster.quota, config.quota, 0), _.get(config, 'maxQuota', Infinity));
+        var allocated = allocation[config.quota] || 0;
+        if(quota <= 0){
+            return 0.25;
+        }
+        return 0.25 + (allocated / quota) / 2 - (config.priority || 0);
+    }
+
     static calculateSpawnLimit(cluster, type, config, version){
         var limit = Infinity;
         if(config.boost && config.boost[version]){
@@ -137,34 +163,31 @@ class Spawner {
         return Infinity;
     }
 
-    static spawnCreep(cluster, spawn, spawnlist, spawnType, originCluster){
-        var versionName = spawnlist.version[spawnType];
-        var config = creepsConfig[spawnType];
-        var mem = Spawner.prepareSpawnMemory(cluster, config, spawnType, versionName, originCluster);
-        if(spawn.room.memory.cluster != cluster.id){
-            mem.bootstrap = true;
-        }
-        var spawned = spawn.createCreep(spawnlist.parts[spawnType], spawnType+'-'+Memory.uid, mem);
+    static spawnCreep(targetCluster, originCluster, spawn, entry){
+        var config = creepsConfig[entry.type];
+        var mem = Spawner.prepareSpawnMemory(targetCluster, originCluster, config, entry);
+        var spawned = spawn.createCreep(entry.parts, entry.type+'-'+Memory.uid, mem);
         Memory.uid++;
-        if(spawned){
-            console.log(cluster.id, '-', spawn.name, 'spawning', spawned, spawnlist.costs[spawnType]);
-            cluster.longtermAdd('spawn', _.size(spawnlist.parts[spawnType]) * 3);
-            // cluster.longtermAdd('spawn-energy', spawnlist.costs[spawnType]);
+        if(_.isString(spawned)){
+            console.log(targetCluster.id, '-', spawn.name, 'spawning', spawned, entry.cost);
+            originCluster.longtermAdd('spawn', _.size(entry.parts) * 3);
+            return true;
         }else{
-            Game.notify('Could not spawn!', cluster.id, spawnType, spawn.name);
+            Game.notify('Could not spawn!', targetCluster.id, entry.type, spawn.name, spawned);
+            return false;
         }
-        return spawned;
     }
 
     static canSpawn(spawn, parts, cost){
         return spawn.room.energyAvailable >= cost && spawn.canCreateCreep(parts) == OK;
     }
 
-    static prepareSpawnMemory(cluster, config, type, version, originCluster){
+    static prepareSpawnMemory(targetCluster, originCluster, config, entry){
+        var version = entry.version;
         var memory = {
-            type,
+            type: entry.type,
             version,
-            cluster: cluster.id,
+            cluster: targetCluster.id,
             job: false,
             jobType: false,
             jobSubType: false,
@@ -183,20 +206,28 @@ class Spawner {
 
         if(config.boost && config.boost[version]){
             memory.boost = _.clone(config.boost[version]);
-            if(originCluster.id != cluster.id){
+            if(originCluster.id != targetCluster.id){
                 memory.boostCluster = originCluster.id;
-                console.log('Cross-spawn boost', type, cluster.id, originCluster.id);
+                console.log('Cross-spawn boost', entry.type, targetCluster.id, originCluster.id);
             }
         }
 
         if(config.assignRoom){
-            memory.room = Spawner.getRoomAssignment(cluster, type, config);
+            memory.room = Spawner.getRoomAssignment(targetCluster, entry.type, config);
             memory.roomtype = config.assignRoom;
-            console.log('Assigned', type, 'to room', memory.room, '-', memory.roomtype);
+            console.log('Assigned', entry.type, 'to room', memory.room, '-', memory.roomtype);
         }
 
         if(config.memory){
             _.assign(memory, config.memory);
+        }
+
+        if(originCluster.id != targetCluster.id){
+            memory.bootstrap = true;
+        }
+
+        if(entry.memory){
+            _.assign(memory, entry.memory);
         }
 
         return memory;
