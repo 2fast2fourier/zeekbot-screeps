@@ -81,7 +81,7 @@ class RepairWorker extends BaseWorker {
             });
         }else{
             for(let core of cluster.roles.core){
-                if(core.controller.level >= 8 && cluster.state.energy > 0.5){
+                if(core.controller.level >= 8 && cluster.state.energy > 0.666){
                     tickets.push({
                         id: core.name,
                         tag: 'defense-boost',

@@ -8,7 +8,7 @@ class HealWorker extends BaseWorker {
     /// Job ///
 
     heal(cluster, subtype){
-        let creeps = _.flatten(_.map(cluster.roles.keep, 'matrix.damaged'));
+        let creeps = _.flatten(_.map(cluster.roles.keep.concat(cluster.roles.harvest), 'matrix.damaged'));
         return this.jobsForTargets(cluster, subtype, _.filter(creeps, creep => creep.getActiveBodyparts('heal') == 0));
     }
 

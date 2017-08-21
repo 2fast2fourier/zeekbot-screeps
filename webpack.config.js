@@ -1,40 +1,24 @@
 var path = require('path');
 
+// var target = __dirname;
+var target = "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default";
+
 module.exports = [
     {
         context: path.join(__dirname, 'src'),
         entry: "./main",
         output: {
-            path: __dirname,
+            path: target,
             filename: "main.js",
             libraryTarget: "commonjs2"
+        },
+        resolve: {
+            extensions: [".ts", ".js", ".json"]
+        },
+        module: {
+            rules: [
+                { test: /\.ts$/, use: { loader: 'awesome-typescript-loader' } }
+            ]
         }
-    },
-    {
-        context: path.join(__dirname, 'src'),
-        entry: "./main",
-        output: {
-            path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\screeps.com\\default",
-            filename: "main.js",
-            libraryTarget: "commonjs2"
-        }
-    },
-    // {
-    //     context: path.join(__dirname, 'src'),
-    //     entry: "./main",
-    //     output: {
-    //         path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\127_0_0_1___21025\\default",
-    //         filename: "main.js",
-    //         libraryTarget: "commonjs2"
-    //     }
-    // },
-    // {
-    //     context: path.join(__dirname, 'src'),
-    //     entry: "./main",
-    //     output: {
-    //         path: "C:\\Users\\Matt\\AppData\\Local\\Screeps\\scripts\\vmi105797_contabo_host___21025\\default",
-    //         filename: "main.js",
-    //         libraryTarget: "commonjs2"
-    //     }
-    // }
+    }
 ];

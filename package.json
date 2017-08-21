@@ -17,6 +17,14 @@
   },
   "homepage": "https://github.com/2fast2fourier/zeekbot-screeps#readme",
   "devDependencies": {
-    "webpack": "^1.13.3"
+    "awesome-typescript-loader": "^3.2.3",
+    "typescript": "^2.4.2",
+    "webpack": "^3.5.5"
+  },
+  "dependencies": {
+    "@types/lodash": "^3.10.1",
+    "@types/node": "^8.0.24",
+    "screeps-typescript-declarations": "git+https://git@github.com/screepers/Screeps-Typescript-Declarations.git",
+    "ts-loader": "^2.3.3"
   }
 }

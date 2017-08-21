@@ -18,8 +18,9 @@ class MineWorker extends BaseWorker {
 
     mineral(cluster, subtype){
         if(!cluster.cache.extractors || cluster.cache.extractorUpdate < Game.time){
+            var max = Game.federation.structures.storage.length * 10000 + Game.federation.structures.terminal.length * 5000;
             var resources = Game.federation.resources;
-            var sources = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < 250000 && mineral.hasExtractor());
+            var sources = _.filter(cluster.findAll(FIND_MINERALS), mineral => mineral.mineralAmount > 0 && resources[mineral.mineralType].stored < max && mineral.hasExtractor());
             cluster.cache.extractors = _.map(sources, 'id');
             cluster.cache.extractorUpdate = Game.time + 500;
         }

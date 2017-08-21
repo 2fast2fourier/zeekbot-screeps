@@ -34,7 +34,7 @@ class DefenseMatrix {
             return 'friendly';
         }
         var owner = creep.owner.username;
-        if(owner == 'likeafox' || owner == 'omnomwombat' || owner == 'NobodysNightmare' || owner == 'W4rl0ck'){
+        if(owner == 'omnomwombat'){
             return 'friendly';
         }
         if(owner == 'Source Keeper'){

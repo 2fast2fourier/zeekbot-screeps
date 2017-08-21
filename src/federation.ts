@@ -2,7 +2,9 @@
 
 // global, but fancier
 
-var DefenseMatrix = require('./defense');
+const DefenseMatrix = require('./defense');
+import ProcessSystem from './systems/process';
+
 
 function catalogStorage(resources, storage){
     var stored = storage.getResourceList();
@@ -19,9 +21,19 @@ function catalogStorage(resources, storage){
 }
 
 class Federation {
+    matrix: any;
+    queue: ProcessSystem;
+    allocated: any;
+
+    _structures: StructureList;
+    _resources: any;
+    _roomflags: any;
+    
     constructor(){
+        this.queue = new ProcessSystem();
         this.matrix = new DefenseMatrix();
         Game.matrix = this.matrix;
+        this.allocated = {};
     }
 
     get structures(){
@@ -88,6 +100,4 @@ class Federation {
 
 }
 
-module.exports = Federation;
-
-//Game.federation.resources.H.terminal.map(terminal=>terminal.send('H', terminal.store.H || 0, 'E28S73'))
+export = Federation;

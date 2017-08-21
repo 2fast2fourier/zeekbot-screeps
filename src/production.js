@@ -85,7 +85,7 @@ class Production {
         _.forEach(cluster.structures.lab, lab => {
             cluster.state.transfer[lab.id] = false;
         });
-        var reactions = _.pick(Memory.state.reaction, reaction => cluster.state.labs[reaction.room] != undefined);
+        var reactions = _.pick(Memory.state.reaction, reaction => cluster.state.labs && cluster.state.labs[reaction.room] != undefined);
         _.forEach(reactions, (reaction, type)=>{
             var labs = cluster.state.labs[reaction.room];
             _.forEach(labs, (labId, ix)=>{

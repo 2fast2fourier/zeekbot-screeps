@@ -64,7 +64,6 @@ module.exports.loop = function () {
     }
 
     let initTime = Game.cpu.getUsed();
-    Game.profileAdd('autobuy', 0);
 
     let ix = 50;
     let autobuildOffset = 1000;
@@ -148,13 +147,20 @@ module.exports.loop = function () {
         }
         Memory.stats.repair = _.mapValues(Memory.clusters, 'work.repair.damage.total');
     }
+
+    var externalEnd = Game.cpu.getUsed();
     
+    Game.federation.queue.process();
+
     //// Wrapup ////
+
     var wrapStart = Game.cpu.getUsed();
+    Game.profile('queue', wrapStart - externalEnd);
+    
     _.forEach(Game.clusters, cluster => cluster.finishProfile());
     Game.finishProfile();
 
-    Game.profile('external', initTime + Game.cpu.getUsed() - clusterEndTime);
+    Game.profile('external', initTime + externalEnd - clusterEndTime);
     Game.profile('clusters', clusterEndTime - initTime);
 
     if(Game.cpu.bucket < 5000){
@@ -166,13 +172,16 @@ module.exports.loop = function () {
     Memory.stats.bucket = Game.cpu.bucket;
     Memory.stats.clusters = {};
     _.forEach(Game.clusters, cluster => {
-        Memory.stats.clusters[cluster.id] = _.assign({}, cluster.longstats, cluster.stats);
+        Memory.stats.clusters[cluster.id] = _.assign({ walls: _.get(cluster, 'work.walls.avg', 0) }, cluster.longstats, cluster.stats);
     });
     Memory.stats.tick = Game.time;
     Memory.stats.tickmod = Game.time % 100;
     // Memory.stats.types = _.mapValues(_.groupBy(Game.creeps, 'memory.type'), list => list.length);
     Memory.stats.gcl = Game.gcl.level + Game.gcl.progress / Game.gcl.progressTotal;
     var cpu = Game.cpu.getUsed();
+    if(cpu > Game.cpu.limit + 150){
+        console.log('High usage:', cpu);
+    }
     Game.profile('cpu', cpu);
     Game.profile('wrapup', cpu - wrapStart);
     Memory.stats.cpu = cpu;

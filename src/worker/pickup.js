@@ -91,6 +91,9 @@ class PickupWorker extends BaseWorker {
         if(job.target.id == creep.memory.lastDeliver){
             return false;
         }
+        if(opts.ignoreTag && job.target.hasTag && job.target.hasTag(opts.ignoreTag)){
+            return false;
+        }
         var distanceRatio = job.subtype == 'harvest' ? 150 : 50;
         return distance / distanceRatio + Math.max(0, 1 - job.capacity / (creep.carryCapacity - _.sum(creep.carry)));
     }

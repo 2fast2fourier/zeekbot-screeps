@@ -125,7 +125,7 @@ var template = {
                 allocation: 1,
                 maxQuota: 3,
                 work: { 
-                    pickup: {},
+                    pickup: { ignoreTag: 'stockpile' },
                     deliver: { subtype: 'stockpile' },
                     idle: { subtype: 'spawn' }
                 },

@@ -70,7 +70,6 @@ class Cluster {
             }
         });
 
-        var start = Game.cpu.getUsed();
         if(Game.intervalOffset(50, 1)){
             let energy = _.filter(this.findAll(FIND_DROPPED_RESOURCES), { resourceType: RESOURCE_ENERGY });
             let containers = _.filter(this.getAllStructures([STRUCTURE_CONTAINER, STRUCTURE_STORAGE, STRUCTURE_LINK]), struct => struct.getResource(RESOURCE_ENERGY) > 0);
@@ -79,7 +78,6 @@ class Cluster {
             this.state.totalEnergy = totalEnergy;
             this.profile('energy', this.totalEnergy);
         }
-        Game.profile('totalEnergy', Game.cpu.getUsed() - start);
     }
 
     static init(){
@@ -228,7 +226,8 @@ class Cluster {
             longstats: {},
             longcount: {},
             state: {},
-            cache: {}
+            cache: {},
+            defense: {}
         };
         _.set(Memory, ['clusters', id], data);
         if(Game.clusters){
@@ -404,7 +403,7 @@ class Cluster {
                     update: Game.time + 1000
                 }
             }
-            this._walls = Game.getObjects(this.work.walls.data);
+            this._walls = _.compact(Game.getObjects(this.work.walls.data));
         }
         return this._walls;
     }

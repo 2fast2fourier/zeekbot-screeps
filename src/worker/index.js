@@ -1,6 +1,7 @@
 "use strict";
 
 const config = require('../creeps');
+const Behavior = require('../behavior');
 
 const workerCtors = {
     attack: require('./attack'),
@@ -22,26 +23,25 @@ const workerCtors = {
     upgrade: require('./upgrade')
 };
 
-const Behavior = require('../behavior');
+const workers = _.mapValues(workerCtors, ctor => new ctor());
+const behaviors = Behavior();
 
 class Worker {
 
     static process(cluster){
-        const workers = _.mapValues(workerCtors, ctor => new ctor());
-        const behaviors = Behavior();
 
         _.forEach(workers, worker => worker.pretick(cluster));
         const creeps = _.filter(cluster.creeps, 'ticksToLive');
-        _.forEach(creeps, Worker.validate.bind(this, workers, behaviors, cluster));
-        _.forEach(creeps, Worker.work.bind(this, workers, behaviors, cluster));
+        _.forEach(creeps, Worker.validate.bind(this, cluster));
 
         if(Game.intervalOffset(20, 9)){
-            Worker.generateQuota(workers, cluster);
+            Worker.generateQuota(cluster);
         }
     }
 
     //hydrate, validate, and end jobs
-    static validate(workers, behaviors, cluster, creep){
+    static validate(cluster, creep){
+        let cfg = config[creep.memory.type] || {};
         if(creep.memory.lx == creep.pos.x && creep.memory.ly == creep.pos.y){
             creep.memory.sitting = Math.min(256, creep.memory.sitting * 2);
         }else{
@@ -50,7 +50,7 @@ class Worker {
         creep.memory.lx = creep.pos.x;
         creep.memory.ly = creep.pos.y;
 
-        var behave = _.get(config, [creep.memory.type, 'behavior'], false);
+        var behave = _.get(cfg, 'behavior', false);
         if(behave){
             creep.blocked = _.reduce(behave, (result, opts, type)=>{
                 behaviors[type].preWork(cluster, creep, opts);
@@ -64,7 +64,7 @@ class Worker {
         let id = creep.memory.job;
         let type = creep.memory.jobType;
         if(id && type){
-            const opts = _.get(config, [creep.memory.type, 'work', type], false);
+            const opts = _.get(cfg, ['work', type], false);
             let work = workers[type];
             let job = work.hydrateJob(cluster, creep.memory.jobSubType, id, creep.memory.jobAllocation);
             let endJob = (job.killed && !work.keepDeadJob(cluster, creep, opts, job)) || !work.continueJob(cluster, creep, opts, job);
@@ -89,13 +89,15 @@ class Worker {
         }else{
             creep.job = null;
         }
+        Game.federation.queue.enqueueCreep(Worker.getPriority(cluster, creep, cfg), cluster, creep);
+    }
+
+    static getPriority(cluster, creep, config){
+        return creep.memory.critical ? 0 : 0.5 + (config.priority || 0);
     }
 
     //bid and work jobs
-    static work(workers, behaviors, cluster, creep, ix){
-        if(!creep.memory.critical && Game.cpu.getUsed() > 350){
-            return;
-        }
+    static work(cluster, creep){
         const workConfig = config[creep.memory.type].work;
         if(!creep.memory.job || !creep.memory.jobType){
             var lowestBid = Infinity;
@@ -132,7 +134,7 @@ class Worker {
         }
     }
 
-    static generateQuota(workers, cluster){
+    static generateQuota(cluster){
         var quota = {};
         var assignments = {};
         var tickets = [];
