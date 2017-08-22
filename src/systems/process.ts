@@ -8,7 +8,6 @@ interface ProcessEntry {
     args?: any,
     cluster: Cluster | null;
     critical: boolean;
-    persist: boolean;
 }
 
 export default class Process implements ProcessSystem {
@@ -23,31 +22,38 @@ export default class Process implements ProcessSystem {
             priority,
             creep,
             cluster,
-            critical: creep.memory.critical,
-            persist: false
+            critical: creep.memory.critical
         });
     }
     
-    enqueueProcess(priority: number, cluster: Cluster, process: string, persist: boolean, args: any){
+    enqueueProcess(priority: number, cluster: Cluster, process: string, args: any){
         this.queue.push({
             priority,
             process,
             cluster,
             critical: false,
-            persist,
             args
         });
     }
     
-    enqueueFederalProcess(priority: number, process: string, persist: boolean, args: any){
+    enqueueFederalProcess(priority: number, process: string, args: any){
         this.queue.push({
             priority,
             process,
             cluster: null,
             critical: false,
-            persist,
             args
         });
+    }
+
+    invokeProcess(cluster: Cluster | null, process: string, args: any){
+        let processFn = Processes[process];
+        if(process){
+            processFn(cluster, args, Game.federation.allocated);
+        }else{
+            console.log('Invalid process: ' + process);
+            Game.notify('Invalid process: ' + process);
+        }
     }
 
     hydratePersistedTasks(){
@@ -56,28 +62,22 @@ export default class Process implements ProcessSystem {
 
     process(){
         this.hydratePersistedTasks();
-        const softLimit = Game.cpu.bucket > 9000 ? Game.cpu.limit + 100 : Game.cpu.limit;
+        const softLimit = Game.cpu.bucket > 9000 ? Game.cpu.tickLimit - 200 : Game.cpu.limit;
         let skipped = 0;
         const sortedQueue = _.sortBy(this.queue, 'priority');
         for(let entry of sortedQueue){
-            if(!entry.critical && Game.cpu.getUsed() > softLimit){
-                skipped++;
-                if(entry.persist){
-                    //TODO persist stuff here
+            let cpu = Game.cpu.getUsed();
+            if(cpu > softLimit){
+                if(!entry.critical || cpu > Game.cpu.tickLimit - 100){
+                    skipped++;
+                    continue;
                 }
-                continue;
             }
             try{
                 if(entry.creep){
                     Worker.work(entry.cluster, entry.creep);
                 }else if(entry.process){
-                    let process = Processes[entry.process];
-                    if(process){
-                        process(entry.cluster, entry.args, Game.federation.allocated);
-                    }else{
-                        console.log('Invalid process: ' + entry.process);
-                        Game.notify('Invalid process: ' + entry.process);
-                    }
+                    this.invokeProcess(entry.cluster, entry.process, entry.args);
                 }
             }catch(e){
                 Game.error(e);

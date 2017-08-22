@@ -221,11 +221,13 @@ var template = {
             level: {
                 quota: 'levelroom-upgrade',
                 boost: {
-                    nano: { upgradeController: 15 }
+                    nano: { upgradeController: 15 },
+                    pico: { upgradeController: 15 }
                 },
                 parts: {
                     nano: { work: 15, move: 14, carry: 12 },
-                    pico: { work: 15, move: 9, carry: 3 }
+                    pico: { work: 15, move: 10, carry: 5 },
+                    femto: { work: 15, move: 9, carry: 3 }
                 },
                 behavior: { energy: {}, avoid: {}, boost: {} },
                 work: { pickup: {}, upgrade: { subtype: 'levelroom' }, idle: { subtype: 'controller' } },

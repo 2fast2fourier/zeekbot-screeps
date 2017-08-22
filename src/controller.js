@@ -32,10 +32,10 @@ class Controller {
                 }
             }
             
-            Game.federation.queue.enqueueFederalProcess(0.05, 'emptyTerminals', false, null);
-            Game.federation.queue.enqueueFederalProcess(0.06, 'fillRequests', false, null);
-            Game.federation.queue.enqueueFederalProcess(0.07, 'levelTerminals', false, null);
-            Game.federation.queue.enqueueFederalProcess(0.08, 'terminalEnergy', false, null);
+            Game.federation.queue.enqueueFederalProcess(0.05, 'emptyTerminals', null);
+            Game.federation.queue.enqueueFederalProcess(0.06, 'fillRequests', null);
+            Game.federation.queue.enqueueFederalProcess(0.07, 'levelTerminals', null);
+            Game.federation.queue.enqueueFederalProcess(0.08, 'terminalEnergy', null);
         }
 
         var observers = _.filter(Game.federation.structures.observer, struct => !allocated[struct.id]);
@@ -200,7 +200,7 @@ class Controller {
         }
 
         if(Game.intervalOffset(10, 3)){
-            Game.federation.queue.enqueueProcess(0.1, cluster, 'linkTransfer', true, null);
+            Game.federation.queue.enqueueProcess(0.1, cluster, 'linkTransfer', null);
         }
     }
 

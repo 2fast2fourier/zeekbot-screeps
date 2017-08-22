@@ -106,26 +106,7 @@ class Cluster {
         Game.clusters = _.mapValues(Memory.clusters, (data, name) => new Cluster(name, data, creeps[name], rooms[name], structures[name]));
 
         Cluster.processClusterFlags();
-        _.forEach(Game.clusters, cluster => {
-            if(cluster.maxRCL < 3 || _.size(cluster.structures.spawn) == 0){
-                Memory.bootstrap = cluster.id;
-                cluster.bootstrap = true;
-            }
-            if(Game.interval(30)){
-                Cluster.cleanupTags(cluster);
-            }
-            if(Game.intervalOffset(200, 4)){
-                let roomLabs = _.mapValues(_.groupBy(cluster.structures.lab, 'pos.roomName'), (labs, roomName) => _.filter(labs, lab => !cluster.boost[lab.id]));
-                roomLabs = _.pick(roomLabs, labs => _.get(_.first(labs), 'room.terminal', false));
-                let labs = _.pick(_.mapValues(roomLabs, (labs, roomName) => _.map(_.sortBy(labs, lab => (lab.inRangeToAll(labs, 2) ? 'a' : 'z') + lab.id), 'id')), labs => labs.length > 2);
-                cluster.update('labs', _.values(labs));
-                cluster.state.labs = labs;
-            }
-
-            if(!cluster.work.repair){
-                console.log('init damage:', cluster.damaged);
-            }
-        });
+        _.forEach(Game.clusters, cluster => cluster.postInit());
     }
 
     static cleanupTags(cluster){
@@ -136,6 +117,31 @@ class Cluster {
             }else{
                 delete cluster.tags[tag];
             }
+        }
+    }
+
+    postInit(){
+        if(this.maxRCL < 3 || _.size(this.structures.spawn) == 0){
+            Memory.bootstrap = this.id;
+            this.bootstrap = true;
+        }
+
+        if(!this.state.labs){
+            Game.federation.queue.invokeProcess(this, 'labs', null);
+        }else if(Game.intervalOffset(50, 18)){
+            Game.federation.queue.enqueueProcess(0.75, this, 'labs', null);
+        }
+
+        if(Game.interval(30)){
+            Cluster.cleanupTags(this);
+        }
+
+        if(!this.work.walls || this.work.walls.update + 500 <= Game.time){
+            Game.federation.queue.enqueueProcess(1, this, 'walls', null);
+        }
+        
+        if(!this.work.repair){
+            console.log('init damage:', this.damaged);
         }
     }
 
@@ -196,6 +202,7 @@ class Cluster {
                     cluster.boost[target.id] = type;
                     console.log("Setting", target, "to boost", type, '-', Game.boosts[type]);
                 }
+                Game.federation.queue.enqueueProcess(0.1, cluster, 'labs', null);
             }
             flag.remove();
         }
@@ -393,15 +400,7 @@ class Cluster {
     get walls(){
         if(!this._walls){
             if(!this.work.walls || this.work.walls.update <= Game.time){
-                let wallStructs = this.getAllStructuresForRole('core', [STRUCTURE_WALL, STRUCTURE_RAMPART]);
-                let hits = _.map(wallStructs, 'hits');
-                this.work.walls = {
-                    data: _.map(wallStructs, 'id'),
-                    avg: _.sum(hits) / Math.max(1, wallStructs.length),
-                    min: _.min(hits),
-                    max: _.max(hits),
-                    update: Game.time + 1000
-                }
+                Game.federation.queue.invokeProcess(this, 'walls', null);
             }
             this._walls = _.compact(Game.getObjects(this.work.walls.data));
         }

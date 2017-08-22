@@ -100,7 +100,11 @@ module.exports.loop = function () {
             //     iy++;
             // }
 
-            if(Game.interval(100) && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000 && cluster.totalEnergy > 400000 * cluster.structures.storage.length && cluster.opts.repair < REPAIR_CAP){
+            if(Game.interval(100)
+                    && _.get(cluster, 'work.repair.damage.heavy', Infinity) < 350000
+                    && cluster.totalEnergy > 400000 * cluster.structures.storage.length
+                    && cluster.opts.repair < REPAIR_CAP
+                    && cluster.structures.rampart.length > 0){
                 cluster.opts.repair = Math.min(cluster.opts.repair + 250000, REPAIR_CAP);
                 // Game.notify('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);
                 console.log('Increasing repair target in ' + cluster.id + ' to ' + cluster.opts.repair);

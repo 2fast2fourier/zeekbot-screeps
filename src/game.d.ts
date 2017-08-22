@@ -26,8 +26,9 @@ interface StructureList {
 
 interface ProcessSystem {
     enqueueCreep: (priority: number, cluster: Cluster, creep: Creep) => void
-    enqueueProcess: (priority: number, cluster: Cluster, process: string, persist: boolean, args: any) => void
-    enqueueFederalProcess: (priority: number, process: string, persist: boolean, args: any) => void
+    enqueueProcess: (priority: number, cluster: Cluster, process: string, args: any) => void
+    enqueueFederalProcess: (priority: number, process: string, args: any) => void
+    invokeProcess: (cluster: Cluster | null, process: string, args: any) => void
     process: () => void
 }
 
@@ -84,6 +85,9 @@ interface Federation {
 interface Cluster {
     id: string
     structures: StructureList
+    state: any
+    boost: any
+    update: (name: string, value: any) => void
 }
 
 interface Room {
@@ -103,6 +107,10 @@ interface Structure {
     getResourceList: () => ObjectMap<number>
     getStored: () => number
     hasTag: (tag: string) => boolean
+}
+
+interface RoomObject {
+    inRangeToAll: (entities: RoomObject[], range: number) => boolean
 }
 
 interface Game {
