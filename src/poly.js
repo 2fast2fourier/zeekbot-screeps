@@ -21,6 +21,7 @@ for(let partType in BOOSTS){
         }
     }
 }
+boostTypes.harvest = 'UO';
 
 module.exports = function(){
     var flagData = {};

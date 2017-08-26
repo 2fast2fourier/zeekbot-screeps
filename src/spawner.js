@@ -9,7 +9,7 @@ const spawnFreeCheck = function(spawn){
 class Spawner {
 
     static processSpawnlist(cluster, spawnlist, targetCluster){
-        if(spawnlist.totalCost == 0){
+        if(spawnlist.totalCost == 0 || targetCluster.spawned){
             return;
         }
         var spawners = _.sortBy(_.filter(cluster.structures.spawn, spawnFreeCheck), spawn => spawn.room.energyAvailable);
@@ -55,7 +55,29 @@ class Spawner {
             let need = capacity - allocated;
             if(need > 0){
                 let config = creepsConfig[ticket.type];
-                let data = Spawner.findVersion(cluster, targetCluster, ticket.type, config, allocation);
+                if(!config){
+                    console.log('Invalid config!', ticket.type);
+                    Game.notify('Invalid config! ' + ticket.type);
+                    continue;
+                }
+                let data = {};
+                if(ticket.parts){
+                    let cost = Spawner.calculateCost(ticket.parts);
+                    if(cost <= cluster.maxSpawn){
+                        data = {
+                            boosts: ticket.boosts,
+                            maxCost: cost,
+                            partSet: ticket.parts,
+                            type: ticket.type,
+                            version: ticket.version || 'custom'
+                        }
+                    }
+                }else{
+                    data = Spawner.findVersion(cluster, targetCluster, ticket.type, config, allocation);
+                    if(ticket.boosts){
+                        data.boosts = ticket.boosts;
+                    }
+                }
                 if(data.version){
                     totalCost += need * data.maxCost;
                     let priorityOffset = config.priorityOffset || 0;
@@ -103,28 +125,23 @@ class Spawner {
     }
 
     static findVersion(cluster, targetCluster, type, config, allocation){
-        let emergency = cluster.id == targetCluster.id && config.critical && config.emergency && _.get(allocation, config.quota, 0) == 0;
+        let maxSpawnCapacity = config.spawnAny ? cluster.maxSpawnEnergy : cluster.maxSpawn;
         let maxCost = 0;
         let version = false;
         let partSet = false;
-        if(emergency){
-            let cost = Spawner.calculateCost(config.parts[config.emergency]);
-            maxCost = cost;
-            version = config.emergency;
-            partSet = config.parts[config.emergency];
-        }else{
-            _.forEach(config.parts, (parts, ver) => {
-                let cost = Spawner.calculateCost(parts);
-                let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
-                if(cost > maxCost && cost <= cluster.maxSpawn && hasCapacity){
-                    maxCost = cost;
-                    version = ver;
-                    partSet = parts;
-                }
-            });
-        }
+        let boosts = false;
+        _.forEach(config.parts, (parts, ver) => {
+            let cost = Spawner.calculateCost(parts);
+            let hasCapacity = !config.boost || !config.boost[ver] || Spawner.calculateBoostCapacity(targetCluster, config, ver, cluster) > 0;
+            if(cost > maxCost && cost <= maxSpawnCapacity && hasCapacity){
+                maxCost = cost;
+                version = ver;
+                partSet = parts;
+                boosts = config.boost ? config.boost[ver] : false;
+            }
+        });
         return {
-            emergency,
+            boosts,
             maxCost,
             partSet,
             type,
@@ -136,6 +153,7 @@ class Spawner {
         return {
             type: data.type,
             need,
+            boost: data.boosts,
             cost: data.maxCost,
             parts: Spawner.partList(data.partSet),
             version: data.version,
@@ -204,6 +222,7 @@ class Spawner {
         if(_.isString(spawned)){
             console.log(targetCluster.id, '-', spawn.name, 'spawning', spawned, entry.cost);
             originCluster.longtermAdd('spawn', _.size(entry.parts) * 3);
+            targetCluster.spawned = true;
             return true;
         }else{
             Game.notify('Could not spawn!', targetCluster.id, entry.type, spawn.name, spawned);
@@ -237,8 +256,8 @@ class Spawner {
             memory.spawnOffset = config.offset;
         }
 
-        if(config.boost && config.boost[version]){
-            memory.boost = _.clone(config.boost[version]);
+        if(entry.boost){
+            memory.boost = _.clone(entry.boost);
             if(originCluster.id != targetCluster.id){
                 memory.boostCluster = originCluster.id;
                 console.log('Cross-spawn boost', entry.type, targetCluster.id, originCluster.id);

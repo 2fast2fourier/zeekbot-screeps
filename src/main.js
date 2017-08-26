@@ -150,6 +150,7 @@ module.exports.loop = function () {
             }
         }
         Memory.stats.repair = _.mapValues(Memory.clusters, 'work.repair.damage.total');
+        Game.federation.queue.enqueueFederalProcess(1, 'miscstats', null);
     }
 
     var externalEnd = Game.cpu.getUsed();

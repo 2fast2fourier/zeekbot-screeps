@@ -88,6 +88,11 @@ interface Cluster {
     state: any
     boost: any
     update: (name: string, value: any) => void
+    findAll: (type: number) => RoomObject[]
+}
+
+interface Mineral {
+    hasExtractor: () => boolean
 }
 
 interface Room {

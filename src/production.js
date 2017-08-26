@@ -19,6 +19,7 @@ class Production {
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
         quota.G = targetAmount;
         quota.OH = targetAmount;
+        quota.UO = targetAmount;
 
         var allocated = {};
         var reactions = {};

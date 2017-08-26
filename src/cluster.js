@@ -28,6 +28,7 @@ class Cluster {
         this.creeps = creeps;
 
         this.maxSpawn = 0;
+        this.maxSpawnEnergy = 0;
         this.maxRCL = 0;
 
         this.structures = structures;
@@ -61,6 +62,9 @@ class Cluster {
             this._roleRooms[room.memory.role].push(room);
             if(room.energyCapacityAvailable > this.maxSpawn){
                 this.maxSpawn = room.energyCapacityAvailable;
+            }
+            if(room.energyAvailable > this.maxSpawnEnergy){
+                this.maxSpawnEnergy = room.energyAvailable;
             }
             this.maxRCL = Math.max(this.maxRCL, _.get(room, 'controller.level', 0));
             for(let type in this.roomflags){

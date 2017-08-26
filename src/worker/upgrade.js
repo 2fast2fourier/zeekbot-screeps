@@ -3,12 +3,12 @@
 const BaseWorker = require('./base');
 
 class UpgradeWorker extends BaseWorker {
-    constructor(){ super('upgrade', { requiresEnergy: true, quota: ['upgrade', 'levelroom'], range: 3 }); }
+    constructor(){ super('upgrade', { requiresEnergy: true, quota: ['upgrade'], range: 3 }); }
 
     /// Job ///
     calculateCapacity(cluster, subtype, id, target, args){
-        if(subtype == 'upgrade'){
-            return 15;
+        if(subtype == 'levelroom'){
+            return 999;
         }
         if(cluster.maxRCL <= 2){
             return 5;
@@ -19,22 +19,17 @@ class UpgradeWorker extends BaseWorker {
         if(target.level < 4){
             return 30;
         }
-        if(Memory.levelroom == target.pos.roomName || target.level < 7){
-            let divisor = Memory.state.energy > 0.6 ? 75000 : Memory.state.energy > 0.5 ? 100000 : 150000;
-            let energy = _.get(target, 'room.storage.store.energy', 0);
-            return Math.max(1, Math.floor(energy / divisor)) * 15;
-        }
         return 15;
     }
 
     upgrade(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && target.level == 8));
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && Memory.state.levelroom != target.room.name));
     }
 
     levelroom(cluster, subtype){
         let controllers = _.map(cluster.getRoomsByRole('core'), 'controller');
-        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && target.level < 8));
+        return this.jobsForTargets(cluster, subtype, _.filter(controllers, target => target.my && target.level < 8 && Memory.state.levelroom == target.room.name));
     }
 
     /// Creep ///
@@ -49,6 +44,22 @@ class UpgradeWorker extends BaseWorker {
 
     process(cluster, creep, opts, job, target){
         this.orMove(creep, target, creep.upgradeController(target));
+    }
+
+    generateAssignments(cluster, assignments, quota, tickets){
+        let room = Memory.state.levelroom ? Game.rooms[Memory.state.levelroom] : false;
+        if(room && room.memory.cluster == cluster.id && room.controller.my){
+            let divisor = Memory.state.energy > 0.6 ? 100000 : 125000;
+            let energy = _.get(room, 'storage.store.energy', 0);
+            let count = Math.max(1, Math.floor(energy / divisor));
+            tickets.push({
+                id: Memory.state.levelroom,
+                tag: 'levelroom',
+                type: 'level-upgradeworker',
+                boosts: { upgradeController: 15 },
+                capacity: count
+            });
+        }
     }
 
 }

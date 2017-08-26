@@ -40,7 +40,9 @@ class Startup {
             Memory.stats.longterm = {
                 count: {}
             }
-            Game.notify(msg);
+            if(Memory.emailStats){
+                Game.notify(msg);
+            }
 
             Startup.cleanup();
         }

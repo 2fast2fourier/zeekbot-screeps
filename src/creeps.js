@@ -62,21 +62,20 @@ var template = {
         critical: true,
         assignRoom: 'spawn',
         parts: haulerParts,
-        emergency: 'pico',
+        spawnAny: true,
         work: {
             pickup: { local: true },
             deliver: { subtype: 'spawn', local: true },
-            idle: { subtype: 'spawn', local: true }
+            idle: { subtype: 'gather', local: true }
         },
         behavior: { },
         variants: {
             fallback: {
-                emergency: false,
+                deprecated: true,
                 priorityOffset: 0.5,
                 parts: { pico: { carry: 20, move: 10 } }
             },
             tower: {
-                emergency: false,
                 allocation: 'carry',
                 allocationMulti: 50,
                 quota: 'tower-deliver',
@@ -103,7 +102,6 @@ var template = {
             nano: { carry: 2, work: 3, move: 2 },//550
             pico: { carry: 1, work: 2, move: 1 }//300
         },
-        emergency: 'pico',
         work: { mine: { subtype: 'energy' } },
         behavior: { avoid: {}, minecart: {} }
     },
@@ -219,11 +217,6 @@ var template = {
         behavior: { energy: {}, avoid: {} },
         variants: {
             level: {
-                quota: 'levelroom-upgrade',
-                boost: {
-                    nano: { upgradeController: 15 },
-                    pico: { upgradeController: 15 }
-                },
                 parts: {
                     nano: { work: 15, move: 14, carry: 12 },
                     pico: { work: 15, move: 10, carry: 5 },

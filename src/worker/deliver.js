@@ -52,7 +52,7 @@ class DeliverWorker extends BaseWorker {
     
     generateAssignments(cluster, assignments, quota, tickets){
         var spawns = _.groupBy(cluster.structures.spawn, 'room.name');
-        assignments.spawn = _.mapValues(spawns, (list, roomName) => _.get(Game.rooms, [roomName, 'controller', 'level'], 0) == 8 ? 2 : 1 );
+        assignments.spawn = _.mapValues(spawns, (list, roomName) => _.get(Game.rooms, [roomName, 'controller', 'level'], 0) >= 6 ? 2 : 1 );
         assignments.tower = _.zipObject(_.map(cluster.roles.core, 'name'), new Array(cluster.roles.core.length).fill(1));
 
         quota.spawnhauler = _.sum(assignments.spawn);
