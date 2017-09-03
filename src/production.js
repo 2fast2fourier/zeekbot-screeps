@@ -17,14 +17,14 @@ class Production {
         var targetAmount = _.size(Game.federation.structures.terminal) * 5000 + 5000;
         var resourceList = _.values(REACTIONS.X);
         var quota = _.zipObject(resourceList, _.map(resourceList, type => targetAmount));
-        quota.G = targetAmount;
+        quota.G = targetAmount + _.size(Game.federation.structures.storage) * 10000;
         quota.OH = targetAmount;
         quota.UO = targetAmount;
 
         var allocated = {};
         var reactions = {};
         _.forEach(quota, (amount, type) => {
-            Production.generateReactions(type, amount - resources[type].totals.terminal, reactions, true, resources);
+            Production.generateReactions(type, amount - resources[type].total, reactions, true, resources);
         });
 
         Memory.stats.reaction = _.sum(_.map(reactions, reaction => Math.max(0, reaction.deficit)));
@@ -34,7 +34,8 @@ class Production {
         for(let type in Memory.state.reaction){
             let deficit = _.get(reactions, [type, 'deficit'], 0);
             let capacity = _.get(reactions, [type, 'capacity'], 0);
-            if(deficit <= 0 || capacity <= CAPACITY_END_MIN){
+            let started = _.get(Memory.state, ['reaction', type, 'startTime'], 0);
+            if(deficit <= 0 || capacity <= CAPACITY_END_MIN || started + 10000 < Game.time){
                 console.log('Ending reaction:', type, '-', deficit, 'of', capacity);
                 delete Memory.state.reaction[type];
             }else{
@@ -115,6 +116,7 @@ class Production {
 
     static startReaction(type, reaction, room){
         reaction.room = room;
+        reaction.startTime = Game.time;
         Memory.state.reaction[type] = reaction;
     }
 

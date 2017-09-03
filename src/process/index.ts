@@ -1,4 +1,5 @@
 
+import Autobuilder from './autobuilder';
 import EmptyTerminals from './emptyTerminals';
 import FillRequests from './fillRequests';
 import Labs from './labs';
@@ -9,6 +10,7 @@ import TerminalEnergy from './terminalEnergy';
 import Walls from './walls';
 
 const Processes: ProcessList = {
+    autobuilder: Autobuilder,
     emptyTerminals: EmptyTerminals,
     fillRequests: FillRequests,
     miscstats: MiscStats,

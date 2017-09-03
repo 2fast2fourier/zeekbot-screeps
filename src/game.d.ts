@@ -115,7 +115,8 @@ interface Structure {
 }
 
 interface RoomObject {
-    inRangeToAll: (entities: RoomObject[], range: number) => boolean
+    inRangeToAll: (entities: RoomObject[], range: number) => boolean,
+    getRampart: () => StructureRampart | undefined
 }
 
 interface Game {

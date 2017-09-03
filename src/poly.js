@@ -481,11 +481,15 @@ module.exports = function(){
         var posA = this.getWorldPosition();
         var posB = target.getWorldPosition();
         return Math.max(Math.abs(posA.x - posB.x), Math.abs(posA.y-posB.y));
-    };
+    }
 
     RoomPosition.prototype.getPathDistance = function getPathDistance(entity){
         var target = entity instanceof RoomPosition ? entity : entity.pos;
         return Math.max(this.getLinearDistance(target), Pathing.getMinPathDistance(this, target));
+    }
+
+    RoomPosition.prototype.getRampart = function(){
+        return _.find(this.lookFor(LOOK_STRUCTURES), { structureType: STRUCTURE_RAMPART });
     }
 
     Structure.prototype.getMaxHits = function(){

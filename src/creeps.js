@@ -412,16 +412,35 @@ var template = {
     }
 }
 
+function convertWorklist(config){
+    for(let workType in config.work){
+        let workOpts = config.work[workType];
+        if(!_.isArray(workOpts)){
+            workOpts = [workOpts];
+        }
+        config.work[workType] = {};
+        for(let subOpts of workOpts){
+            let subtype = subOpts.subtype || workType;
+            config.work[workType][subtype] = subOpts;
+        }
+    }
+}
+
 function buildCreeplist(creeps){
-    var result = _.cloneDeep(creeps);
-    for(var type in creeps){
-        var config = creeps[type];
+    let result = {};
+    for(let type in creeps){
+        let baseConfig = creeps[type];
+        let config = _.cloneDeep(baseConfig);
         config.type = type;
-        if(config.variants){
-            for(var variant in config.variants){
-                var modification = config.variants[variant];
-                var variantType = variant+'-'+type;
-                result[variantType] = _.assign(_.cloneDeep(creeps[type]), modification, { type: variantType });
+        convertWorklist(config);
+        result[type] = config;
+        if(baseConfig.variants){
+            for(let variant in baseConfig.variants){
+                let modification = baseConfig.variants[variant];
+                let variantType = variant+'-'+type;
+                let variantConfig = _.assign(_.cloneDeep(baseConfig), modification, { type: variantType });
+                convertWorklist(variantConfig);
+                result[variantType] = variantConfig;
             }
         }
     }

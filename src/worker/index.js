@@ -64,7 +64,7 @@ class Worker {
         let id = creep.memory.job;
         let type = creep.memory.jobType;
         if(id && type){
-            const opts = _.get(cfg, ['work', type], false);
+            const opts = _.get(cfg, ['work', type, creep.memory.jobSubType], false);
             let work = workers[type];
             let job = work.hydrateJob(cluster, creep.memory.jobSubType, id, creep.memory.jobAllocation);
             let endJob = (job.killed && !work.keepDeadJob(cluster, creep, opts, job)) || !work.continueJob(cluster, creep, opts, job);
@@ -102,10 +102,12 @@ class Worker {
         if(!creep.memory.job || !creep.memory.jobType){
             var lowestBid = Infinity;
             var bidder = _.reduce(workConfig, (result, opts, type) => {
-                var bid = workers[type].bid(cluster, creep, opts);
-                if(bid !== false && bid.bid < lowestBid){
-                    lowestBid = bid.bid;
-                    return bid;
+                for(let subtype in opts){
+                    let bid = workers[type].bid(cluster, creep, opts[subtype]);
+                    if(bid !== false && bid.bid < lowestBid){
+                        lowestBid = bid.bid;
+                        return bid;
+                    }
                 }
                 return result;
             }, false);
@@ -115,7 +117,7 @@ class Worker {
                 creep.memory.jobType = bidder.job.type;
                 creep.memory.jobSubType = bidder.job.subtype;
                 creep.memory.jobAllocation = bidder.allocation;
-                workers[bidder.type].start(cluster, creep, workConfig[bidder.type], bidder.job);
+                workers[bidder.type].start(cluster, creep, workConfig[bidder.type][bidder.subtype], bidder.job);
                 workers[bidder.type].registerAllocation(cluster, bidder.job, bidder.allocation);
                 creep.job = bidder.job;
             }
@@ -128,7 +130,7 @@ class Worker {
             if(creep.memory.job && creep.job){
                 let job = creep.job;
                 let type = job.type;
-                action = workers[type].process(cluster, creep, workConfig[type], job, job.target);
+                action = workers[type].process(cluster, creep, workConfig[type][job.subtype], job, job.target);
             }
             _.forEach(behave, (opts, type) => behaviors[type].postWork(cluster, creep, opts, action));
         }
